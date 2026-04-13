@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# Model checkpoints - too large
+*.pt
+*.pth
+checkpoints/
+
+# Logs
+*.log
+output.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data
+data/
+datasets/
+results/
