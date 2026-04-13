@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/data/**)",
+      "Bash(dir /data)",
+      "Bash(C:/Users/dex/miniconda3/envs/dexter/python.exe --version)"
+    ]
+  }
+}
