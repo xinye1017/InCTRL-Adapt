@@ -196,7 +196,7 @@ def fmt_metric(v):
 def evaluate_model_on_dataset(model, tokenizer, transform, dataset_name, shot, device):
     cfg = get_cfg()
     cfg.NUM_GPUS = 1
-    cfg.TEST.BATCH_SIZE = 1
+    cfg.TEST.BATCH_SIZE = 8
     cfg.DATA_LOADER.NUM_WORKERS = 0
     cfg.DATA_LOADER.PIN_MEMORY = device == "cuda"
     cfg.shot = shot
