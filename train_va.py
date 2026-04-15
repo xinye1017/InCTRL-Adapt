@@ -52,16 +52,16 @@ from binary_focal_loss import BinaryFocalLoss
 DATA_ROOT = PROJECT_ROOT / "data"
 FEW_SHOT_ROOT = PROJECT_ROOT / "few-shot samples"
 RESULTS_DIR = PROJECT_ROOT / "results"
-TRAINED_CHECKPOINT_DIR = PROJECT_ROOT / "checkpoints" / "InCTRL_trained_on_MVTec_VA"
+TRAINED_CHECKPOINT_DIR = PROJECT_ROOT / "checkpoints" / "InCTRL_trained_on_MVTec_VA_ablation"
 
 # 预训练模型路径
 CKPT_NAME = "vit_b_16_plus_240-laion400m_e32-699c4b84.pt"
 LOCAL_CKPT = PROJECT_ROOT / CKPT_NAME
 
-# 训练配置（保持与 train_local.py 一致）
+# 训练配置（针对 24GB VRAM RTX 3090 云端实例）
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 SEED = 42
-BATCH_SIZE = 48
+BATCH_SIZE = 96
 STEPS_PER_EPOCH = 100
 LR = 1e-3
 N_EPOCHS = 10
@@ -77,16 +77,16 @@ ALLOWED_BASE_UNEXPECTED_KEYS = {"logit_scale"}
 
 # 严格等算力模式（按 batch_size * (1 + shot) 近似恒定）
 SHOT_BATCH_SIZE = {
-    2: 48,  # 48 * (1 + 2) = 144
-    4: 28,  # 28 * (1 + 4) = 140
-    8: 16,  # 16 * (1 + 8) = 144
+    2: 96,  # 96 * (1 + 2) = 288
+    4: 56,  # 56 * (1 + 4) = 280
+    8: 32,  # 32 * (1 + 8) = 288
 }
 
 # DataLoader 优化：Windows 下使用更保守配置，避免 shared file mapping (1455) 错误。
 if os.name == "nt":
     DATA_LOADER_WORKERS = 1
 else:
-    DATA_LOADER_WORKERS = max(2, min(8, (os.cpu_count() or 4) // 2))
+    DATA_LOADER_WORKERS = max(4, min(12, (os.cpu_count() or 8) // 2))
 
 # 数据集
 TRAIN_DATASET_NAME = "mvtec"
@@ -524,9 +524,9 @@ def parse_args():
     parser.add_argument("--lr", type=float, default=LR)
     parser.add_argument("--weight-decay", type=float, default=WEIGHT_DECAY)
     parser.add_argument(
-        "--skip-post-eval",
+        "--run-post-eval",
         action="store_true",
-        help="Skip automatic post-training evaluation after all requested runs finish.",
+        help="Run post-training evaluation after all requested runs finish.",
     )
     parser.add_argument(
         "--post-eval-selection-priority",
@@ -593,7 +593,7 @@ if __name__ == "__main__":
         for shot in args.shots:
             logger.info(f"  - {TRAINED_CHECKPOINT_DIR / va_mode / str(shot) / 'checkpoint'}")
 
-    if not args.skip_post_eval:
+    if args.run_post_eval:
         post_eval_script = PROJECT_ROOT / "tools" / "post_train_evaluation.py"
         command = [
             sys.executable,
