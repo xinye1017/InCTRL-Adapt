@@ -26,9 +26,10 @@ def _fake_tokenizer(texts, context_length=77):
 def test_visual_adapter_config_defaults_exist():
     cfg = get_cfg()
 
-    assert cfg.VISUAL_ADAPTER.ENABLE is True
+    assert cfg.VISUAL_ADAPTER.ENABLE is False
     assert cfg.VISUAL_ADAPTER.REDUCTION == 4
     assert cfg.VISUAL_ADAPTER.ZERO_INIT is True
+    assert cfg.VISUAL_ADAPTER.MODE == "global_local"
 
 
 def test_resmlp_supports_2d_and_3d_inputs():
@@ -71,6 +72,33 @@ def test_visual_adapter_preserves_global_and_local_shapes():
     assert [tensor.shape for tensor in adapted_local] == [tensor.shape for tensor in patch_tokens]
 
 
+def test_visual_adapter_modes_disable_expected_branch():
+    from open_clip.visual_adapter import VisualAdapter
+
+    global_tokens = torch.randn(2, 640)
+    patch_tokens = [torch.randn(2, 226, 896) for _ in range(3)]
+
+    global_only = VisualAdapter(
+        img_size=240,
+        patch_size=16,
+        global_input_dim=640,
+        local_input_dim=896,
+        mode="global_only",
+    )
+    local_only = VisualAdapter(
+        img_size=240,
+        patch_size=16,
+        global_input_dim=640,
+        local_input_dim=896,
+        mode="local_only",
+    )
+
+    assert global_only.adapt_local(patch_tokens) is patch_tokens
+    assert local_only.adapt_global(global_tokens) is global_tokens
+    assert all(not parameter.requires_grad for parameter in global_only.local_adapter.parameters())
+    assert all(not parameter.requires_grad for parameter in local_only.global_adapter.parameters())
+
+
 def test_inctrl_forward_keeps_outputs_and_trainable_paths():
     model_cfg = _load_model_config()
     args = get_cfg()
@@ -78,6 +106,8 @@ def test_inctrl_forward_keeps_outputs_and_trainable_paths():
     args.image_size = 240
     args.shot = 2
     args.VISUAL_ADAPTER.ENABLE = True
+    args.VISUAL_ADAPTER.ZERO_INIT = True
+    args.VISUAL_ADAPTER.MODE = "global_local"
     model = InCTRL(
         args,
         model_cfg["embed_dim"],
@@ -110,6 +140,6 @@ def test_inctrl_forward_keeps_outputs_and_trainable_paths():
     assert all(parameter.grad is None for parameter in model.transformer.parameters())
     assert all(parameter.grad is None for parameter in model.token_embedding.parameters())
     assert any(parameter.grad is not None for parameter in model.visual_adapter.parameters())
-    assert any(parameter.grad is not None for parameter in model.adapter.parameters())
+    assert all(parameter.grad is None for parameter in model.adapter.parameters())
     assert any(parameter.grad is not None for parameter in model.diff_head.parameters())
     assert any(parameter.grad is not None for parameter in model.diff_head_ref.parameters())

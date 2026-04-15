@@ -375,9 +375,10 @@ _C.few_shot_dir = "./visa"
 # Visual Adapter options (for AdaptCLIP-style visual feature adaptation)
 # ---------------------------------------------------------------------------- #
 _C.VISUAL_ADAPTER = CfgNode()
-_C.VISUAL_ADAPTER.ENABLE = True
+_C.VISUAL_ADAPTER.ENABLE = False
 _C.VISUAL_ADAPTER.REDUCTION = 4
 _C.VISUAL_ADAPTER.ZERO_INIT = True
+_C.VISUAL_ADAPTER.MODE = "global_local"
 
 
 # ---------------------------------------------------------------------------- #

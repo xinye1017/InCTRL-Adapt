@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
-评估 6 个模型（Baseline/VA × 2/4/8-shot）在 AITEX、ELPV、VISA 上的表现，
-并只保存结果 JSON（不绘图）。
+评估 Baseline 模型在 AITEX、ELPV、VISA 上的跨 shot 表现。
+
+只使用 checkpoints/InCTRL_trained_on_MVTec 下的 2/4/8-shot checkpoint。
+每个 checkpoint 都会分别使用 2/4/8-shot few-shot samples 进行测试。
 
 输出目录：
-- results/2/metrics_and_curves.json
-- results/4/metrics_and_curves.json
-- results/8/metrics_and_curves.json
-- results/comparison_results.json
+- results/baseline/metrics_and_curves.json
 """
 
 import json
@@ -24,26 +23,18 @@ PROJECT_ROOT = Path(__file__).parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import open_clip
+from datasets import loader as ds_loader
 from open_clip.config.defaults import get_cfg
 from open_clip.model import get_cast_dtype
-from datasets import loader as ds_loader
 
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-SHOTS = [2, 4, 8]
-MODEL_VARIANTS = {
-    "Baseline": {
-        "checkpoint_root": PROJECT_ROOT / "checkpoints" / "InCTRL_trained_on_MVTec",
-        "enable_va": False,
-    },
-    "VA": {
-        "checkpoint_root": PROJECT_ROOT / "checkpoints" / "InCTRL_trained_on_MVTec_VA",
-        "enable_va": True,
-    },
-}
+MODEL_SHOTS = [2, 4, 8]
+EVAL_SHOTS = [2, 4, 8]
 
+CHECKPOINT_ROOT = PROJECT_ROOT / "checkpoints" / "InCTRL_trained_on_MVTec"
 DATA_ROOT = PROJECT_ROOT / "data"
-RESULTS_ROOT = PROJECT_ROOT / "results"
+RESULTS_ROOT = PROJECT_ROOT / "results" / "baseline"
 FEW_SHOT_ROOT = PROJECT_ROOT / "few-shot samples"
 
 DATASET_SPECS = {
@@ -70,16 +61,18 @@ def _convert_to_rgb(image):
 
 
 def get_transform():
-    return transforms.Compose([
-        transforms.Resize(240, interpolation=transforms.InterpolationMode.BICUBIC),
-        transforms.CenterCrop(240),
-        transforms.Lambda(_convert_to_rgb),
-        transforms.ToTensor(),
-        transforms.Normalize(
-            mean=(0.48145466, 0.4578275, 0.40821073),
-            std=(0.26862954, 0.26130258, 0.27577711),
-        ),
-    ])
+    return transforms.Compose(
+        [
+            transforms.Resize(240, interpolation=transforms.InterpolationMode.BICUBIC),
+            transforms.CenterCrop(240),
+            transforms.Lambda(_convert_to_rgb),
+            transforms.ToTensor(),
+            transforms.Normalize(
+                mean=(0.48145466, 0.4578275, 0.40821073),
+                std=(0.26862954, 0.26130258, 0.27577711),
+            ),
+        ]
+    )
 
 
 def find_categories(dataset_name):
@@ -93,8 +86,8 @@ def find_categories(dataset_name):
     return cats
 
 
-def resolve_checkpoint_file(shot, variant_name):
-    root = MODEL_VARIANTS[variant_name]["checkpoint_root"] / str(shot)
+def resolve_checkpoint_file(model_shot):
+    root = CHECKPOINT_ROOT / str(model_shot)
     candidates = [
         root / "checkpoint",
         root / "checkpoint.pth",
@@ -103,16 +96,17 @@ def resolve_checkpoint_file(shot, variant_name):
     for p in candidates:
         if p.exists():
             return p
-    raise FileNotFoundError(f"未找到 checkpoint: shot={shot}, variant={variant_name}, in {root}")
+    raise FileNotFoundError(f"未找到 checkpoint: model_shot={model_shot}, in {root}")
 
 
-def build_model(enable_va, checkpoint_path, device):
+def build_baseline_model(checkpoint_path, device):
     model_config_path = PROJECT_ROOT / "open_clip" / "model_configs" / "ViT-B-16-plus-240.json"
     with open(model_config_path, encoding="utf-8") as f:
         model_config = json.load(f)
 
     cfg = get_cfg()
-    cfg.VISUAL_ADAPTER.ENABLE = bool(enable_va)
+    # Official paper baseline: do not instantiate the local Visual Adapter branch.
+    cfg.VISUAL_ADAPTER.ENABLE = False
 
     from open_clip import model as _model_mod
 
@@ -124,14 +118,22 @@ def build_model(enable_va, checkpoint_path, device):
         quick_gelu=False,
         cast_dtype=get_cast_dtype("fp32"),
     )
+    if getattr(model, "visual_adapter", None) is not None:
+        raise RuntimeError("Baseline 评测不应启用 Visual Adapter，请检查 cfg.VISUAL_ADAPTER.ENABLE。")
 
     ckpt = torch.load(checkpoint_path, map_location="cpu")
-    model.load_state_dict(ckpt, strict=False)
+    state_dict = ckpt["model_state"] if isinstance(ckpt, dict) and "model_state" in ckpt else ckpt
+    load_info = model.load_state_dict(state_dict, strict=False)
+    if load_info.missing_keys or load_info.unexpected_keys:
+        raise RuntimeError(
+            "Baseline checkpoint 与当前模型结构不完全匹配："
+            f"missing={load_info.missing_keys}, unexpected={load_info.unexpected_keys}"
+        )
     return model.to(device)
 
 
-def find_few_shot_pt(dataset_name, category_name, shot):
-    shot_dir = DATASET_SPECS[dataset_name]["few_shot_dir"] / str(shot)
+def find_few_shot_pt(dataset_name, category_name, eval_shot):
+    shot_dir = DATASET_SPECS[dataset_name]["few_shot_dir"] / str(eval_shot)
     if not shot_dir.exists():
         raise FileNotFoundError(f"few-shot 目录不存在: {shot_dir}")
 
@@ -144,7 +146,8 @@ def find_few_shot_pt(dataset_name, category_name, shot):
             return candidate
 
     raise FileNotFoundError(
-        f"few-shot pt 不存在: dataset={dataset_name}, category={category_name}, shot={shot}, dir={shot_dir}"
+        "few-shot pt 不存在: "
+        f"dataset={dataset_name}, category={category_name}, eval_shot={eval_shot}, dir={shot_dir}"
     )
 
 
@@ -185,13 +188,13 @@ def fmt_metric(v):
     return "N/A" if v is None else f"{v:.4f}"
 
 
-def evaluate_model_on_dataset(model, tokenizer, transform, dataset_name, shot, device):
+def evaluate_model_on_dataset(model, tokenizer, transform, dataset_name, eval_shot, device):
     cfg = get_cfg()
     cfg.NUM_GPUS = 1
     cfg.TEST.BATCH_SIZE = 8
     cfg.DATA_LOADER.NUM_WORKERS = 0
     cfg.DATA_LOADER.PIN_MEMORY = device == "cuda"
-    cfg.shot = shot
+    cfg.shot = eval_shot
 
     categories = find_categories(dataset_name)
     all_labels = []
@@ -205,7 +208,7 @@ def evaluate_model_on_dataset(model, tokenizer, transform, dataset_name, shot, d
         cfg.val_outlier_json_path = [str(json_dir / f"{cat}_val_outlier.json")]
 
         val_loader = ds_loader.construct_loader(cfg, "test", transform)
-        fs_pt = find_few_shot_pt(dataset_name, cat, shot)
+        fs_pt = find_few_shot_pt(dataset_name, cat, eval_shot)
         cached_normal = build_cached_normal_list(fs_pt, device)
 
         labels, scores = collect_scores(model, tokenizer, val_loader, device, cached_normal)
@@ -245,7 +248,7 @@ def evaluate_model_on_dataset(model, tokenizer, transform, dataset_name, shot, d
     }
 
 
-def evaluate_all_and_save_json():
+def evaluate_baseline_and_save_json():
     RESULTS_ROOT.mkdir(parents=True, exist_ok=True)
 
     transform = get_transform()
@@ -253,54 +256,62 @@ def evaluate_all_and_save_json():
 
     all_results = {}
 
-    for shot in SHOTS:
-        shot_key = str(shot)
+    for model_shot in MODEL_SHOTS:
+        model_shot_key = str(model_shot)
+        ckpt_path = resolve_checkpoint_file(model_shot)
+
         print(f"\n{'=' * 80}")
-        print(f"[INFO] 开始评估 {shot}-shot")
+        print(f"[INFO] 加载 Baseline {model_shot}-shot checkpoint: {ckpt_path}")
         print(f"{'=' * 80}")
 
-        shot_dir = RESULTS_ROOT / shot_key
-        shot_dir.mkdir(parents=True, exist_ok=True)
+        model = build_baseline_model(ckpt_path, DEVICE)
+        model_results = {}
 
-        shot_results = {}
-        for variant_name, spec in MODEL_VARIANTS.items():
-            ckpt_path = resolve_checkpoint_file(shot, variant_name)
-            print(f"[INFO] 模型: {variant_name} | checkpoint: {ckpt_path}")
+        for eval_shot in EVAL_SHOTS:
+            eval_shot_key = str(eval_shot)
+            print(f"\n[INFO] 测试 few-shot prompts: {eval_shot}-shot")
 
-            model = build_model(spec["enable_va"], ckpt_path, DEVICE)
-            variant_results = {}
-
+            eval_results = {}
             for ds in ["aitex", "elpv", "visa"]:
-                print(f"[INFO] 评估: shot={shot}, variant={variant_name}, dataset={ds}")
-                ds_result = evaluate_model_on_dataset(model, tokenizer, transform, ds, shot, DEVICE)
-                variant_results[ds] = ds_result
                 print(
-                    f"  -> {ds.upper()}: AUROC={fmt_metric(ds_result['auroc'])} AP={fmt_metric(ds_result['ap'])} "
-                    f"(n={ds_result['n_samples']})"
+                    f"[INFO] 评估: model_shot={model_shot}, eval_shot={eval_shot}, dataset={ds}"
+                )
+                ds_result = evaluate_model_on_dataset(
+                    model, tokenizer, transform, ds, eval_shot, DEVICE
+                )
+                eval_results[ds] = ds_result
+                print(
+                    f"  -> {ds.upper()}: AUROC={fmt_metric(ds_result['auroc'])} "
+                    f"AP={fmt_metric(ds_result['ap'])} (n={ds_result['n_samples']})"
                 )
 
-            shot_results[variant_name] = variant_results
-            del model
-            if DEVICE == "cuda":
-                torch.cuda.empty_cache()
+            model_results[eval_shot_key] = eval_results
 
-        all_results[shot_key] = shot_results
+        all_results[model_shot_key] = model_results
 
-        shot_json = shot_dir / "metrics_and_curves.json"
-        with open(shot_json, "w", encoding="utf-8") as f:
-            json.dump({"shot": shot, "results": shot_results}, f, ensure_ascii=False, indent=2)
-        print(f"[INFO] 保存: {shot_json}")
+        del model
+        if DEVICE == "cuda":
+            torch.cuda.empty_cache()
 
-        print(f"[INFO] 已保存 {shot}-shot JSON")
-
-    merged_json = RESULTS_ROOT / "comparison_results.json"
+    merged_json = RESULTS_ROOT / "metrics_and_curves.json"
     with open(merged_json, "w", encoding="utf-8") as f:
-        json.dump(all_results, f, ensure_ascii=False, indent=2)
-    print(f"[INFO] 保存汇总: {merged_json}")
-
-    print("\n[INFO] 全部评估完成（仅JSON输出）")
-    print(f"[INFO] 结果目录: {RESULTS_ROOT}")
+        json.dump(
+            {
+                "model": "Baseline",
+                "mode": "official_baseline_reproduction",
+                "checkpoint_root": str(CHECKPOINT_ROOT),
+                "visual_adapter_enabled": False,
+                "model_shots": MODEL_SHOTS,
+                "eval_shots": EVAL_SHOTS,
+                "results": all_results,
+            },
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
+    print(f"\n[INFO] 保存汇总: {merged_json}")
+    print("[INFO] Baseline 全部评估完成（仅 JSON 输出）")
 
 
 if __name__ == "__main__":
-    evaluate_all_and_save_json()
+    evaluate_baseline_and_save_json()

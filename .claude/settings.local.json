@@ -3,7 +3,16 @@
     "allow": [
       "Read(//d/data/**)",
       "Bash(dir /data)",
-      "Bash(C:/Users/dex/miniconda3/envs/dexter/python.exe --version)"
+      "Bash(C:/Users/dex/miniconda3/envs/dexter/python.exe --version)",
+      "Bash(python \"d:/Data/Downloads/InCTRL/test_all_models.py\")",
+      "Bash(python -m pytest \"d:/Data/Downloads/InCTRL/tests/test_visual_adapter.py\" -q)",
+      "Bash(conda run:*)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('open_clip/model.py'\\).read\\(\\)\\); print\\('model.py: OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('open_clip/visual_adapter.py'\\).read\\(\\)\\); print\\('visual_adapter.py: OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('test_all_models.py'\\).read\\(\\)\\); print\\('test_all_models.py: OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('test_all_models.py', encoding='utf-8'\\).read\\(\\)\\); print\\('test_all_models.py: OK'\\)\")",
+      "Bash(git -C \"d:/Data/Downloads/InCTRL\" status --short)",
+      "Bash(git -C \"d:/Data/Downloads/InCTRL\" diff -- \"test_all_models.py\" \"open_clip/visual_adapter.py\" \"open_clip/model.py\")"
     ]
   }
 }

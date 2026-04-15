@@ -6,20 +6,11 @@ from dataclasses import dataclass
 import logging
 import math
 from typing import Optional, Tuple, Union
-from collections import OrderedDict
-import re
-from sklearn.metrics import pairwise
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
-from torch.utils.checkpoint import checkpoint
-from torch import Tensor
-import open_clip.utils.misc as misc
-import argparse
-from functools import partial
-from open_clip.utils.env import checkpoint_pathmgr as pathmgr
 
 from .hf_model import HFTextEncoder
 from .modified_resnet import ModifiedResNet
@@ -34,8 +25,6 @@ from .vp import (
 )
 
 from .visual_adapter import VisualAdapter
-
-from torch.autograd import Variable, grad
 
 PROMPT_TYPES = {
     "padding": PadPrompter,
@@ -315,20 +304,6 @@ def _build_text_tower(
         )
     return text
 
-class BatchNormPoint(nn.Module):
-    def __init__(self, feat_size):
-        super().__init__()
-        self.feat_size = feat_size
-        self.bn = nn.BatchNorm1d(feat_size)
-
-    def forward(self, x):
-        assert len(x.shape) == 3
-        s1, s2, s3 = x.shape[0], x.shape[1], x.shape[2]
-        assert s3 == self.feat_size
-        x = x.view(s1 * s2, self.feat_size)
-        x = self.bn(x)
-        return x.view(s1, s2, s3)
-
 class CLIP(nn.Module):
     output_dict: torch.jit.Final[bool]
 
@@ -473,7 +448,6 @@ class InCTRL(nn.Module):
 
         # Visual Adapter for AdaptCLIP-style feature adaptation
         self.visual_adapter = None
-        self.text_cache = {}
         vision_cfg_dict = vision_cfg if isinstance(vision_cfg, dict) else vars(vision_cfg)
         if getattr(args, 'VISUAL_ADAPTER', None) and args.VISUAL_ADAPTER.ENABLE:
             self.visual_adapter = VisualAdapter(
@@ -483,6 +457,7 @@ class InCTRL(nn.Module):
                 local_input_dim=vision_cfg_dict.get('width', 768),
                 reduction=args.VISUAL_ADAPTER.REDUCTION,
                 zero_init=args.VISUAL_ADAPTER.ZERO_INIT,
+                mode=getattr(args.VISUAL_ADAPTER, "MODE", "global_local"),
             )
 
         for p in self.visual.parameters():
@@ -555,17 +530,13 @@ class InCTRL(nn.Module):
             token_ref = token_n - token_ad
             img_ref_score = self.diff_head_ref(token_ref)
 
-            # Adapt local patch features - convert 4D [b, 3, 225, dim] to list of 3D [b, 225, dim]
-            # Fp_list: [3, b, 225, dim] -> list of [b, 225, dim] per layer
-            Fp_list_3d = [Fp_list[:, layer_idx, :, :] for layer_idx in range(Fp_list.shape[1])]
-            adapted_Fp_list = self.visual_adapter.adapt_local(Fp_list_3d)
-            # Stack back to [b, 3, 225, dim]
-            adapted_Fp_list = torch.stack(adapted_Fp_list, dim=1)
-
-            # Fp_list_n: [b, 3, 225*shot, dim] -> list of [b, 225*shot, dim] per layer
-            Fp_list_n_3d = [Fp_list_n[:, layer_idx, :, :] for layer_idx in range(Fp_list_n.shape[1])]
-            adapted_Fp_list_n = self.visual_adapter.adapt_local(Fp_list_n_3d)
-            adapted_Fp_list_n = torch.stack(adapted_Fp_list_n, dim=1)
+            # Adapt local patch features: [b, 3, N, dim] -> list of [b, N, dim] per layer
+            adapted_Fp_list = torch.stack(
+                self.visual_adapter.adapt_local(list(Fp_list.unbind(dim=1))), dim=1
+            )
+            adapted_Fp_list_n = torch.stack(
+                self.visual_adapter.adapt_local(list(Fp_list_n.unbind(dim=1))), dim=1
+            )
         else:
             token_ad = self.adapter.forward(token)
             token_n = self.adapter.forward(token_n)
@@ -575,116 +546,70 @@ class InCTRL(nn.Module):
             adapted_Fp_list = Fp_list
             adapted_Fp_list_n = Fp_list_n
 
-        # ========== 优化2: 向量化三层嵌套循环 ==========
-        # 原: for i in batch for j in layers for k in patches (48*3*225=32400次迭代)
-        # 向量化: 批量计算patch相似度矩阵，避免逐个样本串行处理
-        # adapted_Fp_list: [b, 3, 225, dim]
-        # adapted_Fp_list_n: [b, 3, 225*shot, dim]
-
+        # ========== Patch-level anomaly scoring (vectorized across batch) ==========
         b = token.shape[0]
         n_layers = adapted_Fp_list.shape[1]
-        n_patches = adapted_Fp_list.shape[2]  # 225
 
-        # 遍历每层transformer特征
         Fp_map_per_layer = []
         for j in range(n_layers):
-            # 取该层所有样本的patch特征
-            # tmp_x: [b, 225, dim], tmp_n: [b, 225*shot, dim]
-            tmp_x = adapted_Fp_list[:, j, :, :]  # [b, 225, dim]
-            tmp_n = adapted_Fp_list_n[:, j, :, :]  # [b, 225*shot, dim]
+            tmp_x = F.normalize(adapted_Fp_list[:, j, :, :], dim=-1)   # [b, 225, dim]
+            tmp_n = F.normalize(adapted_Fp_list_n[:, j, :, :], dim=-1) # [b, 225*shot, dim]
+            sim = 0.5 * (1 - torch.bmm(tmp_x, tmp_n.transpose(-2, -1)))  # [b, 225, 225*shot]
+            Fp_map_per_layer.append(sim.min(dim=-1).values)  # [b, 225]
 
-            # 归一化
-            tmp_x_norm = tmp_x / tmp_x.norm(dim=-1, keepdim=True)
-            tmp_n_norm = tmp_n / tmp_n.norm(dim=-1, keepdim=True)
-
-            # 批量计算相似度矩阵: [b, 225, 225*shot]
-            # sim[b, k, :] = 0.5 * (1 - cosine(tmp_x[b,k], all_tmp_n[b,:]))
-            sim = 0.5 * (1 - torch.bmm(tmp_x_norm, tmp_n_norm.transpose(-2, -1)))
-
-            # 取每行(每个patch)与所有normal patch的最小相似度: [b, 225]
-            min_dist = sim.min(dim=-1).values
-
-            Fp_map_per_layer.append(min_dist)
-
-        # Fp_map_per_layer: list of [b, 225] per layer
-        # 堆叠后求均值: [b, 225]
-        Fp_map = torch.stack(Fp_map_per_layer, dim=0).mean(dim=0)
-        patch_ref_map = Fp_map  # [b, 225]
+        Fp_map = torch.stack(Fp_map_per_layer, dim=0).mean(dim=0)  # [b, 225]
         max_diff_score = Fp_map.max(dim=1).values  # [b]
 
-        # ========== 优化3: Text encoding批处理 ==========
-        # 处理 text 参数：可能是 tuple/list of strings 或 tensor of indices
+        # ========== Text encoding (full prompt templates, averaged) ==========
         if isinstance(text, (tuple, list)):
-            # text 是 tuple or list of strings (类别名称)
-            unique_type_names = list(set(text))
+            unique_type_names = sorted(set(text))
             text_list = list(text)
+
+            pos_features_map = {}
+            neg_features_map = {}
+            for type_name in unique_type_names:
+                normal_texts, anomaly_texts = get_texts(type_name.replace('_', " "))
+
+                pos_features = self.encode_text(tokenizer(normal_texts).to(token.device))
+                neg_features = self.encode_text(tokenizer(anomaly_texts).to(token.device))
+
+                pos_features = F.normalize(pos_features, dim=-1).mean(dim=0, keepdim=True)
+                neg_features = F.normalize(neg_features, dim=-1).mean(dim=0, keepdim=True)
+                pos_features_map[type_name] = F.normalize(pos_features, dim=-1).squeeze(0)
+                neg_features_map[type_name] = F.normalize(neg_features, dim=-1).squeeze(0)
         else:
-            # text 是 tensor of indices
-            unique_type_indices = list(set(text.tolist()))
+            unique_type_indices = sorted(set(text.tolist()))
             text_list = text.tolist()
-            unique_type_names = [f"type_{i}" for i in unique_type_indices]
 
-        # 获取每个类别的文本描述（get_texts返回两个列表，每个包含多个模板）
-        # 只选择第一个模板作为代表
-        if isinstance(text, (tuple, list)):
-            type_to_normal_texts = {t: get_texts(t.replace('_', " "))[0][0] for t in unique_type_names}
-            type_to_anomaly_texts = {t: get_texts(t.replace('_', " "))[1][0] for t in unique_type_names}
+            pos_feature = F.normalize(
+                self.encode_text(tokenizer(["a photo for anomaly detection"]).to(token.device)),
+                dim=-1,
+            )
+            neg_feature = F.normalize(
+                self.encode_text(tokenizer(["a photo without anomaly for anomaly detection"]).to(token.device)),
+                dim=-1,
+            )
 
-            # 批量tokenize所有unique文本
-            all_normal_texts = [type_to_normal_texts[t] for t in unique_type_names]
-            all_anomaly_texts = [type_to_anomaly_texts[t] for t in unique_type_names]
-        else:
-            # 使用默认文本（当 text 是索引时）
-            all_normal_texts = ["a photo for anomaly detection"] * len(unique_type_indices)
-            all_anomaly_texts = ["a photo without anomaly for anomaly detection"] * len(unique_type_indices)
+            pos_features_map = {i: pos_feature[0] for i in unique_type_indices}
+            neg_features_map = {i: neg_feature[0] for i in unique_type_indices}
 
-        # 展平文本列表并encode
-        all_pos_tokens = tokenizer(all_normal_texts).to(token.device)
-        all_neg_tokens = tokenizer(all_anomaly_texts).to(token.device)
+        # Assemble per-sample pos/neg text features -> [b, dim]
+        pos_batch = torch.stack([pos_features_map[t] for t in text_list])  # [b, dim]
+        neg_batch = torch.stack([neg_features_map[t] for t in text_list])  # [b, dim]
 
-        all_pos_features = self.encode_text(all_pos_tokens)
-        all_neg_features = self.encode_text(all_neg_tokens)
+        token_norm = F.normalize(token, dim=-1)  # [b, dim]
+        pos_sim = (token_norm * pos_batch).sum(dim=-1)  # [b]
+        neg_sim = (token_norm * neg_batch).sum(dim=-1)  # [b]
+        logits = 100 * torch.stack([pos_sim, neg_sim], dim=-1)  # [b, 2]
+        text_score = logits.softmax(dim=-1)[:, 1].unsqueeze(1)  # [b, 1]
 
-        all_pos_features = all_pos_features / all_pos_features.norm(dim=-1, keepdim=True)
-        all_neg_features = all_neg_features / all_neg_features.norm(dim=-1, keepdim=True)
+        # img_ref_score: [b, 1], Fp_map: [b, 225], text_score: [b, 1]
+        # broadcast -> holistic_map: [b, 225]
+        holistic_map = text_score + img_ref_score + Fp_map
+        hl_score = self.diff_head.forward(holistic_map).squeeze(1)  # [b]
+        final_score = (hl_score + max_diff_score) / 2  # [b]
 
-        # 构建映射
-        if isinstance(text, (tuple, list)):
-            pos_features_map = {t: all_pos_features[i] for i, t in enumerate(unique_type_names)}
-            neg_features_map = {t: all_neg_features[i] for i, t in enumerate(unique_type_names)}
-        else:
-            pos_features_map = {i: all_pos_features[idx] for idx, i in enumerate(unique_type_indices)}
-            neg_features_map = {i: all_neg_features[idx] for idx, i in enumerate(unique_type_indices)}
-
-        # 批量计算text_score
-        token_norm = token / token.norm(dim=-1, keepdim=True)  # [b, dim]
-
-        text_score_list = []
-        for i, obj_type in enumerate(text_list):
-            if isinstance(text, (tuple, list)):
-                pos_f = pos_features_map[obj_type].unsqueeze(0)  # [1, dim]
-                neg_f = neg_features_map[obj_type].unsqueeze(0)  # [1, dim]
-            else:
-                pos_f = pos_features_map[obj_type].unsqueeze(0)
-                neg_f = neg_features_map[obj_type].unsqueeze(0)
-            text_features = torch.cat([pos_f, neg_f], dim=0)  # [2, dim]
-            score = (100 * token_norm[i:i+1] @ text_features.T).softmax(dim=-1)
-            text_score_list.append(score[0, 1])
-
-        text_score = torch.stack(text_score_list).unsqueeze(1)  # [b, 1]
-
-        # img_ref_score: [b, 1], patch_ref_map: [b, 225], text_score: [b, 1]
-        # 广播后 holistic_map: [b, 225]
-        holistic_map = text_score + img_ref_score + patch_ref_map
-        hl_score = self.diff_head.forward(holistic_map)  # [b, 1]
-
-        hl_score = hl_score.squeeze(1)  # [b]
-        fg_score = max_diff_score  # [b] - already a tensor
-        final_score = (hl_score + fg_score) / 2  # [b]
-
-        img_ref_score = img_ref_score.squeeze(1)  # [b]
-
-        return final_score, img_ref_score
+        return final_score, img_ref_score.squeeze(1)
 
 class CustomTextCLIP(nn.Module):
     output_dict: torch.jit.Final[bool]
