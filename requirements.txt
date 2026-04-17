@@ -1,0 +1,38 @@
+# CUDA-enabled PyTorch wheels.
+# NVIDIA driver 580 / CUDA 13.0 can run CUDA 12.4 wheels via driver backward compatibility.
+--extra-index-url https://download.pytorch.org/whl/cu124
+
+torch==2.6.0+cu124
+torchvision==0.21.0+cu124
+
+# Core numeric / ML stack
+numpy>=1.26,<3
+scipy>=1.11
+scikit-learn>=1.4
+
+# Image processing and transforms
+pillow>=10.0
+opencv-python>=4.8
+
+# Training / evaluation utilities
+tqdm>=4.66
+matplotlib>=3.8
+pandas>=2.0
+psutil>=5.9
+
+# Config, registry, and file IO utilities used by the InCTRL codebase
+yacs>=0.1.8
+fvcore>=0.1.5.post20221221
+iopath>=0.1.10
+simplejson>=3.19
+
+# OpenCLIP tokenizer / optional model registry helpers
+ftfy>=6.1
+regex>=2023.10
+requests>=2.31
+timm>=0.9.12
+huggingface-hub>=0.20
+transformers>=4.36
+
+# Archive extraction helper for cloud setup scripts; system p7zip is still recommended.
+py7zr>=0.21
