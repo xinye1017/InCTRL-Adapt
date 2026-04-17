@@ -8,7 +8,7 @@ scikit-learn>=1.4
 
 # Image processing and transforms
 pillow>=10.0
-opencv-python>=4.8
+opencv-python-headless>=4.8
 
 # Training / evaluation utilities
 tqdm>=4.66
