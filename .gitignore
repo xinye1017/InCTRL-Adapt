@@ -25,5 +25,4 @@ Thumbs.db
 # Data
 *.7z
 data/
-datasets/
 results/
