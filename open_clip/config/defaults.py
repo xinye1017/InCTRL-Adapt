@@ -382,6 +382,16 @@ _C.VISUAL_ADAPTER.MODE = "global_local"
 
 
 # ---------------------------------------------------------------------------- #
+# Textual Adapter options
+# ---------------------------------------------------------------------------- #
+_C.TEXTUAL_ADAPTER = CfgNode()
+
+# Maximum normal/anomaly prompt templates kept per object state during trainable
+# textual-adapter prototype construction.
+_C.TEXTUAL_ADAPTER.MAX_PROMPTS_PER_STATE = 32
+
+
+# ---------------------------------------------------------------------------- #
 # Common train/test data loader options
 # ---------------------------------------------------------------------------- #
 _C.DATA_LOADER = CfgNode()

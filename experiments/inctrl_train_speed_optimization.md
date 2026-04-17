@@ -19,8 +19,33 @@ The main training slowdown comes from two hotspots:
   - default: `512`
   - meaning: maximum number of decoded support images cached per dataset worker process
 - `TEXTUAL_ADAPTER.MAX_PROMPTS_PER_STATE`
-  - default: `8`
+  - default: `32`
   - meaning: maximum normal/anomaly prompt templates used by the trainable TA branch per object type; the frozen baseline text branch still uses the full handcrafted prompt set
+
+## Textual Adapter Memory Fix
+
+Date: 2026-04-17
+
+Root cause:
+
+- In the text phase, trainable context tokens require gradients through CLIP's frozen text transformer.
+- The original trainable TA path used all `154` normal and `88` anomaly prompt templates for each object type.
+- It also rebuilt prototypes for repeated object types within the same batch.
+- With `batch_size=48`, this can retain thousands of text-transformer sequences in the backward graph and exhaust a 24GB GPU.
+
+Change:
+
+- Cap trainable TA prompt templates to `32` normal and `32` anomaly prompts per object type.
+- Deduplicate object types inside each batch before building trainable text prototypes, then index the unique prototypes back to the batch order.
+
+Expected impact:
+
+- Text-phase peak memory should drop substantially while keeping a reasonably broad prompt ensemble.
+- Visual-phase behavior is unchanged.
+
+Risk:
+
+- Capping prompts changes the TA branch training/evaluation prompt ensemble, so compare results against the original InCTRL baseline and note this as part of the ablation.
 
 ## Expected Upside
 

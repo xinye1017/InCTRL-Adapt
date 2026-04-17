@@ -152,9 +152,11 @@ class TextualAdapter(nn.Module):
         feature_dim: int,
         context_length: int = 12,
         hidden_dim: int = 256,
+        max_prompts_per_state: Optional[int] = 32,
     ):
         super().__init__()
         self.context_length = context_length
+        self.max_prompts_per_state = max_prompts_per_state
         self.normal_ctx = nn.Parameter(torch.empty(context_length, context_dim))
         self.anomaly_ctx = nn.Parameter(torch.empty(context_length, context_dim))
         nn.init.normal_(self.normal_ctx, std=0.02)
@@ -193,6 +195,12 @@ class TextualAdapter(nn.Module):
         prompted = torch.cat([prefix, learned_ctx, suffix], dim=1)
         return prompted, tokenized
 
+    def _limit_descriptors(self, descriptors: Sequence[str]) -> List[str]:
+        descriptors = list(descriptors)
+        if self.max_prompts_per_state is None or self.max_prompts_per_state <= 0:
+            return descriptors
+        return descriptors[: self.max_prompts_per_state]
+
     def _resolve_descriptors(
         self,
         obj_type: str,
@@ -218,6 +226,38 @@ class TextualAdapter(nn.Module):
 
         return get_texts(obj_type.replace("_", " "))
 
+    def _build_single_prototype(
+        self,
+        model: "InCTRLWithAdapters",
+        obj_type: str,
+        device: torch.device,
+        text_inputs: Optional[Union[Dict[str, object], Sequence[object]]] = None,
+        index: Optional[int] = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        normal_descriptors, anomaly_descriptors = self._resolve_descriptors(obj_type, text_inputs, index)
+        normal_descriptors = self._limit_descriptors(normal_descriptors)
+        anomaly_descriptors = self._limit_descriptors(anomaly_descriptors)
+
+        prompted_normal, tokenized_normal = self._build_prompt_embeddings(
+            model=model,
+            descriptors=normal_descriptors,
+            context_embeddings=self.normal_ctx,
+            device=device,
+        )
+        prompted_anomaly, tokenized_anomaly = self._build_prompt_embeddings(
+            model=model,
+            descriptors=anomaly_descriptors,
+            context_embeddings=self.anomaly_ctx,
+            device=device,
+        )
+
+        normal_features = model.encode_text_prompted(prompted_normal, tokenized_normal, normalize=True)
+        anomaly_features = model.encode_text_prompted(prompted_anomaly, tokenized_anomaly, normalize=True)
+
+        normal_proto = self.prototype_adapter(normal_features.mean(dim=0, keepdim=True)).squeeze(0)
+        anomaly_proto = self.prototype_adapter(anomaly_features.mean(dim=0, keepdim=True)).squeeze(0)
+        return normal_proto, anomaly_proto
+
     def build_prototypes(
         self,
         model: "InCTRLWithAdapters",
@@ -227,27 +267,41 @@ class TextualAdapter(nn.Module):
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         normal_prototypes = []
         anomaly_prototypes = []
+
+        if text_inputs is None or isinstance(text_inputs, dict):
+            unique_obj_types = []
+            inverse_indices = []
+            unique_index = {}
+            for obj_type in obj_types:
+                obj_key = str(obj_type)
+                if obj_key not in unique_index:
+                    unique_index[obj_key] = len(unique_obj_types)
+                    unique_obj_types.append(obj_type)
+                inverse_indices.append(unique_index[obj_key])
+
+            for obj_type in unique_obj_types:
+                normal_proto, anomaly_proto = self._build_single_prototype(
+                    model=model,
+                    obj_type=obj_type,
+                    device=device,
+                    text_inputs=text_inputs,
+                )
+                normal_prototypes.append(normal_proto)
+                anomaly_prototypes.append(anomaly_proto)
+
+            normal_unique = torch.stack(normal_prototypes, dim=0)
+            anomaly_unique = torch.stack(anomaly_prototypes, dim=0)
+            inverse = torch.tensor(inverse_indices, device=device, dtype=torch.long)
+            return normal_unique.index_select(0, inverse), anomaly_unique.index_select(0, inverse)
+
         for index, obj_type in enumerate(obj_types):
-            normal_descriptors, anomaly_descriptors = self._resolve_descriptors(obj_type, text_inputs, index)
-
-            prompted_normal, tokenized_normal = self._build_prompt_embeddings(
+            normal_proto, anomaly_proto = self._build_single_prototype(
                 model=model,
-                descriptors=normal_descriptors,
-                context_embeddings=self.normal_ctx,
+                obj_type=obj_type,
                 device=device,
+                text_inputs=text_inputs,
+                index=index,
             )
-            prompted_anomaly, tokenized_anomaly = self._build_prompt_embeddings(
-                model=model,
-                descriptors=anomaly_descriptors,
-                context_embeddings=self.anomaly_ctx,
-                device=device,
-            )
-
-            normal_features = model.encode_text_prompted(prompted_normal, tokenized_normal, normalize=True)
-            anomaly_features = model.encode_text_prompted(prompted_anomaly, tokenized_anomaly, normalize=True)
-
-            normal_proto = self.prototype_adapter(normal_features.mean(dim=0, keepdim=True)).squeeze(0)
-            anomaly_proto = self.prototype_adapter(anomaly_features.mean(dim=0, keepdim=True)).squeeze(0)
             normal_prototypes.append(normal_proto)
             anomaly_prototypes.append(anomaly_proto)
 
@@ -390,6 +444,12 @@ class InCTRLWithAdapters(nn.Module):
         self.text_cfg = _as_cfg(text_cfg, CLIPTextCfg)
         self.image_size = getattr(args, "image_size", self.vision_cfg.image_size)
         self.shot = getattr(args, "shot", 1)
+        textual_adapter_cfg = getattr(args, "TEXTUAL_ADAPTER", None)
+        max_prompts_per_state = getattr(
+            textual_adapter_cfg,
+            "MAX_PROMPTS_PER_STATE",
+            32,
+        )
 
         self.visual = _build_vision_tower_Mul(embed_dim, self.vision_cfg, quick_gelu, cast_dtype)
 
@@ -418,6 +478,7 @@ class InCTRLWithAdapters(nn.Module):
             feature_dim=embed_dim,
             context_length=text_adapter_ctx_len,
             hidden_dim=adapter_hidden_dim,
+            max_prompts_per_state=max_prompts_per_state,
         )
         self.visual_adapter = VisualAdapter(
             global_dim=embed_dim,

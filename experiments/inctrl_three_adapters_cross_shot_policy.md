@@ -31,7 +31,10 @@ Training separate 2/4/8-shot checkpoints is unnecessarily expensive for the curr
 - `--test-batch-size`, default `1`
 - `--steps-per-epoch`, default `100`
 - `--epochs`, default `10`
-- `--num-workers`, default `0`
+- `--num-workers`, default is conservative auto selection:
+  - Windows: `0`
+  - Linux CUDA: `min(cpu_count, max(2, min(4, cpu_count // 4)))`
+  - other Linux/CPU runs: `min(cpu_count, max(1, min(2, cpu_count // 4)))`
 - `--max-test-categories`, default unset, only for fast validation
 
 ## Validation Plan
@@ -60,9 +63,21 @@ C:\Users\dex\miniconda3\envs\dexter\python.exe train_local.py --train-datasets m
   - MVTec and VisA 4-shot few-shot `.pt` files resolve correctly.
 - Fast end-to-end smoke passed on RTX 3060 Laptop GPU:
   - command: `python train_local.py --train-datasets mvtec --train-shot 4 --eval-shots 4 --batch-size 1 --test-batch-size 4 --steps-per-epoch 1 --epochs 1 --max-test-categories 1`
-  - checkpoint: `checkpoints/trained_on_mvtec/shot_4/checkpoint`
+  - checkpoint: `checkpoints/trained_on_mvtec/final_model_shot_4.pt`
   - result: VisA `candle`, eval 4-shot, AUROC `0.8037`, AUPR `0.7977`.
   - note: one-category evaluation took about 3.4 minutes, so full cross-shot evaluation is expected to take hours without prompt feature caching.
+
+## Checkpoint And Output Simplification
+
+Updated on 2026-04-17:
+
+- Training no longer writes per-epoch checkpoints.
+- Each source-domain run writes one final checkpoint after training completes.
+- Final checkpoint path:
+  - `checkpoints/trained_on_<dataset>/final_model_shot_<train_shot>.pt`
+- Result JSON path:
+  - `results/trained_on_<dataset>/results_shot_<train_shot>.json`
+- The checkpoint stores model weights, both optimizer states, both scheduler states, serialized cfg, experiment config, completed epoch, and loss history.
 
 ## Evaluation Speed Optimization
 

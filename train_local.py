@@ -56,6 +56,19 @@ TRAIN_SHOT = 4
 EVAL_SHOTS = [2, 4, 8]
 DEFAULT_TRAIN_DATASETS = ["mvtec", "visa"]
 
+
+def get_default_num_workers():
+    """Choose a conservative DataLoader default for local Windows and Linux CUDA runs."""
+    cpu_count = os.cpu_count() or 1
+    if os.name == "nt":
+        return 0
+    if DEVICE == "cuda":
+        return min(cpu_count, max(2, min(4, cpu_count // 4)))
+    return min(cpu_count, max(1, min(2, cpu_count // 4)))
+
+
+DEFAULT_NUM_WORKERS = get_default_num_workers()
+
 # 跨域测试映射
 TEST_DATASETS_BY_TRAIN = {
     "mvtec": ["visa"],
@@ -356,7 +369,7 @@ def run_experiment(
     steps_per_epoch=100,
     batch_size=48,
     test_batch_size=1,
-    num_workers=0,
+    num_workers=DEFAULT_NUM_WORKERS,
     max_test_categories=None,
     weight_decay=0.0,
     resume_checkpoint=None,
@@ -369,7 +382,8 @@ def run_experiment(
     print(
         f"配置: train_dataset={train_dataset}, test_datasets={test_datasets}, "
         f"train_shot={train_shot}, eval_shots={eval_shots}, n_epochs={n_epochs}, "
-        f"lr={lr}, batch_size={batch_size}, weight_decay={weight_decay}"
+        f"lr={lr}, batch_size={batch_size}, num_workers={num_workers}, "
+        f"weight_decay={weight_decay}"
     )
     print(f"设备: {DEVICE}")
 
@@ -400,39 +414,63 @@ def run_experiment(
     visual_scheduler = build_scheduler(visual_optimizer, n_epochs)
     text_scheduler = build_scheduler(text_optimizer, n_epochs)
 
-    # 创建检查点目录
     CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
+    result_dir = RESULTS_DIR / f"trained_on_{train_dataset}"
+    checkpoint_dir = CHECKPOINT_DIR / f"trained_on_{train_dataset}"
+    result_dir.mkdir(parents=True, exist_ok=True)
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    results_json_path = result_dir / f"results_shot_{train_shot}.json"
+    final_checkpoint_path = checkpoint_dir / f"final_model_shot_{train_shot}.pt"
+
     # 恢复训练
+    resume_loss_history = []
     if resume_checkpoint and Path(resume_checkpoint).exists():
         print(f"[INFO] 从检查点恢复: {resume_checkpoint}")
         checkpoint = torch.load(resume_checkpoint, map_location="cpu")
-        model.load_state_dict(checkpoint, strict=False)
+        if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
+            model.load_state_dict(checkpoint["model_state_dict"], strict=False)
+            if "visual_optimizer_state_dict" in checkpoint:
+                visual_optimizer.load_state_dict(checkpoint["visual_optimizer_state_dict"])
+            if "text_optimizer_state_dict" in checkpoint:
+                text_optimizer.load_state_dict(checkpoint["text_optimizer_state_dict"])
+            if "visual_scheduler_state_dict" in checkpoint:
+                visual_scheduler.load_state_dict(checkpoint["visual_scheduler_state_dict"])
+            if "text_scheduler_state_dict" in checkpoint:
+                text_scheduler.load_state_dict(checkpoint["text_scheduler_state_dict"])
+            if start_epoch == 0 and "epoch" in checkpoint:
+                start_epoch = int(checkpoint["epoch"])
+            if "loss" in checkpoint:
+                resume_loss_history = [float(x) for x in checkpoint["loss"]]
+        else:
+            model.load_state_dict(checkpoint, strict=False)
         model = model.to(DEVICE)
         # 调整学习率调度器的当前状态
-        for _ in range(start_epoch):
-            visual_scheduler.step()
-            text_scheduler.step()
+        if not (isinstance(checkpoint, dict) and "visual_scheduler_state_dict" in checkpoint):
+            for _ in range(start_epoch):
+                visual_scheduler.step()
+                text_scheduler.step()
         print(f"[INFO] 从 epoch {start_epoch + 1} 继续训练")
 
     # 尝试加载已有的 loss 历史（恢复训练时需要合并）
     history_loss = []
-    result_dir = RESULTS_DIR / f"trained_on_{train_dataset}" / f"shot_{train_shot}"
-    checkpoint_dir = CHECKPOINT_DIR / f"trained_on_{train_dataset}" / f"shot_{train_shot}"
-    result_dir.mkdir(parents=True, exist_ok=True)
-    checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    existing_results_path = result_dir / "results.json"
+    existing_results_path = results_json_path
     if existing_results_path.exists():
         try:
-            existing_data = json.load(open(existing_results_path))
+            with open(existing_results_path, encoding="utf-8") as f:
+                existing_data = json.load(f)
             if "loss" in existing_data and len(existing_data["loss"]) > 0:
                 history_loss = [float(x) for x in existing_data["loss"]]
                 print(f"[INFO] 已加载历史 loss 数据: {len(history_loss)} 个 epoch")
         except Exception as e:
             print(f"[WARNING] 加载历史 loss 失败: {e}")
+    if not history_loss and resume_loss_history:
+        history_loss = resume_loss_history
+        print(f"[INFO] 已从 checkpoint 加载历史 loss 数据: {len(history_loss)} 个 epoch")
 
     # 训练循环
+    completed_epoch = start_epoch
     for epoch in range(start_epoch, n_epochs):
         phase = "visual" if epoch % 2 == 0 else "text"
         model.set_train_phase(phase)
@@ -483,15 +521,37 @@ def run_experiment(
 
         avg_loss = float(epoch_loss / max(actual_steps, 1))
         history_loss.append(avg_loss)
+        completed_epoch = epoch + 1
         print(f"Epoch {epoch + 1} 完成 | avg_loss={avg_loss:.4f}")
 
-        # 保存检查点
-        ckpt_path = checkpoint_dir / f"epoch_{epoch + 1}.pth"
-        torch.save(model.state_dict(), ckpt_path)
-        print(f"[INFO] 检查点已保存: {ckpt_path}")
-
-    final_checkpoint_path = checkpoint_dir / "checkpoint"
-    torch.save(model.state_dict(), final_checkpoint_path)
+    experiment_cfg = {
+        "train_dataset": train_dataset,
+        "test_datasets": test_datasets,
+        "train_shot": train_shot,
+        "eval_shots": eval_shots,
+        "n_epochs": n_epochs,
+        "lr": lr,
+        "batch_size": batch_size,
+        "test_batch_size": test_batch_size,
+        "num_workers": num_workers,
+        "steps_per_epoch": steps_per_epoch,
+        "weight_decay": weight_decay,
+        "label": label,
+    }
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "visual_optimizer_state_dict": visual_optimizer.state_dict(),
+            "text_optimizer_state_dict": text_optimizer.state_dict(),
+            "visual_scheduler_state_dict": visual_scheduler.state_dict(),
+            "text_scheduler_state_dict": text_scheduler.state_dict(),
+            "cfg": cfg.dump(),
+            "experiment_cfg": experiment_cfg,
+            "epoch": completed_epoch,
+            "loss": [float(x) for x in history_loss],
+        },
+        final_checkpoint_path,
+    )
     print(f"[INFO] 最终检查点已保存: {final_checkpoint_path}")
 
     print("\n训练完成! 开始测试集评估...")
@@ -539,26 +599,13 @@ def run_experiment(
     # 保存结果
     summary_data = {
         "label": label,
-        "config": {
-            "train_dataset": train_dataset,
-            "test_datasets": test_datasets,
-            "train_shot": train_shot,
-            "eval_shots": eval_shots,
-            "n_epochs": n_epochs,
-            "lr": lr,
-            "batch_size": batch_size,
-            "test_batch_size": test_batch_size,
-            "num_workers": num_workers,
-            "steps_per_epoch": steps_per_epoch,
-            "weight_decay": weight_decay,
-        },
+        "config": experiment_cfg,
         "loss": [float(x) for x in history_loss],
         "checkpoint_path": str(final_checkpoint_path.resolve()),
         "results": results,
     }
 
-    results_json_path = result_dir / "results.json"
-    with open(results_json_path, "w") as f:
+    with open(results_json_path, "w", encoding="utf-8") as f:
         json.dump(summary_data, f, indent=2, ensure_ascii=False)
     print(f"\n[INFO] 结果已保存: {results_json_path}")
 
@@ -580,7 +627,7 @@ def run_all_experiments(
     steps_per_epoch=100,
     batch_size=48,
     test_batch_size=1,
-    num_workers=0,
+    num_workers=DEFAULT_NUM_WORKERS,
     max_test_categories=None,
     weight_decay=0.0,
     resume_checkpoint=None,
@@ -667,8 +714,8 @@ if __name__ == "__main__":
                         help="每个 epoch 的 batch 数")
     parser.add_argument("--epochs", type=int, default=N_EPOCHS,
                         help="训练 epoch 数")
-    parser.add_argument("--num-workers", type=int, default=0,
-                        help="DataLoader worker 数，Windows 默认 0")
+    parser.add_argument("--num-workers", type=int, default=DEFAULT_NUM_WORKERS,
+                        help=f"DataLoader worker 数，默认 {DEFAULT_NUM_WORKERS}；可按机器情况覆盖")
     parser.add_argument("--max-test-categories", type=int, default=None,
                         help="仅用于快速验证：限制每个测试域评估的类别数，默认评估全部类别")
     args = parser.parse_args()
