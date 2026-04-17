@@ -1,9 +1,5 @@
-# CUDA-enabled PyTorch wheels.
-# NVIDIA driver 580 / CUDA 13.0 can run CUDA 12.4 wheels via driver backward compatibility.
---extra-index-url https://download.pytorch.org/whl/cu124
-
-torch==2.6.0+cu124
-torchvision==0.21.0+cu124
+# PyTorch / torchvision are intentionally omitted.
+# Use the cloud image's preinstalled CUDA-enabled torch environment.
 
 # Core numeric / ML stack
 numpy>=1.26,<3
