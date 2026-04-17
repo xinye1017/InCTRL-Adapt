@@ -52,12 +52,20 @@ STEPS_PER_EPOCH = 100
 LR = 1e-3
 N_EPOCHS = 10
 WEIGHT_DECAY = 0.0
-SHOT_LIST = [2, 4, 8]
-SHOT = 2  # 主要测试 shot
+TRAIN_SHOT = 4
+EVAL_SHOTS = [2, 4, 8]
+DEFAULT_TRAIN_DATASETS = ["mvtec", "visa"]
 
-# 数据集
-TRAIN_DATASET_NAME = "mvtec"
-TEST_DATASETS = ["visa"]
+# 跨域测试映射
+TEST_DATASETS_BY_TRAIN = {
+    "mvtec": ["visa"],
+    "visa": ["mvtec"],
+}
+
+FEW_SHOT_DATASET_ALIASES = {
+    "mvtec": "mvtecad",
+    "aitex": "AITEX",
+}
 
 # ============================================================================
 # 工具函数
@@ -95,81 +103,72 @@ def get_transform():
 # 数据集准备
 # ============================================================================
 
-def remap_image_path(raw_path, dataset_name):
-    """将旧路径重映射到本地路径"""
-    normalized = str(raw_path).replace("\\", "/")
-    idx = normalized.lower().find(f"/{dataset_name.lower()}/")
-    if idx != -1:
-        return DATA_ROOT / Path(normalized[idx + 1:])
-    return Path(raw_path)
+def collect_training_jsons(dataset_name):
+    json_dir = DATA_ROOT / "AD_json" / dataset_name
+    if not json_dir.exists():
+        raise FileNotFoundError(f"训练数据集目录不存在: {json_dir}")
+
+    normal_jsons = [
+        str(f) for f in sorted(json_dir.glob("*_normal.json"))
+        if "val_" not in f.name
+    ]
+    outlier_jsons = [
+        str(f) for f in sorted(json_dir.glob("*_outlier.json"))
+        if "val_" not in f.name
+    ]
+    if not normal_jsons or not outlier_jsons:
+        raise RuntimeError(
+            f"{dataset_name} 缺少训练 JSON: normal={len(normal_jsons)}, "
+            f"outlier={len(outlier_jsons)}"
+        )
+    return normal_jsons, outlier_jsons
 
 
-def normalize_dataset_json_paths():
-    """修正 JSON 中的图像路径以适配本地环境。"""
-    for ds in [TRAIN_DATASET_NAME] + TEST_DATASETS:
-        json_dir = DATA_ROOT / "AD_json" / ds
-        if not json_dir.exists():
-            continue
-        for json_file in json_dir.glob("*.json"):
-            try:
-                data = json.loads(json_file.read_text(encoding="utf-8"))
-                modified = False
-                for item in data:
-                    old_path = item["image_path"]
-                    new_path_str = str(remap_image_path(old_path, ds))
-                    if new_path_str != old_path:
-                        item["image_path"] = new_path_str
-                        modified = True
-                if modified:
-                    json_file.write_text(
-                        json.dumps(data, ensure_ascii=False, indent=2),
-                        encoding="utf-8",
-                    )
-            except Exception as e:
-                print(f"[WARNING] 路径修正失败 {json_file}: {e}")
+def collect_test_categories(dataset_name):
+    json_dir = DATA_ROOT / "AD_json" / dataset_name
+    if not json_dir.exists():
+        raise FileNotFoundError(f"测试数据集目录不存在: {json_dir}")
+    categories = sorted(
+        f.name.replace("_val_normal.json", "")
+        for f in json_dir.glob("*_val_normal.json")
+    )
+    if not categories:
+        raise RuntimeError(f"{dataset_name} 缺少 val_normal JSON")
+    return categories
 
 
-def prepare_dataset_paths():
-    """准备训练和测试数据集的 JSON 路径"""
-    global MVTEC_TRAIN_NORMAL, MVTEC_TRAIN_OUTLIER, DATASET_CATEGORIES, TYPE_TO_IDX
+def resolve_few_shot_dataset_name(dataset_name):
+    return FEW_SHOT_DATASET_ALIASES.get(dataset_name.lower(), dataset_name)
 
-    # 修正 JSON 中的路径
-    print("[INFO] 正在修正数据集路径...")
-    normalize_dataset_json_paths()
 
-    MVTEC_TRAIN_NORMAL = []
-    MVTEC_TRAIN_OUTLIER = []
-    json_mvtec = DATA_ROOT / "AD_json" / "mvtec"
+def prepare_dataset_registry(train_datasets):
+    """只收集 JSON 路径，不原地改写 data/AD_json。"""
+    registry = {
+        "train_jsons": {},
+        "test_categories": {},
+    }
+    all_test_datasets = []
+    for train_dataset in train_datasets:
+        all_test_datasets.extend(TEST_DATASETS_BY_TRAIN[train_dataset])
+    all_test_datasets = list(dict.fromkeys(all_test_datasets))
 
-    for f in sorted(json_mvtec.glob("*_normal.json")):
-        if "val_" not in f.name:
-            MVTEC_TRAIN_NORMAL.append(str(f))
+    for train_dataset in train_datasets:
+        normal_jsons, outlier_jsons = collect_training_jsons(train_dataset)
+        registry["train_jsons"][train_dataset] = {
+            "normal": normal_jsons,
+            "outlier": outlier_jsons,
+        }
+        print(
+            f"[INFO] {train_dataset.upper()} 训练 JSON: "
+            f"正常={len(normal_jsons)}, 异常={len(outlier_jsons)}"
+        )
 
-    for f in sorted(json_mvtec.glob("*_outlier.json")):
-        if "val_" not in f.name:
-            MVTEC_TRAIN_OUTLIER.append(str(f))
+    for test_dataset in all_test_datasets:
+        categories = collect_test_categories(test_dataset)
+        registry["test_categories"][test_dataset] = categories
+        print(f"[INFO] {test_dataset.upper()} 测试类别 ({len(categories)}): {categories}")
 
-    DATASET_CATEGORIES = {}
-    for ds in TEST_DATASETS:
-        cats = set()
-        json_ds = DATA_ROOT / "AD_json" / ds
-        for f in json_ds.glob("*_val_normal.json"):
-            cats.add(f.name.replace("_val_normal.json", ""))
-        DATASET_CATEGORIES[ds] = sorted(cats)
-
-    # 构建类型名称到索引的映射（用于模型）
-    all_types = set()
-    for f in sorted(json_mvtec.glob("*_normal.json")):
-        if "val_" not in f.name:
-            data = json.load(open(f))
-            for item in data:
-                all_types.add(item['type'])
-    TYPE_TO_IDX = {t: i for i, t in enumerate(sorted(all_types))}
-    print(f"[INFO] TYPE_TO_IDX mapping: {TYPE_TO_IDX}")
-
-    print(f"[INFO] MVTec 训练 JSON: 正常={len(MVTEC_TRAIN_NORMAL)}, 异常={len(MVTEC_TRAIN_OUTLIER)}")
-    for ds, cats in DATASET_CATEGORIES.items():
-        print(f"[INFO] {ds.upper()} 测试类别 ({len(cats)}): {cats}")
+    return registry
 
 
 # ============================================================================
@@ -254,11 +253,12 @@ def find_fs_pt(ds, cat, shot):
     路径结构: few-shot samples/{ds}/{ds}/{shot}/{cat}.pt
     例如: few-shot samples/visa/visa/2/candle.pt
     """
+    ds_key = resolve_few_shot_dataset_name(ds)
     for path in FEW_SHOT_ROOT.iterdir():
-        if path.name.lower() == ds.lower():
+        if path.name.lower() == ds_key.lower():
             # 在该目录下查找匹配 ds 名称的子目录
             for subpath in path.iterdir():
-                if subpath.is_dir() and subpath.name.lower() == ds.lower():
+                if subpath.is_dir() and subpath.name.lower() == ds_key.lower():
                     shot_dir = subpath / str(shot)
                     if shot_dir.exists():
                         pt_path = shot_dir / f"{cat}.pt"
@@ -274,6 +274,9 @@ def find_fs_pt(ds, cat, shot):
                         pt_path = direct_shot_dir / f"{cat}.pt"
                         if pt_path.exists():
                             return pt_path
+                        for candidate in direct_shot_dir.glob("*.pt"):
+                            if candidate.stem.lower() == cat.lower():
+                                return candidate
     raise FileNotFoundError(f"Cannot find few-shot pt for {ds} - {cat} (shot={shot})")
 
 
@@ -284,6 +287,19 @@ def build_cached_normal_img_features(model, few_shot_path, device):
     return [tensor.to(device) for tensor in few_shot_list]
 
 
+@torch.no_grad()
+def build_cached_prompt_features(model, few_shot_path, device):
+    """预编码 few-shot prompt 特征，避免评估时重复跑 prompt visual tower。"""
+    normal_list = build_cached_normal_img_features(model, few_shot_path, device)
+    return model.build_prompt_feature_cache(normal_list=normal_list)
+
+
+@torch.no_grad()
+def build_cached_text_prototypes(model, category_name, device):
+    """预编码类别文本原型，避免评估时每个 batch 重复跑 text tower。"""
+    return model.build_text_prototype_cache(obj_types=[category_name], device=torch.device(device))
+
+
 def split_query_prompt_inputs(inputs, device):
     query_image = inputs[0].to(device)
     prompt_images = torch.stack(inputs[1:], dim=1).to(device)
@@ -291,7 +307,15 @@ def split_query_prompt_inputs(inputs, device):
 
 
 @torch.no_grad()
-def evaluate(model, tokenizer, loader, device, cached_normal_list=None):
+def evaluate(
+    model,
+    tokenizer,
+    loader,
+    device,
+    cached_normal_list=None,
+    prompt_feature_cache=None,
+    text_prototype_cache=None,
+):
     """评估模型"""
     model.eval()
     preds_all, labels_all = [], []
@@ -302,7 +326,9 @@ def evaluate(model, tokenizer, loader, device, cached_normal_list=None):
         outputs = model(
             query_image=query_image,
             normal_list=cached_normal_list,
+            prompt_feature_cache=prompt_feature_cache,
             obj_types=types,
+            text_prototype_cache=text_prototype_cache,
             return_aux=False,
             return_dict=True,
         )
@@ -319,23 +345,32 @@ def evaluate(model, tokenizer, loader, device, cached_normal_list=None):
 # ============================================================================
 
 def run_experiment(
-    label="experiment",
+    dataset_registry,
+    train_dataset,
+    test_datasets,
+    train_shot=TRAIN_SHOT,
+    eval_shots=None,
+    label=None,
     n_epochs=10,
     lr=1e-3,
     steps_per_epoch=100,
     batch_size=48,
+    test_batch_size=1,
+    num_workers=0,
+    max_test_categories=None,
     weight_decay=0.0,
     resume_checkpoint=None,
     start_epoch=0,
 ):
-    """运行训练实验
-
-    Args:
-        resume_checkpoint: 检查点路径，用于恢复训练
-        start_epoch: 从第几个 epoch 开始训练（0-indexed，用于恢复训练）
-    """
+    """运行一个训练域的 4-shot 模型，并用 cross-shots 评估。"""
+    eval_shots = eval_shots or EVAL_SHOTS
+    label = label or f"trained_on_{train_dataset}_shot_{train_shot}"
     print(f"========== 实验 [{label}] ==========")
-    print(f"配置: n_epochs={n_epochs}, lr={lr}, batch_size={batch_size}, weight_decay={weight_decay}")
+    print(
+        f"配置: train_dataset={train_dataset}, test_datasets={test_datasets}, "
+        f"train_shot={train_shot}, eval_shots={eval_shots}, n_epochs={n_epochs}, "
+        f"lr={lr}, batch_size={batch_size}, weight_decay={weight_decay}"
+    )
     print(f"设备: {DEVICE}")
 
     # 构建模型
@@ -343,18 +378,18 @@ def run_experiment(
 
     # 配置
     cfg = get_cfg()
-    cfg.NUM_GPUS = 1
+    cfg.NUM_GPUS = 1 if torch.cuda.is_available() else 0
     cfg.TRAIN.BATCH_SIZE = batch_size
-    cfg.TEST.BATCH_SIZE = 1
+    cfg.TEST.BATCH_SIZE = test_batch_size
     cfg.SOLVER.BASE_LR = lr
     cfg.SOLVER.WEIGHT_DECAY = weight_decay
     cfg.SOLVER.MAX_EPOCH = n_epochs
-    cfg.shot = SHOT
+    cfg.shot = train_shot
     cfg.steps_per_epoch = steps_per_epoch
-    cfg.normal_json_path = MVTEC_TRAIN_NORMAL
-    cfg.outlier_json_path = MVTEC_TRAIN_OUTLIER
-    cfg.DATA_LOADER.NUM_WORKERS = 0  # Windows 下设为 0 避免 multiprocessing pickle 问题
-    cfg.DATA_LOADER.PIN_MEMORY = True
+    cfg.normal_json_path = dataset_registry["train_jsons"][train_dataset]["normal"]
+    cfg.outlier_json_path = dataset_registry["train_jsons"][train_dataset]["outlier"]
+    cfg.DATA_LOADER.NUM_WORKERS = num_workers
+    cfg.DATA_LOADER.PIN_MEMORY = DEVICE == "cuda"
 
     transform = get_transform()
     train_loader = ds_loader.construct_loader(cfg, "train", transform)
@@ -377,12 +412,17 @@ def run_experiment(
         model = model.to(DEVICE)
         # 调整学习率调度器的当前状态
         for _ in range(start_epoch):
-            scheduler.step()
+            visual_scheduler.step()
+            text_scheduler.step()
         print(f"[INFO] 从 epoch {start_epoch + 1} 继续训练")
 
     # 尝试加载已有的 loss 历史（恢复训练时需要合并）
     history_loss = []
-    existing_results_path = RESULTS_DIR / f"{label}_results.json"
+    result_dir = RESULTS_DIR / f"trained_on_{train_dataset}" / f"shot_{train_shot}"
+    checkpoint_dir = CHECKPOINT_DIR / f"trained_on_{train_dataset}" / f"shot_{train_shot}"
+    result_dir.mkdir(parents=True, exist_ok=True)
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    existing_results_path = result_dir / "results.json"
     if existing_results_path.exists():
         try:
             existing_data = json.load(open(existing_results_path))
@@ -446,36 +486,45 @@ def run_experiment(
         print(f"Epoch {epoch + 1} 完成 | avg_loss={avg_loss:.4f}")
 
         # 保存检查点
-        ckpt_path = CHECKPOINT_DIR / f"{label}_epoch_{epoch + 1}.pth"
+        ckpt_path = checkpoint_dir / f"epoch_{epoch + 1}.pth"
         torch.save(model.state_dict(), ckpt_path)
         print(f"[INFO] 检查点已保存: {ckpt_path}")
+
+    final_checkpoint_path = checkpoint_dir / "checkpoint"
+    torch.save(model.state_dict(), final_checkpoint_path)
+    print(f"[INFO] 最终检查点已保存: {final_checkpoint_path}")
 
     print("\n训练完成! 开始测试集评估...")
 
     # 测试评估
     results = {}
-    for shot in SHOT_LIST:
+    for shot in eval_shots:
         print(f"\n===== 测试 {shot}-shot =====")
         cfg.shot = shot
         shot_results = {}
 
-        for ds in TEST_DATASETS:
+        for ds in test_datasets:
             ds_res = []
             print(f"\n[INFO] 测试数据集: {ds.upper()}")
 
-            for cat in DATASET_CATEGORIES[ds]:
+            categories = dataset_registry["test_categories"][ds]
+            if max_test_categories is not None:
+                categories = categories[:max_test_categories]
+            for cat in categories:
                 cfg.val_normal_json_path = [str(DATA_ROOT / "AD_json" / ds / f"{cat}_val_normal.json")]
                 cfg.val_outlier_json_path = [str(DATA_ROOT / "AD_json" / ds / f"{cat}_val_outlier.json")]
                 val_loader = ds_loader.construct_loader(cfg, "test", transform)
 
                 fs_pt = find_fs_pt(ds, cat, shot)
-                cached_normal_list = build_cached_normal_img_features(model, fs_pt, DEVICE)
+                prompt_feature_cache = build_cached_prompt_features(model, fs_pt, DEVICE)
+                text_prototype_cache = build_cached_text_prototypes(model, cat, DEVICE)
                 auroc, aupr = evaluate(
                     model,
                     tokenizer,
                     val_loader,
                     DEVICE,
-                    cached_normal_list=cached_normal_list,
+                    prompt_feature_cache=prompt_feature_cache,
+                    text_prototype_cache=text_prototype_cache,
                 )
                 ds_res.append({"cat": cat, "auroc": auroc, "aupr": aupr})
                 print(f"  {cat}: AUROC={auroc:.4f}, AUPR={aupr:.4f}")
@@ -491,22 +540,107 @@ def run_experiment(
     summary_data = {
         "label": label,
         "config": {
+            "train_dataset": train_dataset,
+            "test_datasets": test_datasets,
+            "train_shot": train_shot,
+            "eval_shots": eval_shots,
             "n_epochs": n_epochs,
             "lr": lr,
             "batch_size": batch_size,
+            "test_batch_size": test_batch_size,
+            "num_workers": num_workers,
             "steps_per_epoch": steps_per_epoch,
             "weight_decay": weight_decay,
         },
         "loss": [float(x) for x in history_loss],
+        "checkpoint_path": str(final_checkpoint_path.resolve()),
         "results": results,
     }
 
-    results_json_path = RESULTS_DIR / f"{label}_results.json"
+    results_json_path = result_dir / "results.json"
     with open(results_json_path, "w") as f:
         json.dump(summary_data, f, indent=2, ensure_ascii=False)
     print(f"\n[INFO] 结果已保存: {results_json_path}")
 
-    return history_loss, results
+    return {
+        "label": label,
+        "checkpoint_path": final_checkpoint_path,
+        "results_json_path": results_json_path,
+        "loss": history_loss,
+        "results": results,
+    }
+
+
+def run_all_experiments(
+    train_datasets,
+    train_shot=TRAIN_SHOT,
+    eval_shots=None,
+    n_epochs=10,
+    lr=1e-3,
+    steps_per_epoch=100,
+    batch_size=48,
+    test_batch_size=1,
+    num_workers=0,
+    max_test_categories=None,
+    weight_decay=0.0,
+    resume_checkpoint=None,
+    start_epoch=0,
+):
+    eval_shots = eval_shots or EVAL_SHOTS
+    train_datasets = [dataset.lower() for dataset in train_datasets]
+    dataset_registry = prepare_dataset_registry(train_datasets)
+
+    run_outputs = []
+    summary_rows = []
+    for train_dataset in train_datasets:
+        test_datasets = TEST_DATASETS_BY_TRAIN[train_dataset]
+        run_output = run_experiment(
+            dataset_registry=dataset_registry,
+            train_dataset=train_dataset,
+            test_datasets=test_datasets,
+            train_shot=train_shot,
+            eval_shots=eval_shots,
+            n_epochs=n_epochs,
+            lr=lr,
+            steps_per_epoch=steps_per_epoch,
+            batch_size=batch_size,
+            test_batch_size=test_batch_size,
+            num_workers=num_workers,
+            max_test_categories=max_test_categories,
+            weight_decay=weight_decay,
+            resume_checkpoint=resume_checkpoint,
+            start_epoch=start_epoch,
+        )
+        run_outputs.append(run_output)
+        for shot, shot_results in run_output["results"].items():
+            for test_dataset, metrics in shot_results.items():
+                summary_rows.append({
+                    "train_dataset": train_dataset,
+                    "train_shot": train_shot,
+                    "test_dataset": test_dataset,
+                    "eval_shot": int(shot),
+                    "auroc": metrics["auroc"],
+                    "aupr": metrics["aupr"],
+                    "checkpoint_path": str(run_output["checkpoint_path"].resolve()),
+                    "results_json_path": str(run_output["results_json_path"].resolve()),
+                })
+
+    summary_path = RESULTS_DIR / f"cross_shot_train_shot_{train_shot}_summary.json"
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    with open(summary_path, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "train_datasets": train_datasets,
+                "train_shot": train_shot,
+                "eval_shots": eval_shots,
+                "summary_rows": summary_rows,
+            },
+            f,
+            indent=2,
+            ensure_ascii=False,
+        )
+    print(f"\n[INFO] 跨 shot 汇总已保存: {summary_path}")
+    return {"runs": run_outputs, "summary_rows": summary_rows, "summary_path": summary_path}
 
 
 # ============================================================================
@@ -519,6 +653,24 @@ if __name__ == "__main__":
                         help="检查点路径，用于恢复训练")
     parser.add_argument("--start-epoch", type=int, default=0,
                         help="起始 epoch 编号（0-indexed，用于恢复训练）")
+    parser.add_argument("--train-datasets", nargs="+", default=DEFAULT_TRAIN_DATASETS,
+                        help="训练域，默认分别训练 mvtec 和 visa")
+    parser.add_argument("--train-shot", type=int, default=TRAIN_SHOT,
+                        help="训练时使用的 few-shot 数，默认 4")
+    parser.add_argument("--eval-shots", nargs="+", type=int, default=EVAL_SHOTS,
+                        help="测试时使用的 cross-shots，默认 2 4 8")
+    parser.add_argument("--batch-size", type=int, default=BATCH_SIZE,
+                        help="训练 batch size")
+    parser.add_argument("--test-batch-size", type=int, default=1,
+                        help="测试 batch size；显存允许时可调大以加速 cross-shot 评估")
+    parser.add_argument("--steps-per-epoch", type=int, default=STEPS_PER_EPOCH,
+                        help="每个 epoch 的 batch 数")
+    parser.add_argument("--epochs", type=int, default=N_EPOCHS,
+                        help="训练 epoch 数")
+    parser.add_argument("--num-workers", type=int, default=0,
+                        help="DataLoader worker 数，Windows 默认 0")
+    parser.add_argument("--max-test-categories", type=int, default=None,
+                        help="仅用于快速验证：限制每个测试域评估的类别数，默认评估全部类别")
     args = parser.parse_args()
 
     seed_everything(SEED)
@@ -529,42 +681,51 @@ if __name__ == "__main__":
     else:
         print("[WARNING] CUDA 不可用，将使用 CPU")
 
-    # 准备数据集路径
-    prepare_dataset_paths()
-
     # 实验配置
-    EXPERIMENT_NAME = f"inctrl_va_bs{BATCH_SIZE}_lr{LR}_ep{N_EPOCHS}"
-
-    SHARED_KWARGS = {
-        "n_epochs": N_EPOCHS,
-        "lr": LR,
-        "steps_per_epoch": STEPS_PER_EPOCH,
-        "batch_size": BATCH_SIZE,
-        "weight_decay": WEIGHT_DECAY,
-        "resume_checkpoint": args.resume,
-        "start_epoch": args.start_epoch,
-    }
-
-    print(f"\n实验配置: {EXPERIMENT_NAME}")
-    print(f"BATCH_SIZE = {BATCH_SIZE}")
-    print(f"STEPS_PER_EPOCH = {STEPS_PER_EPOCH}")
+    print("\n实验配置:")
+    print(f"TRAIN_DATASETS = {args.train_datasets}")
+    print(f"TRAIN_SHOT = {args.train_shot}")
+    print(f"EVAL_SHOTS = {args.eval_shots}")
+    print(f"BATCH_SIZE = {args.batch_size}")
+    print(f"TEST_BATCH_SIZE = {args.test_batch_size}")
+    print(f"STEPS_PER_EPOCH = {args.steps_per_epoch}")
+    print(f"NUM_WORKERS = {args.num_workers}")
+    print(f"MAX_TEST_CATEGORIES = {args.max_test_categories}")
     print(f"LR = {LR}")
-    print(f"N_EPOCHS = {N_EPOCHS}")
+    print(f"N_EPOCHS = {args.epochs}")
     if args.resume:
         print(f"恢复检查点: {args.resume}")
         print(f"起始 epoch: {args.start_epoch + 1}")
 
     # 运行实验
-    loss_main, results_main = run_experiment(EXPERIMENT_NAME, **SHARED_KWARGS)
+    main_output = run_all_experiments(
+        train_datasets=args.train_datasets,
+        train_shot=args.train_shot,
+        eval_shots=args.eval_shots,
+        n_epochs=args.epochs,
+        lr=LR,
+        steps_per_epoch=args.steps_per_epoch,
+        batch_size=args.batch_size,
+        test_batch_size=args.test_batch_size,
+        num_workers=args.num_workers,
+        max_test_categories=args.max_test_categories,
+        weight_decay=WEIGHT_DECAY,
+        resume_checkpoint=args.resume,
+        start_epoch=args.start_epoch,
+    )
 
     print("\n" + "=" * 72)
     print("训练和评估完成!")
     print("=" * 72)
+    print(f"汇总文件: {main_output['summary_path']}")
 
     # 打印最终结果
     print("\n最终结果汇总:")
-    for shot in SHOT_LIST:
-        for ds in TEST_DATASETS:
-            auroc = results_main[shot][ds]["auroc"]
-            aupr = results_main[shot][ds]["aupr"]
-            print(f"  {ds.upper()} | {shot}-shot -> AUROC: {auroc:.4f}, AUPR: {aupr:.4f}")
+    for row in main_output["summary_rows"]:
+        print(
+            f"  train={row['train_dataset'].upper()} "
+            f"train_shot={row['train_shot']} "
+            f"-> test={row['test_dataset'].upper()} "
+            f"eval_shot={row['eval_shot']} "
+            f"| AUROC={row['auroc']:.4f}, AUPR={row['aupr']:.4f}"
+        )

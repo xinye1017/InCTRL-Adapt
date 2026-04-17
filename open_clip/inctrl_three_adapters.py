@@ -541,6 +541,58 @@ class InCTRLWithAdapters(nn.Module):
             adapted_levels.append(adapted)
         return adapted_levels
 
+    @torch.no_grad()
+    def build_prompt_feature_cache(
+        self,
+        prompt_images: Optional[torch.Tensor] = None,
+        normal_list: Optional[Union[torch.Tensor, Sequence[torch.Tensor]]] = None,
+    ) -> Dict[str, object]:
+        """Pre-encode shared few-shot prompt images for fast evaluation.
+
+        The cache stores prompt-side features after visual adaptation, so each
+        category/shot only pays the prompt visual-tower cost once.
+        """
+        if prompt_images is None:
+            if normal_list is None:
+                raise ValueError("Either prompt_images or normal_list must be provided.")
+            if isinstance(normal_list, (tuple, list)):
+                prompt_images = torch.stack(list(normal_list), dim=0)
+            else:
+                prompt_images = normal_list
+
+        if prompt_images.dim() == 5:
+            if prompt_images.size(0) != 1:
+                raise ValueError("Prompt feature cache only supports shared prompts with batch size 1.")
+            prompt_images = prompt_images.squeeze(0)
+        if prompt_images.dim() != 4:
+            raise ValueError("prompt_images must be [S, C, H, W] or [1, S, C, H, W].")
+
+        device = next(self.parameters()).device
+        prompt_images = prompt_images.to(device)
+        num_shots = prompt_images.shape[0]
+        prompt_global, prompt_patch_tokens = self._encode_visual_features(prompt_images)
+        prompt_patch_levels = self._prepare_patch_levels(
+            prompt_patch_tokens,
+            batch_size=1,
+            num_shots=num_shots,
+        )
+        prompt_global = prompt_global.reshape(1, num_shots, -1)
+
+        if self.use_visual_adapter:
+            adapted_prompt_global = self.visual_adapter.adapt_global(prompt_global)
+        else:
+            adapted_prompt_global = prompt_global
+        adapted_prompt_patch_levels = self._adapt_prompt_patch_levels(prompt_patch_levels)
+
+        return {
+            "adapted_prompt_global": adapted_prompt_global.squeeze(0).detach(),
+            "adapted_prompt_patch_levels": [
+                level.squeeze(0).detach()
+                for level in adapted_prompt_patch_levels
+            ],
+            "num_shots": num_shots,
+        }
+
     def _build_adapted_text_prototypes(
         self,
         obj_types: Sequence[str],
@@ -550,6 +602,23 @@ class InCTRLWithAdapters(nn.Module):
         if not self.use_text_adapter:
             return self.textual_adapter.build_prototypes(self, obj_types, device, text_inputs)
         return self.textual_adapter.build_prototypes(self, obj_types, device, text_inputs)
+
+    @torch.no_grad()
+    def build_text_prototype_cache(
+        self,
+        obj_types: Sequence[str],
+        device: torch.device,
+        text_inputs: Optional[Union[Dict[str, object], Sequence[object]]] = None,
+    ) -> Dict[str, torch.Tensor]:
+        normal_proto, anomaly_proto = self._build_adapted_text_prototypes(
+            obj_types=obj_types,
+            device=device,
+            text_inputs=text_inputs,
+        )
+        return {
+            "normal_proto": normal_proto.detach(),
+            "anomaly_proto": anomaly_proto.detach(),
+        }
 
     def get_visual_parameters(self) -> List[nn.Parameter]:
         modules = [
@@ -601,39 +670,57 @@ class InCTRLWithAdapters(nn.Module):
         query_image: torch.Tensor,
         prompt_images: Optional[torch.Tensor] = None,
         normal_list: Optional[Union[torch.Tensor, Sequence[torch.Tensor]]] = None,
+        prompt_feature_cache: Optional[Dict[str, object]] = None,
         obj_types: Optional[Sequence[str]] = None,
         text_inputs: Optional[Union[Dict[str, object], Sequence[object]]] = None,
+        text_prototype_cache: Optional[Dict[str, torch.Tensor]] = None,
         return_aux: bool = False,
         return_dict: bool = True,
     ) -> Dict[str, object]:
         if obj_types is None:
             obj_types = ["object"] * query_image.size(0)
 
-        prompt_images = self._coerce_prompt_images(query_image, prompt_images, normal_list)
-        batch_size, num_shots = prompt_images.shape[:2]
-        prompt_images = prompt_images.to(query_image.device, dtype=query_image.dtype)
-        flat_prompt_images = prompt_images.reshape(batch_size * num_shots, *prompt_images.shape[2:])
-
         query_global, query_patch_tokens = self._encode_visual_features(query_image)
-        prompt_global, prompt_patch_tokens = self._encode_visual_features(flat_prompt_images)
-
+        batch_size = query_image.size(0)
         query_patch_levels = self._prepare_patch_levels(query_patch_tokens, batch_size=batch_size, num_shots=1)
-        prompt_patch_levels = self._prepare_patch_levels(
-            prompt_patch_tokens,
-            batch_size=batch_size,
-            num_shots=num_shots,
-        )
-        prompt_global = prompt_global.reshape(batch_size, num_shots, -1)
 
         if self.use_visual_adapter:
             adapted_query_global = self.visual_adapter.adapt_global(query_global)
-            adapted_prompt_global = self.visual_adapter.adapt_global(prompt_global)
         else:
             adapted_query_global = query_global
-            adapted_prompt_global = prompt_global
 
         adapted_query_patch_levels = self._adapt_patch_levels(query_patch_levels)
-        adapted_prompt_patch_levels = self._adapt_prompt_patch_levels(prompt_patch_levels)
+
+        if prompt_feature_cache is not None:
+            adapted_prompt_global = prompt_feature_cache["adapted_prompt_global"].to(
+                query_image.device,
+                dtype=adapted_query_global.dtype,
+            )
+            adapted_prompt_global = adapted_prompt_global.unsqueeze(0).expand(batch_size, -1, -1)
+            adapted_prompt_patch_levels = [
+                level.to(query_image.device, dtype=adapted_query_patch_levels[0].dtype)
+                .unsqueeze(0)
+                .expand(batch_size, -1, -1, -1)
+                for level in prompt_feature_cache["adapted_prompt_patch_levels"]
+            ]
+        else:
+            prompt_images = self._coerce_prompt_images(query_image, prompt_images, normal_list)
+            batch_size, num_shots = prompt_images.shape[:2]
+            prompt_images = prompt_images.to(query_image.device, dtype=query_image.dtype)
+            flat_prompt_images = prompt_images.reshape(batch_size * num_shots, *prompt_images.shape[2:])
+            prompt_global, prompt_patch_tokens = self._encode_visual_features(flat_prompt_images)
+            prompt_patch_levels = self._prepare_patch_levels(
+                prompt_patch_tokens,
+                batch_size=batch_size,
+                num_shots=num_shots,
+            )
+            prompt_global = prompt_global.reshape(batch_size, num_shots, -1)
+
+            if self.use_visual_adapter:
+                adapted_prompt_global = self.visual_adapter.adapt_global(prompt_global)
+            else:
+                adapted_prompt_global = prompt_global
+            adapted_prompt_patch_levels = self._adapt_prompt_patch_levels(prompt_patch_levels)
 
         if self.use_prompt_query_adapter:
             pq_outputs = self.prompt_query_adapter(
@@ -661,11 +748,24 @@ class InCTRLWithAdapters(nn.Module):
         image_residual = prompt_global_proto - adapted_query_global
         image_score = self.image_head(image_residual)
 
-        normal_proto, anomaly_proto = self._build_adapted_text_prototypes(
-            obj_types=obj_types,
-            device=query_image.device,
-            text_inputs=text_inputs,
-        )
+        if text_prototype_cache is not None:
+            normal_proto = text_prototype_cache["normal_proto"].to(
+                query_image.device,
+                dtype=adapted_query_global.dtype,
+            )
+            anomaly_proto = text_prototype_cache["anomaly_proto"].to(
+                query_image.device,
+                dtype=adapted_query_global.dtype,
+            )
+            if normal_proto.size(0) == 1 and batch_size != 1:
+                normal_proto = normal_proto.expand(batch_size, -1)
+                anomaly_proto = anomaly_proto.expand(batch_size, -1)
+        else:
+            normal_proto, anomaly_proto = self._build_adapted_text_prototypes(
+                obj_types=obj_types,
+                device=query_image.device,
+                text_inputs=text_inputs,
+            )
         text_score, text_aux = self.text_prior_head(adapted_query_global, normal_proto, anomaly_proto)
 
         holistic_input = hybrid_patch_map + self.lambda_g * image_score.unsqueeze(-1) + self.lambda_t * text_score.unsqueeze(-1)

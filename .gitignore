@@ -12,6 +12,7 @@ checkpoints/
 # Logs
 *.log
 output.log
+tmp/
 
 # IDE
 .vscode/
@@ -22,6 +23,7 @@ output.log
 Thumbs.db
 
 # Data
+*.7z
 data/
 datasets/
 results/

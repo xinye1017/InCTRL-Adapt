@@ -1,0 +1,94 @@
+{
+  "checkpoint": "D:\\Data\\Downloads\\InCTRL\\checkpoints\\InCTRL_trained_on_MVTec\\4\\checkpoint.pyth",
+  "dataset": "visa",
+  "shot": 4,
+  "categories": [
+    {
+      "category": "candle",
+      "auroc": 0.8112999999999999,
+      "aupr": 0.6994364830443376,
+      "num_samples": 200,
+      "elapsed_seconds": 7.428285837173462
+    },
+    {
+      "category": "capsules",
+      "auroc": 0.7753333333333334,
+      "aupr": 0.854079969320759,
+      "num_samples": 160,
+      "elapsed_seconds": 5.821650266647339
+    },
+    {
+      "category": "cashew",
+      "auroc": 0.9492000000000002,
+      "aupr": 0.9768550532162146,
+      "num_samples": 150,
+      "elapsed_seconds": 5.509599447250366
+    },
+    {
+      "category": "chewinggum",
+      "auroc": 0.9802000000000001,
+      "aupr": 0.9920015038941427,
+      "num_samples": 150,
+      "elapsed_seconds": 5.2926108837127686
+    },
+    {
+      "category": "fryum",
+      "auroc": 0.9518000000000001,
+      "aupr": 0.9798568707313343,
+      "num_samples": 150,
+      "elapsed_seconds": 5.423786640167236
+    },
+    {
+      "category": "macaroni1",
+      "auroc": 0.8683000000000001,
+      "aupr": 0.8836389975587603,
+      "num_samples": 200,
+      "elapsed_seconds": 7.095254182815552
+    },
+    {
+      "category": "macaroni2",
+      "auroc": 0.8524,
+      "aupr": 0.8744710778792538,
+      "num_samples": 200,
+      "elapsed_seconds": 7.042948961257935
+    },
+    {
+      "category": "pcb1",
+      "auroc": 0.8901000000000001,
+      "aupr": 0.8374973647956714,
+      "num_samples": 200,
+      "elapsed_seconds": 7.308389186859131
+    },
+    {
+      "category": "pcb2",
+      "auroc": 0.7868,
+      "aupr": 0.8025402265777073,
+      "num_samples": 200,
+      "elapsed_seconds": 7.233543634414673
+    },
+    {
+      "category": "pcb3",
+      "auroc": 0.8710891089108911,
+      "aupr": 0.8883154321519099,
+      "num_samples": 201,
+      "elapsed_seconds": 7.278482437133789
+    },
+    {
+      "category": "pcb4",
+      "auroc": 0.9600990099009901,
+      "aupr": 0.9335398811258498,
+      "num_samples": 201,
+      "elapsed_seconds": 7.416718482971191
+    },
+    {
+      "category": "pipe_fryum",
+      "auroc": 0.987,
+      "aupr": 0.9917774341361665,
+      "num_samples": 150,
+      "elapsed_seconds": 5.319689989089966
+    }
+  ],
+  "mean_auroc": 0.890301787678768,
+  "mean_aupr": 0.8928341912026756,
+  "elapsed_seconds": 80.88416409492493
+}

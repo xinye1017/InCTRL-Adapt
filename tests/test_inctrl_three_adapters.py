@@ -151,3 +151,64 @@ def test_forward_accepts_shared_normal_list():
 
     assert outputs["final_score"].shape == (2,)
     assert outputs["patch_map"].shape == (2, 4)
+
+
+def test_prompt_feature_cache_matches_shared_normal_list_outputs():
+    torch.manual_seed(7)
+    model = _build_model()
+    model.eval()
+
+    query_image = torch.randn(2, 3, 32, 32)
+    normal_list = torch.randn(2, 3, 32, 32)
+
+    direct_outputs = model(
+        query_image=query_image,
+        normal_list=normal_list,
+        obj_types=["candle", "candle"],
+        return_aux=False,
+        return_dict=True,
+    )
+    prompt_feature_cache = model.build_prompt_feature_cache(normal_list=normal_list)
+    cached_outputs = model(
+        query_image=query_image,
+        prompt_feature_cache=prompt_feature_cache,
+        obj_types=["candle", "candle"],
+        return_aux=False,
+        return_dict=True,
+    )
+
+    assert torch.allclose(cached_outputs["final_score"], direct_outputs["final_score"], atol=1e-5)
+    assert torch.allclose(cached_outputs["patch_map"], direct_outputs["patch_map"], atol=1e-5)
+
+
+def test_text_prototype_cache_matches_direct_text_outputs():
+    torch.manual_seed(11)
+    model = _build_model()
+    model.eval()
+
+    query_image = torch.randn(2, 3, 32, 32)
+    normal_list = torch.randn(2, 3, 32, 32)
+    prompt_feature_cache = model.build_prompt_feature_cache(normal_list=normal_list)
+
+    direct_outputs = model(
+        query_image=query_image,
+        prompt_feature_cache=prompt_feature_cache,
+        obj_types=["candle", "candle"],
+        return_aux=False,
+        return_dict=True,
+    )
+    text_prototype_cache = model.build_text_prototype_cache(
+        obj_types=["candle"],
+        device=torch.device("cpu"),
+    )
+    cached_outputs = model(
+        query_image=query_image,
+        prompt_feature_cache=prompt_feature_cache,
+        obj_types=["candle", "candle"],
+        text_prototype_cache=text_prototype_cache,
+        return_aux=False,
+        return_dict=True,
+    )
+
+    assert torch.allclose(cached_outputs["final_score"], direct_outputs["final_score"], atol=1e-5)
+    assert torch.allclose(cached_outputs["text_score"], direct_outputs["text_score"], atol=1e-5)
