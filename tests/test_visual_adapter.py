@@ -110,6 +110,6 @@ def test_inctrl_forward_keeps_outputs_and_trainable_paths():
     assert all(parameter.grad is None for parameter in model.transformer.parameters())
     assert all(parameter.grad is None for parameter in model.token_embedding.parameters())
     assert any(parameter.grad is not None for parameter in model.visual_adapter.parameters())
-    assert any(parameter.grad is not None for parameter in model.adapter.parameters())
+    assert all(parameter.grad is None for parameter in model.adapter.parameters())
     assert any(parameter.grad is not None for parameter in model.diff_head.parameters())
     assert any(parameter.grad is not None for parameter in model.diff_head_ref.parameters())

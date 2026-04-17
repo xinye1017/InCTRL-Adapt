@@ -20,6 +20,7 @@ from binary_focal_loss import BinaryFocalLoss
 import torch.distributed as dist
 import matplotlib.pyplot as plt
 from open_clip.model import get_cast_dtype
+from open_clip.inctrl_three_adapters import InCTRLWithAdapters
 from open_clip.utils.env import checkpoint_pathmgr as pathmgr
 
 logger = logging.get_logger(__name__)
@@ -27,12 +28,42 @@ logger = logging.get_logger(__name__)
 def _convert_to_rgb(image):
     return image.convert('RGB')
 
+
+def _split_query_prompt_batch(inputs, device=None):
+    query_image = inputs[0]
+    prompt_images = torch.stack(inputs[1:], dim=1)
+    if device is not None:
+        query_image = query_image.to(device)
+        prompt_images = prompt_images.to(device)
+    return query_image, prompt_images
+
+
+def _get_base_model(model):
+    return model.module if hasattr(model, "module") else model
+
+
+def _build_alternating_optimizers(model, lr=1e-3):
+    base_model = _get_base_model(model)
+    visual_optimizer = torch.optim.AdamW(
+        base_model.get_visual_parameters(),
+        lr=lr,
+        betas=(0.9, 0.999),
+    )
+    text_optimizer = torch.optim.AdamW(
+        base_model.get_text_parameters(),
+        lr=lr,
+        betas=(0.9, 0.999),
+    )
+    return visual_optimizer, text_optimizer
+
 def train_epoch(
     train_loader,
     model,
-    optimizer,
+    visual_optimizer,
+    text_optimizer,
     tokenizer,
-    cfg
+    cfg,
+    phase,
 ):
     """
     Perform the training for one epoch.
@@ -49,19 +80,33 @@ def train_epoch(
     """
     # Enable train mode.
     model.train()
+    base_model = _get_base_model(model)
+    base_model.set_train_phase(phase)
+    optimizer = visual_optimizer if phase == "visual" else text_optimizer
 
     all_loss = 0.0
     for cur_iter, (inputs, types, labels) in enumerate(train_loader):
 
         if cfg.NUM_GPUS:
             labels = labels.cuda()
+            query_image, prompt_images = _split_query_prompt_batch(inputs, labels.device)
+        else:
+            query_image, prompt_images = _split_query_prompt_batch(inputs)
 
-        preds, preds2 = model(tokenizer, inputs, types, None)
         loss_fun = BinaryFocalLoss()
-        loss_fun = loss_fun.cuda()
+        if cfg.NUM_GPUS:
+            loss_fun = loss_fun.cuda()
+
+        outputs = model(
+            query_image=query_image,
+            prompt_images=prompt_images,
+            obj_types=types,
+            return_aux=False,
+            return_dict=True,
+        )
 
         # Compute the loss.
-        loss = loss_fun(preds, labels.float()) + loss_fun(preds2, labels.float())
+        loss = loss_fun(outputs["final_score"], labels.float())
 
         # check Nan Loss.
         misc.check_nan_losses(loss)
@@ -104,8 +149,18 @@ def eval_epoch(val_loader, model, cfg, tokenizer, mode=None):
     for cur_iter, (inputs, types, labels) in enumerate(val_loader):
         if cfg.NUM_GPUS:
             labels = labels.cuda()
+            query_image, prompt_images = _split_query_prompt_batch(inputs, labels.device)
+        else:
+            query_image, prompt_images = _split_query_prompt_batch(inputs)
 
-        preds, _ = model(tokenizer, inputs, types, None)
+        outputs = model(
+            query_image=query_image,
+            prompt_images=prompt_images,
+            obj_types=types,
+            return_aux=False,
+            return_dict=True,
+        )
+        preds = outputs["final_score"]
 
         total_pred = torch.cat((total_pred, preds), 0)
         total_label = torch.cat((total_label, labels), 0)
@@ -149,7 +204,7 @@ def train(cfg):
     cast_dtype = get_cast_dtype('fp32')
     quick_gelu = False
 
-    model = open_clip.model.InCTRL(cfg, embed_dim, vision_cfg, text_cfg, quick_gelu, cast_dtype=cast_dtype)
+    model = InCTRLWithAdapters(cfg, embed_dim, vision_cfg, text_cfg, quick_gelu, cast_dtype=cast_dtype)
 
     if torch.cuda.is_available():
         assert (
@@ -185,7 +240,7 @@ def train(cfg):
     # model = model.module
     model.load_state_dict(checkpoint, strict=False)
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, betas=[0.9, 0.999])
+    visual_optimizer, text_optimizer = _build_alternating_optimizers(model, lr=1e-3)
 
     # Create the train and val loaders.
     train_loader = loader.construct_loader(cfg, "train", transform)
@@ -200,14 +255,18 @@ def train(cfg):
     epoch_timer = EpochTimer()
     for cur_epoch in range(start_epoch, 10):
         print("Epoch: ", cur_epoch)
+        phase = "visual" if cur_epoch % 2 == 0 else "text"
+        print("Train phase: ", phase)
         # Train for one epoch.
         epoch_timer.epoch_tic()
         epoch_loss = train_epoch(
             train_loader,
             model,
-            optimizer,
+            visual_optimizer,
+            text_optimizer,
             tokenizer,
             cfg,
+            phase,
         )
         epoch_losses.append(epoch_loss)
         epoch_timer.epoch_toc()

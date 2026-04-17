@@ -25,6 +25,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 import open_clip
 from open_clip.model import get_cast_dtype
 from open_clip.config.defaults import get_cfg
+from open_clip.inctrl_three_adapters import InCTRLWithAdapters
 from datasets import loader as ds_loader
 from datasets.new_utlis import worker_init_fn_seed, BalancedBatchSampler
 from binary_focal_loss import BinaryFocalLoss
@@ -182,9 +183,7 @@ def build_model(device):
         model_config = json.load(f)
 
     cfg = get_cfg()
-    from open_clip import model as _model_mod
-
-    model = _model_mod.InCTRL(
+    model = InCTRLWithAdapters(
         cfg,
         model_config["embed_dim"],
         model_config["vision_cfg"],
@@ -207,28 +206,35 @@ def build_model(device):
 # 训练工具
 # ============================================================================
 
-def get_trainable_parameters(model):
-    """获取所有可训练参数"""
-    params = []
-    params += list(model.adapter.parameters())
-    params += list(model.diff_head.parameters())
-    params += list(model.diff_head_ref.parameters())
-    if hasattr(model, "visual_adapter") and model.visual_adapter is not None:
-        params += list(model.visual_adapter.parameters())
+def get_trainable_parameters(model, phase):
+    """获取当前 phase 下可训练参数"""
+    if phase == "visual":
+        params = model.get_visual_parameters()
+    elif phase == "text":
+        params = model.get_text_parameters()
+    else:
+        raise ValueError(f"Unsupported phase: {phase}")
+
     params = [param for param in params if param.requires_grad]
     if not params:
-        raise RuntimeError("No trainable parameters found.")
+        raise RuntimeError(f"No trainable parameters found for phase={phase}.")
     return params
 
 
-def build_optimizer(model, lr=1e-3, weight_decay=0.0):
-    trainable_params = get_trainable_parameters(model)
-    return torch.optim.AdamW(
-        trainable_params,
+def build_optimizers(model, lr=1e-3, weight_decay=0.0):
+    visual_optimizer = torch.optim.AdamW(
+        model.get_visual_parameters(),
         lr=lr,
         betas=(0.9, 0.999),
         weight_decay=weight_decay,
     )
+    text_optimizer = torch.optim.AdamW(
+        model.get_text_parameters(),
+        lr=lr,
+        betas=(0.9, 0.999),
+        weight_decay=weight_decay,
+    )
+    return visual_optimizer, text_optimizer
 
 
 def build_scheduler(optimizer, n_epochs):
@@ -278,6 +284,12 @@ def build_cached_normal_img_features(model, few_shot_path, device):
     return [tensor.to(device) for tensor in few_shot_list]
 
 
+def split_query_prompt_inputs(inputs, device):
+    query_image = inputs[0].to(device)
+    prompt_images = torch.stack(inputs[1:], dim=1).to(device)
+    return query_image, prompt_images
+
+
 @torch.no_grad()
 def evaluate(model, tokenizer, loader, device, cached_normal_list=None):
     """评估模型"""
@@ -286,14 +298,15 @@ def evaluate(model, tokenizer, loader, device, cached_normal_list=None):
 
     for inputs, types, labels in tqdm(loader, desc="[TEST] Batch", leave=False):
         labels = labels.to(device)
-        # types 是 tuple of strings，cached_normal_list 直接作为 normal_list 传入
-        preds, _ = model(
-            tokenizer,
-            inputs,
-            types,
-            cached_normal_list,
+        query_image, _ = split_query_prompt_inputs(inputs, device)
+        outputs = model(
+            query_image=query_image,
+            normal_list=cached_normal_list,
+            obj_types=types,
+            return_aux=False,
+            return_dict=True,
         )
-        preds_all.extend(preds.detach().cpu().float().numpy())
+        preds_all.extend(outputs["final_score"].detach().cpu().float().numpy())
         labels_all.extend(labels.cpu().numpy())
 
     auroc = roc_auc_score(labels_all, preds_all)
@@ -348,11 +361,9 @@ def run_experiment(
     tokenizer = open_clip.get_tokenizer("ViT-B-16-plus-240")
     loss_fn = BinaryFocalLoss(logits=False).to(DEVICE)
 
-    optimizer = build_optimizer(model, lr=lr, weight_decay=weight_decay)
-    scheduler = build_scheduler(optimizer, n_epochs)
-
-    trainable_params = get_trainable_parameters(model)
-    print(f"[INFO] 可训练参数数量: {len(trainable_params)}")
+    visual_optimizer, text_optimizer = build_optimizers(model, lr=lr, weight_decay=weight_decay)
+    visual_scheduler = build_scheduler(visual_optimizer, n_epochs)
+    text_scheduler = build_scheduler(text_optimizer, n_epochs)
 
     # 创建检查点目录
     CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
@@ -383,8 +394,13 @@ def run_experiment(
 
     # 训练循环
     for epoch in range(start_epoch, n_epochs):
+        phase = "visual" if epoch % 2 == 0 else "text"
+        model.set_train_phase(phase)
+        optimizer = visual_optimizer if phase == "visual" else text_optimizer
+        scheduler = visual_scheduler if phase == "visual" else text_scheduler
+        trainable_params = get_trainable_parameters(model, phase)
         current_lr = optimizer.param_groups[0]["lr"]
-        print(f"\nEpoch {epoch + 1}/{n_epochs} | lr={current_lr:.8f}")
+        print(f"\nEpoch {epoch + 1}/{n_epochs} | phase={phase} | lr={current_lr:.8f}")
 
         model.train()
         epoch_loss = 0.0
@@ -402,9 +418,15 @@ def run_experiment(
                 break
 
             labels = labels.to(DEVICE)
-            # types 是 tuple of strings，直接传递
-            preds, preds2 = model(tokenizer, inputs, types, None)
-            loss = loss_fn(preds, labels.float()) + loss_fn(preds2, labels.float())
+            query_image, prompt_images = split_query_prompt_inputs(inputs, DEVICE)
+            outputs = model(
+                query_image=query_image,
+                prompt_images=prompt_images,
+                obj_types=types,
+                return_aux=False,
+                return_dict=True,
+            )
+            loss = loss_fn(outputs["final_score"], labels.float())
 
             optimizer.zero_grad()
             loss.backward()
