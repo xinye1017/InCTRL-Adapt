@@ -161,6 +161,8 @@ def test_forward_with_prompt_images_returns_expected_output_shapes():
     assert outputs["pqa_patch_score"].shape == (2, 4)
     assert outputs["patch_map"].shape == (2, 4)
     assert outputs["max_patch_score"].shape == (2,)
+    assert outputs["max_patch_logit"].shape == (2,)
+    assert outputs["branch_weights"].shape == (4,)
     assert outputs["aux"]["patch_map_2d"].shape == (2, 2, 2)
     assert outputs["base_patch_map"].shape == (2, 4)
     assert outputs["hybrid_patch_map"].shape == (2, 4)
@@ -187,6 +189,32 @@ def test_default_forward_uses_inctrl_residual_map_for_final_patch_score():
     assert torch.allclose(outputs["patch_map"], outputs["base_patch_map"], atol=1e-6)
     assert torch.allclose(outputs["max_patch_score"], expected_max, atol=1e-6)
     assert torch.allclose(outputs["max_base_patch_score"], expected_max, atol=1e-6)
+
+
+def test_default_final_fusion_is_protected_by_max_patch_branch():
+    torch.manual_seed(23)
+    model = _build_model()
+    model.eval()
+
+    query_image = torch.randn(2, 3, 32, 32)
+    prompt_images = torch.randn(2, 2, 3, 32, 32)
+
+    outputs = model(
+        query_image=query_image,
+        prompt_images=prompt_images,
+        obj_types=["candle", "candle"],
+        return_aux=True,
+        return_dict=True,
+    )
+
+    assert outputs["branch_weights"][-1] > 0.95
+    assert model.prompt_query_adapter.global_topk == 10
+    assert torch.allclose(outputs["holistic_logit"], torch.zeros_like(outputs["holistic_logit"]))
+    assert torch.allclose(
+        outputs["max_patch_logit"],
+        model._positive_scalar(model.alpha_raw) * outputs["max_base_patch_score"],
+        atol=1e-6,
+    )
 
 
 def test_image_residual_uses_query_minus_prompt_direction():

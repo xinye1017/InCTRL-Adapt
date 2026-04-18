@@ -122,3 +122,23 @@ Decision rules for the next smoke:
 - If `base` is strong but `final` is weak, branch fusion is the main failure point and should be disabled or made more base-biased.
 - If `text` or `pqa` is weak while `base` is usable, those auxiliary branches should be down-weighted before longer training.
 - If all branches, including `max_patch`, are weak, the feature adaptation or residual computation itself is broken and the architecture should be rolled back to the last faithful InCTRL residual baseline.
+
+Follow-up cloud smoke with branch diagnostics showed the first failure mode:
+
+```text
+candle final AUROC=0.7508
+branches: base=0.6716, text=0.9660, pqa=0.6796, image=0.8774, holistic=0.3171, max_patch=0.9323
+
+capsules final AUROC=0.7377
+branches: base=0.7247, text=0.7937, pqa=0.4390, image=0.6973, holistic=0.5372, max_patch=0.7992
+
+mean final AUROC=0.7442, AUPR=0.8050
+```
+
+Conclusion: the InCTRL nearest-neighbor residual signal is still useful, but the random/undertrained holistic and PQA branches are hurting early final scoring. The next patch protects the residual backbone by zero-initializing the final holistic layer and adding `alpha * max(base_residual_map)` as an explicit max-patch fallback branch in final fusion. The fallback branch is initially dominant; auxiliary branches still receive their own losses and can earn weight through training.
+
+AdaptCLIP reference check:
+
+- Original AdaptCLIP PQA global feature uses mean pooling plus top-k mean pooling over patch tokens, not mean plus a single max token.
+- This repo now follows that more stable pooling form through `INCTRL_ADAPTER.PQA_GLOBAL_TOPK = 10`.
+- The original AdaptCLIP visual adapter uses the last-stage patch feature for local text-alignment scoring. We keep multi-layer InCTRL residuals because they are the backbone of this hybrid experiment, but the fallback branch makes the final score preserve the strongest residual cue during early training.

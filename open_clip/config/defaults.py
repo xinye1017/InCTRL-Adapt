@@ -409,11 +409,20 @@ _C.INCTRL_ADAPTER.USE_PQA_IN_FINAL_MAP = False
 # Keep final scoring base-biased while still allowing text/PQA branch gradients.
 _C.INCTRL_ADAPTER.USE_BRANCH_FUSION = True
 
+# Protect early training and smoke tests with the raw InCTRL max-patch residual
+# as an explicit final-fusion branch. Auxiliary branches still receive their own
+# losses, but final_score starts from the strongest paper-aligned residual cue.
+_C.INCTRL_ADAPTER.USE_MAX_PATCH_FALLBACK = True
+
 # Share learnable cross-layer weights between base residual and PQA aggregation.
 _C.INCTRL_ADAPTER.LEARNABLE_LAYER_WEIGHTS = True
 
 # Use one local visual adapter per selected CLIP patch layer by default.
 _C.INCTRL_ADAPTER.VISUAL_LOCAL_PER_LAYER = True
+
+# AdaptCLIP-style PQA global pooling uses mean plus top-k mean instead of mean
+# plus a single max token, which is less sensitive to one noisy patch.
+_C.INCTRL_ADAPTER.PQA_GLOBAL_TOPK = 10
 
 # InCTRL optimizes both final holistic score and image-level residual score.
 _C.INCTRL_ADAPTER.IMAGE_LOSS_WEIGHT = 1.0

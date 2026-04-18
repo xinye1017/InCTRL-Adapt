@@ -120,6 +120,8 @@ class HolisticScoringHead(nn.Module):
             nn.GELU(),
             nn.Linear(mid_dim, 1),
         )
+        nn.init.zeros_(self.net[-1].weight)
+        nn.init.zeros_(self.net[-1].bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x).squeeze(-1)
@@ -415,12 +417,14 @@ class PromptQueryAdapter(nn.Module):
         gamma_r: float = 0.5,
         gamma_c: float = 0.5,
         learnable_layer_weights: bool = False,
+        global_topk: int = 10,
     ):
         super().__init__()
         self.beta = beta
         self.gamma_r = gamma_r
         self.gamma_c = gamma_c
         self.learnable_layer_weights = learnable_layer_weights
+        self.global_topk = max(int(global_topk), 1)
         self.patch_heads = nn.ModuleList(
             ContextResidualPatchHead(feature_dim, hidden_dim) for _ in range(num_layers)
         )
@@ -470,7 +474,9 @@ class PromptQueryAdapter(nn.Module):
             patch_logit = self.patch_heads[layer_idx](context_feat)
             context_score = torch.sigmoid(patch_logit)
             patch_evidence = self.gamma_r * residual + self.gamma_c * context_score
-            global_feat = 0.5 * (context_feat.mean(dim=1) + context_feat.max(dim=1).values)
+            topk = min(self.global_topk, num_patches)
+            topk_feat = context_feat.topk(topk, dim=1).values.mean(dim=1)
+            global_feat = 0.5 * (context_feat.mean(dim=1) + topk_feat)
             pqa_global_logit = self.global_heads[layer_idx](global_feat)
 
             patch_evidence_maps.append(patch_evidence)
@@ -536,6 +542,7 @@ class InCTRLWithAdapters(nn.Module):
         use_prompt_query_adapter: Optional[bool] = None,
         use_pqa_in_final_map: Optional[bool] = None,
         use_branch_fusion: Optional[bool] = None,
+        use_max_patch_fallback: Optional[bool] = None,
         fusion_mode: Optional[str] = None,
         text_adapter_ctx_len: int = 12,
         adapter_hidden_dim: int = 256,
@@ -571,6 +578,10 @@ class InCTRLWithAdapters(nn.Module):
             )
         if use_branch_fusion is None:
             use_branch_fusion = bool(getattr(inctrl_adapter_cfg, "USE_BRANCH_FUSION", True))
+        if use_max_patch_fallback is None:
+            use_max_patch_fallback = bool(
+                getattr(inctrl_adapter_cfg, "USE_MAX_PATCH_FALLBACK", True)
+            )
         if learnable_layer_weights is None:
             learnable_layer_weights = bool(
                 getattr(inctrl_adapter_cfg, "LEARNABLE_LAYER_WEIGHTS", True)
@@ -579,6 +590,7 @@ class InCTRLWithAdapters(nn.Module):
             visual_adapter_local_per_layer = bool(
                 getattr(inctrl_adapter_cfg, "VISUAL_LOCAL_PER_LAYER", True)
             )
+        pqa_global_topk = int(getattr(inctrl_adapter_cfg, "PQA_GLOBAL_TOPK", 10))
         if fusion_mode is None:
             fusion_mode = getattr(inctrl_adapter_cfg, "FUSION_MODE", "paper_additive")
         fusion_mode = str(fusion_mode).lower()
@@ -592,7 +604,7 @@ class InCTRLWithAdapters(nn.Module):
         self.lambda_t_raw = nn.Parameter(_inverse_softplus(lambda_t))
         self.lambda_p_raw = nn.Parameter(_inverse_softplus(lambda_p))
         self.beta_raw = nn.Parameter(_inverse_softplus(beta))
-        self.branch_logits = nn.Parameter(torch.tensor([2.0, 0.0, 0.0], dtype=torch.float32))
+        self.branch_logits = nn.Parameter(torch.tensor([0.0, -2.0, -4.0, 4.0], dtype=torch.float32))
         if learnable_layer_weights:
             self.layer_logits = nn.Parameter(torch.zeros(len(self.patch_layers)))
         else:
@@ -602,6 +614,7 @@ class InCTRLWithAdapters(nn.Module):
         self.use_prompt_query_adapter = use_prompt_query_adapter
         self.use_pqa_in_final_map = use_pqa_in_final_map
         self.use_branch_fusion = use_branch_fusion
+        self.use_max_patch_fallback = use_max_patch_fallback
         self.fusion_mode = fusion_mode
         max_prompts_per_state = getattr(
             textual_adapter_cfg,
@@ -655,6 +668,7 @@ class InCTRLWithAdapters(nn.Module):
             gamma_r=gamma_r,
             gamma_c=gamma_c,
             learnable_layer_weights=learnable_layer_weights,
+            global_topk=pqa_global_topk,
         )
         self.image_head = ImageResidualHead(embed_dim, adapter_hidden_dim)
         self.text_prior_head = TextPriorHead()
@@ -1190,14 +1204,24 @@ class InCTRLWithAdapters(nn.Module):
             base_logit = holistic_logit + alpha * max_base_patch_score
         else:
             base_logit = holistic_logit + alpha * max_patch_score
+        max_patch_logit = alpha * max_base_patch_score
 
         branch_weights = torch.softmax(self.branch_logits, dim=0)
         if self.use_branch_fusion:
-            final_logit = (
-                branch_weights[0] * base_logit
-                + branch_weights[1] * text_logit
-                + branch_weights[2] * pqa_logit
-            )
+            if self.use_max_patch_fallback:
+                final_logit = (
+                    branch_weights[0] * base_logit
+                    + branch_weights[1] * text_logit
+                    + branch_weights[2] * pqa_logit
+                    + branch_weights[3] * max_patch_logit
+                )
+            else:
+                branch_weights_3 = torch.softmax(self.branch_logits[:3], dim=0)
+                final_logit = (
+                    branch_weights_3[0] * base_logit
+                    + branch_weights_3[1] * text_logit
+                    + branch_weights_3[2] * pqa_logit
+                )
         else:
             final_logit = base_logit
         final_score = torch.sigmoid(final_logit)
@@ -1245,8 +1269,10 @@ class InCTRLWithAdapters(nn.Module):
             "base_patch_map": base_patch_map,
             "hybrid_patch_map": hybrid_patch_map,
             "max_patch_score": max_patch_score,
+            "max_patch_logit": max_patch_logit,
             "max_base_patch_score": max_base_patch_score,
             "max_hybrid_patch_score": max_hybrid_patch_score,
+            "branch_weights": branch_weights,
             "text_static_reg": text_static_reg,
             "aux": aux,
         }
