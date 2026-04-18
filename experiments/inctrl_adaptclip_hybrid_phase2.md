@@ -142,3 +142,9 @@ AdaptCLIP reference check:
 - Original AdaptCLIP PQA global feature uses mean pooling plus top-k mean pooling over patch tokens, not mean plus a single max token.
 - This repo now follows that more stable pooling form through `INCTRL_ADAPTER.PQA_GLOBAL_TOPK = 10`.
 - The original AdaptCLIP visual adapter uses the last-stage patch feature for local text-alignment scoring. We keep multi-layer InCTRL residuals because they are the backbone of this hybrid experiment, but the fallback branch makes the final score preserve the strongest residual cue during early training.
+
+Cross-domain evaluation mapping:
+
+- Training on MVTec evaluates on AITEX, ELPV, and VisA.
+- Training on VisA evaluates only on MVTec.
+- This keeps the MVTec-trained model aligned with the broader industrial target-domain comparison while preserving the original VisA-to-MVTec reverse-domain check.

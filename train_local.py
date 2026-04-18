@@ -74,7 +74,7 @@ DEFAULT_NUM_WORKERS = get_default_num_workers()
 
 # 跨域测试映射
 TEST_DATASETS_BY_TRAIN = {
-    "mvtec": ["visa"],
+    "mvtec": ["aitex", "elpv", "visa"],
     "visa": ["mvtec"],
 }
 

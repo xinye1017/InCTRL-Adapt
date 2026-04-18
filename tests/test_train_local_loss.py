@@ -1,6 +1,11 @@
 import torch
 
-from train_local import compute_training_loss
+from train_local import TEST_DATASETS_BY_TRAIN, compute_training_loss
+
+
+def test_cross_domain_eval_mapping_matches_experiment_design():
+    assert TEST_DATASETS_BY_TRAIN["mvtec"] == ["aitex", "elpv", "visa"]
+    assert TEST_DATASETS_BY_TRAIN["visa"] == ["mvtec"]
 
 
 def test_visual_training_loss_uses_logit_branches():
