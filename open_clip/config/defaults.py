@@ -402,22 +402,20 @@ _C.INCTRL_ADAPTER = CfgNode()
 # base_logit = holistic_logit + alpha * max(base_residual_map).
 _C.INCTRL_ADAPTER.FUSION_MODE = "paper_additive"
 
-# Keep the deployed image score anchored to InCTRL's frozen CLIP nearest-neighbor
-# residual. Adapter branches are trained as auxiliary evidence unless explicitly
-# selected for ablation.
-_C.INCTRL_ADAPTER.FINAL_SCORE_MODE = "raw_max_patch"
+# Principle-first default: final prediction follows the InCTRL paper-form base
+# score instead of an engineering fallback branch.
+_C.INCTRL_ADAPTER.FINAL_SCORE_MODE = "base"
 
 # Keep AdaptCLIP-style PQA evidence as an ablation signal by default. The final
 # InCTRL path uses the pure nearest-neighbor residual map unless this is enabled.
 _C.INCTRL_ADAPTER.USE_PQA_IN_FINAL_MAP = False
 
-# Keep final scoring base-biased while still allowing text/PQA branch gradients.
-_C.INCTRL_ADAPTER.USE_BRANCH_FUSION = True
+# Default deployment follows the paper-form InCTRL base score directly. Branch
+# fusion remains available only as an explicit ablation.
+_C.INCTRL_ADAPTER.USE_BRANCH_FUSION = False
 
-# Protect early training and smoke tests with the raw InCTRL max-patch residual
-# as an explicit final-fusion branch. Auxiliary branches still receive their own
-# losses, but final_score starts from the strongest paper-aligned residual cue.
-_C.INCTRL_ADAPTER.USE_MAX_PATCH_FALLBACK = True
+# Raw max-patch fallback is disabled by default in principle-first mode.
+_C.INCTRL_ADAPTER.USE_MAX_PATCH_FALLBACK = False
 
 # Share learnable cross-layer weights between base residual and PQA aggregation.
 _C.INCTRL_ADAPTER.LEARNABLE_LAYER_WEIGHTS = True

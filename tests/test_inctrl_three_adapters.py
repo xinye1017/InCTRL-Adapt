@@ -136,10 +136,14 @@ def test_default_train_phase_freezes_unused_adapter_ablation_params():
 
     assert any(parameter.requires_grad for parameter in model.prompt_query_adapter.parameters())
     assert all(not parameter.requires_grad for parameter in model.textual_adapter.parameters())
+    assert all(parameter.requires_grad for parameter in model.static_text_prior_head.parameters())
+    assert all(not parameter.requires_grad for parameter in model.adaptive_text_prior_head.parameters())
 
     model.set_train_phase("text")
     assert all(not parameter.requires_grad for parameter in model.prompt_query_adapter.parameters())
     assert any(parameter.requires_grad for parameter in model.textual_adapter.parameters())
+    assert all(not parameter.requires_grad for parameter in model.static_text_prior_head.parameters())
+    assert all(parameter.requires_grad for parameter in model.adaptive_text_prior_head.parameters())
 
 
 def test_forward_with_prompt_images_returns_expected_output_shapes():
@@ -161,6 +165,8 @@ def test_forward_with_prompt_images_returns_expected_output_shapes():
     assert outputs["final_logit"].shape == (2,)
     assert outputs["base_logit"].shape == (2,)
     assert outputs["image_logit"].shape == (2,)
+    assert outputs["static_text_logit"].shape == (2,)
+    assert outputs["adaptive_text_logit"].shape == (2,)
     assert outputs["text_logit"].shape == (2,)
     assert outputs["pqa_logit"].shape == (2,)
     assert outputs["holistic_score"].shape == (2,)
@@ -201,7 +207,7 @@ def test_default_forward_uses_inctrl_residual_map_for_final_patch_score():
     assert torch.allclose(outputs["max_base_patch_score"], expected_max, atol=1e-6)
 
 
-def test_default_final_fusion_is_protected_by_max_patch_branch():
+def test_default_final_score_uses_inctrl_base_logit():
     torch.manual_seed(23)
     model = _build_model()
     model.eval()
@@ -217,36 +223,11 @@ def test_default_final_fusion_is_protected_by_max_patch_branch():
         return_dict=True,
     )
 
-    assert outputs["branch_weights"][-1] > 0.95
+    assert model.final_score_mode == "base"
+    assert not model.use_branch_fusion
+    assert not model.use_max_patch_fallback
     assert model.prompt_query_adapter.global_topk == 10
-    assert torch.allclose(outputs["holistic_logit"], torch.zeros_like(outputs["holistic_logit"]))
-    assert torch.allclose(
-        outputs["max_patch_logit"],
-        model._positive_scalar(model.alpha_raw) * outputs["max_base_patch_score"],
-        atol=1e-6,
-    )
-
-
-def test_default_final_score_uses_raw_inctrl_max_patch_as_backbone():
-    torch.manual_seed(29)
-    model = _build_model()
-    model.eval()
-
-    query_image = torch.randn(2, 3, 32, 32)
-    prompt_images = torch.randn(2, 2, 3, 32, 32)
-
-    outputs = model(
-        query_image=query_image,
-        prompt_images=prompt_images,
-        obj_types=["candle", "candle"],
-        return_aux=True,
-        return_dict=True,
-    )
-
-    expected_raw_max = outputs["raw_base_patch_map"].max(dim=-1).values
-
-    assert torch.allclose(outputs["raw_max_patch_score"], expected_raw_max, atol=1e-6)
-    assert torch.allclose(outputs["final_logit"], outputs["raw_max_patch_logit"], atol=1e-6)
+    assert torch.allclose(outputs["final_logit"], outputs["base_logit"], atol=1e-6)
 
 
 def test_image_residual_uses_query_minus_prompt_direction():
@@ -287,6 +268,60 @@ def test_static_residual_text_adapter_starts_from_static_prototypes():
     assert model.textual_adapter.mode == "static_residual"
     assert torch.allclose(adapted_normal, static_normal, atol=1e-6)
     assert torch.allclose(adapted_anomaly, static_anomaly, atol=1e-6)
+
+
+def test_dual_text_prior_fuses_static_and_adaptive_logits_in_logit_space():
+    torch.manual_seed(31)
+    model = _build_model()
+    model.eval()
+
+    query_image = torch.randn(2, 3, 32, 32)
+    prompt_images = torch.randn(2, 2, 3, 32, 32)
+
+    outputs = model(
+        query_image=query_image,
+        prompt_images=prompt_images,
+        obj_types=["candle", "candle"],
+        return_aux=True,
+        return_dict=True,
+    )
+
+    expected_text_logit = 0.5 * (outputs["static_text_logit"] + outputs["adaptive_text_logit"])
+
+    assert torch.allclose(outputs["text_logit"], expected_text_logit, atol=1e-6)
+    assert torch.allclose(outputs["text_score"], torch.sigmoid(expected_text_logit), atol=1e-6)
+
+
+def test_static_and_adaptive_text_branches_use_different_visual_anchors():
+    torch.manual_seed(37)
+    model = _build_model()
+    model.eval()
+
+    query_image = torch.randn(2, 3, 32, 32)
+    prompt_images = torch.randn(2, 2, 3, 32, 32)
+
+    outputs = model(
+        query_image=query_image,
+        prompt_images=prompt_images,
+        obj_types=["candle", "candle"],
+        return_aux=True,
+        return_dict=True,
+    )
+    aux = outputs["aux"]
+
+    expected_static, _ = model.static_text_prior_head(
+        aux["adapted_query_global"],
+        aux["text_prototypes"]["static"]["normal"],
+        aux["text_prototypes"]["static"]["anomaly"],
+    )
+    expected_adaptive, _ = model.adaptive_text_prior_head(
+        aux["raw_query_global"],
+        aux["text_prototypes"]["adaptive"]["normal"],
+        aux["text_prototypes"]["adaptive"]["anomaly"],
+    )
+
+    assert torch.allclose(outputs["static_text_logit"], expected_static, atol=1e-6)
+    assert torch.allclose(outputs["adaptive_text_logit"], expected_adaptive, atol=1e-6)
 
 
 def test_visual_phase_gives_pqa_global_head_gradients():
@@ -392,3 +427,5 @@ def test_text_prototype_cache_matches_direct_text_outputs():
 
     assert torch.allclose(cached_outputs["final_score"], direct_outputs["final_score"], atol=1e-5)
     assert torch.allclose(cached_outputs["text_score"], direct_outputs["text_score"], atol=1e-5)
+    assert torch.allclose(cached_outputs["static_text_score"], direct_outputs["static_text_score"], atol=1e-5)
+    assert torch.allclose(cached_outputs["adaptive_text_score"], direct_outputs["adaptive_text_score"], atol=1e-5)

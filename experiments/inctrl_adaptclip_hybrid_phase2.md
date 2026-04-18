@@ -16,15 +16,20 @@ The model should keep InCTRL's multi-layer nearest-neighbor patch residual as th
 - PQA always runs when enabled and is included in visual-phase parameters even when its local map is not used as the final `patch_map`.
 - PQA now follows the AdaptCLIP shape more closely: each layer aligns query patches to nearest prompt patches, forms `query + beta * abs(query - aligned_prompt)`, applies shared BN, uses a convolution/deconvolution local head with 2-channel normal/anomaly logits, and uses an MLP global head with 2-channel logits from mean plus top-k pooled features.
 - Textual adapter default is `static_residual`: static InCTRL text prototypes plus two AdaptCLIP-style learnable binary prompts through a zero-init delta projector.
+- Text prior now uses a true dual-anchor structure:
+  - `static_text_logit`: adapted visual feature against static InCTRL / WinCLIP templates
+  - `adaptive_text_logit`: frozen raw visual feature against TA-adapted text prototypes
+  - `text_logit = 0.5 * (static_text_logit + adaptive_text_logit)`
 - Classification branches are logits-first. Evaluation still uses sigmoid scores.
-- Default final scoring is now protected by raw InCTRL residuals:
+- Default final scoring now follows the principle-first InCTRL path:
 
 ```text
-M_raw = nearest_neighbor_residual(raw_clip_query_tokens, raw_clip_prompt_tokens)
-final_logit = alpha * max(M_raw)
+M_plus = M + lambda_g * image_score + lambda_t * text_score + lambda_p * pqa_score
+base_logit = holistic_head(M_plus) + alpha * max(M)
+final_logit = base_logit
 ```
 
-The additive hybrid score is still produced as `base_logit` for ablations and auxiliary training, but it no longer overwrites the final evaluation score by default. This protects the original InCTRL geometry from being damaged by undertrained VA/PQA/holistic branches in early or low-step runs.
+`raw_max_patch` is still computed and logged as a diagnostic branch, but it is no longer the default deployed prediction.
 
 ## Config Knobs
 
@@ -33,10 +38,11 @@ The additive hybrid score is still produced as `base_logit` for ablations and au
 - `cfg.TEXTUAL_ADAPTER.MAX_PROMPTS_PER_STATE = 32`
 - `cfg.INCTRL_ADAPTER.FUSION_MODE = "paper_additive"`
 - `cfg.INCTRL_ADAPTER.USE_PQA_IN_FINAL_MAP = False`
-- `cfg.INCTRL_ADAPTER.USE_BRANCH_FUSION = True`
+- `cfg.INCTRL_ADAPTER.USE_BRANCH_FUSION = False`
 - `cfg.INCTRL_ADAPTER.LEARNABLE_LAYER_WEIGHTS = True`
 - `cfg.INCTRL_ADAPTER.VISUAL_LOCAL_PER_LAYER = True`
-- `cfg.INCTRL_ADAPTER.FINAL_SCORE_MODE = "raw_max_patch"`
+- `cfg.INCTRL_ADAPTER.FINAL_SCORE_MODE = "base"`
+- `cfg.INCTRL_ADAPTER.USE_MAX_PATCH_FALLBACK = False`
 - `cfg.INCTRL_ADAPTER.MASK_LOSS_WEIGHT = 1.0`
 - CLI loss overrides:
 
@@ -53,13 +59,14 @@ L_visual = focal(final_logit, y)
          + focal(base_logit, y)
          + image_loss_weight * focal(image_logit, y)
          + pqa_loss_weight * focal(pqa_logit, y)
+         + focal(static_text_logit, y)
          + mask_loss_weight * pqa_mask_loss
 ```
 
 Text phase:
 
 ```text
-L_text = focal(text_logit, y) + text_reg_weight * text_static_reg
+L_text = focal(adaptive_text_logit, y) + text_reg_weight * text_static_reg
 ```
 
 PQA local mask supervision is enabled when masks are available. MVTec and VisA mask paths are derived from the query image path when JSON files do not include explicit mask paths. Normal samples and datasets without masks use an all-zero mask, so the same batch shape works for AITEX/ELPV.
@@ -98,7 +105,8 @@ Expected covered behaviors:
 - PQA local head returns 2-channel full-resolution logits/scores
 - visual phase adds PQA mask focal/dice loss when masks are present
 - MVTec and VisA defect masks are derived from image paths
-- raw InCTRL `max(M_raw)` is the default `final_logit`
+- dual text prior exposes `static_text_logit`, `adaptive_text_logit`, and fused `text_logit`
+- default `final_logit` now equals `base_logit`
 - prompt and text caches match direct forward outputs
 - visual/text phase losses use the intended logit branches
 
@@ -113,17 +121,19 @@ This smoke run is only a path check and must not be treated as a trained model.
 Actual local smoke result:
 
 ```text
-Epoch 1 完成 | avg_loss=2.0941
-loss=2.0941, final=0.1667, base=0.1667, image=0.1183, pqa=0.1958, mask=1.4466, text=0.0000
-train=MVTEC train_shot=4 -> test=AITEX eval_shot=4 | AUROC=0.7632, AUPR=0.4161
-train=MVTEC train_shot=4 -> test=ELPV eval_shot=4 | AUROC=0.8790, AUPR=0.9418
-train=MVTEC train_shot=4 -> test=VISA eval_shot=4 | AUROC=0.9253, AUPR=0.9311
-local RTX 3060 Laptop GPU speed: about 2.98s/batch for the single visual-phase batch
+Epoch 1 完成 | avg_loss=2.2447
+loss=2.2447, final=0.1667, base=0.1667, image=0.1183, pqa=0.1958, mask=1.4466, text=0.1506
+AITEX 4-shot: final/base=0.7632, static_text=0.7451, adaptive_text=0.7385, text=0.7415
+ELPV 4-shot: final/base=0.8793, static_text=0.7317, adaptive_text=0.7332, text=0.7324
+VISA candle 4-shot: final/base=0.9223, static_text=0.9654, adaptive_text=0.9661, text=0.9661
+local RTX 3060 Laptop GPU speed: about 1.75s/batch for the single visual-phase batch
 ```
 
-The smoke result is only a path and tensor-shape check. It should not be treated as a trained model, but it confirms that the new 4-tuple dataset output, PQA mask loss, raw residual final score, and cross-domain evaluation targets can run end-to-end.
+The smoke result is only a path and tensor-shape check. It should not be treated as a trained model, but it confirms that the new dual-anchor text prior, principle-first final score, 4-tuple dataset output, PQA mask loss, and cross-domain evaluation targets can run end-to-end.
 
 ## Cloud Smoke Failure Follow-up
+
+This section documents the previous fallback-protected phase for historical comparison. The current default code path is the principle-first `final_logit = base_logit` version described above.
 
 Cloud run reported a severe drop on a tiny VisA two-category smoke:
 

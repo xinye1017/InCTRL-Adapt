@@ -16,6 +16,8 @@ def test_visual_training_loss_uses_logit_branches():
         "base_logit": torch.tensor([0.3, 0.6]),
         "image_logit": torch.tensor([0.1, 0.8]),
         "pqa_logit": torch.tensor([0.4, 0.9]),
+        "static_text_logit": torch.tensor([0.25, 0.75]),
+        "adaptive_text_logit": torch.tensor([0.5, 0.5]),
         "text_logit": torch.tensor([0.5, 0.5]),
         "text_static_reg": torch.tensor(0.25),
     }
@@ -34,13 +36,19 @@ def test_visual_training_loss_uses_logit_branches():
     expected_base = loss_fn(outputs["base_logit"], labels)
     expected_image = loss_fn(outputs["image_logit"], labels)
     expected_pqa = loss_fn(outputs["pqa_logit"], labels)
+    expected_static_text = loss_fn(outputs["static_text_logit"], labels)
 
-    assert torch.allclose(total_loss, expected_final + expected_base + expected_image + 0.5 * expected_pqa)
+    assert torch.allclose(
+        total_loss,
+        expected_final + expected_base + expected_image + 0.5 * expected_pqa + expected_static_text,
+    )
     assert torch.allclose(parts["final_loss"], expected_final.detach())
     assert torch.allclose(parts["base_loss"], expected_base.detach())
     assert torch.allclose(parts["image_loss"], expected_image.detach())
     assert torch.allclose(parts["pqa_loss"], expected_pqa.detach())
-    assert torch.allclose(parts["text_loss"], torch.tensor(0.0))
+    assert torch.allclose(parts["static_text_loss"], expected_static_text.detach())
+    assert torch.allclose(parts["adaptive_text_loss"], torch.tensor(0.0))
+    assert torch.allclose(parts["text_loss"], expected_static_text.detach())
 
 
 def test_visual_training_loss_uses_pqa_mask_supervision_when_masks_are_available():
@@ -51,6 +59,8 @@ def test_visual_training_loss_uses_pqa_mask_supervision_when_masks_are_available
         "base_logit": torch.tensor([0.3, 0.6]),
         "image_logit": torch.tensor([0.1, 0.8]),
         "pqa_logit": torch.tensor([0.4, 0.9]),
+        "static_text_logit": torch.tensor([0.25, 0.75]),
+        "adaptive_text_logit": torch.tensor([0.5, 0.5]),
         "text_logit": torch.tensor([0.5, 0.5]),
         "text_static_reg": torch.tensor(0.25),
         "pqa_local_logits": [torch.randn(2, 2, 8, 8)],
@@ -75,6 +85,7 @@ def test_visual_training_loss_uses_pqa_mask_supervision_when_masks_are_available
         + loss_fn(outputs["base_logit"], labels)
         + loss_fn(outputs["image_logit"], labels)
         + 0.5 * loss_fn(outputs["pqa_logit"], labels)
+        + loss_fn(outputs["static_text_logit"], labels)
     )
 
     assert parts["pqa_mask_loss"] > 0
@@ -89,6 +100,8 @@ def test_text_training_loss_uses_text_logit_and_static_regularizer():
         "base_logit": torch.tensor([0.3, 0.6]),
         "image_logit": torch.tensor([0.1, 0.8]),
         "pqa_logit": torch.tensor([0.4, 0.9]),
+        "static_text_logit": torch.tensor([0.25, 0.75]),
+        "adaptive_text_logit": torch.tensor([0.5, 0.5]),
         "text_logit": torch.tensor([0.5, 0.5]),
         "text_static_reg": torch.tensor(0.25),
     }
@@ -103,10 +116,12 @@ def test_text_training_loss_uses_text_logit_and_static_regularizer():
         text_reg_weight=0.1,
     )
 
-    expected_text = loss_fn(outputs["text_logit"], labels)
+    expected_text = loss_fn(outputs["adaptive_text_logit"], labels)
     expected_reg = 0.1 * outputs["text_static_reg"]
 
     assert torch.allclose(total_loss, expected_text + expected_reg)
+    assert torch.allclose(parts["adaptive_text_loss"], expected_text.detach())
+    assert torch.allclose(parts["static_text_loss"], torch.tensor(0.0))
     assert torch.allclose(parts["text_loss"], expected_text.detach())
     assert torch.allclose(parts["text_reg_loss"], expected_reg.detach())
     assert torch.allclose(parts["final_loss"], torch.tensor(0.0))

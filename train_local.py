@@ -390,6 +390,8 @@ def compute_training_loss(
     image_loss = zero
     pqa_loss = zero
     pqa_mask_loss = zero
+    static_text_loss = zero
+    adaptive_text_loss = zero
     text_loss = zero
     text_reg_loss = zero
 
@@ -398,6 +400,9 @@ def compute_training_loss(
         base_loss = loss_fn(outputs["base_logit"], labels)
         image_loss = loss_fn(outputs["image_logit"], labels) if image_loss_weight > 0 else zero
         pqa_loss = loss_fn(outputs["pqa_logit"], labels) if pqa_loss_weight > 0 else zero
+        static_text_logit = outputs.get("static_text_logit", outputs.get("text_logit"))
+        static_text_loss = loss_fn(static_text_logit, labels) if static_text_logit is not None else zero
+        text_loss = static_text_loss
         pqa_mask_loss = (
             compute_pqa_mask_loss(outputs, masks)
             if masks is not None and mask_loss_weight > 0
@@ -408,10 +413,13 @@ def compute_training_loss(
             + base_loss
             + image_loss_weight * image_loss
             + pqa_loss_weight * pqa_loss
+            + static_text_loss
             + mask_loss_weight * pqa_mask_loss
         )
     elif phase == "text":
-        text_loss = loss_fn(outputs["text_logit"], labels)
+        adaptive_text_logit = outputs.get("adaptive_text_logit", outputs.get("text_logit"))
+        adaptive_text_loss = loss_fn(adaptive_text_logit, labels) if adaptive_text_logit is not None else zero
+        text_loss = adaptive_text_loss
         text_reg_loss = text_reg_weight * outputs.get("text_static_reg", zero)
         total_loss = text_loss + text_reg_loss
     else:
@@ -423,6 +431,8 @@ def compute_training_loss(
         "image_loss": image_loss.detach(),
         "pqa_loss": pqa_loss.detach(),
         "pqa_mask_loss": pqa_mask_loss.detach(),
+        "static_text_loss": static_text_loss.detach(),
+        "adaptive_text_loss": adaptive_text_loss.detach(),
         "text_loss": text_loss.detach(),
         "text_reg_loss": text_reg_loss.detach(),
         "total_loss": total_loss.detach(),
@@ -445,6 +455,8 @@ def evaluate(
     preds_all, labels_all = [], []
     branch_preds = {
         "base": [],
+        "static_text": [],
+        "adaptive_text": [],
         "text": [],
         "pqa": [],
         "image": [],
@@ -470,6 +482,8 @@ def evaluate(
         labels_all.extend(labels.cpu().numpy())
         for branch_name, output_key in [
             ("base", "base_score"),
+            ("static_text", "static_text_score"),
+            ("adaptive_text", "adaptive_text_score"),
             ("text", "text_score"),
             ("pqa", "pqa_score"),
             ("image", "image_score"),

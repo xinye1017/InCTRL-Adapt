@@ -754,7 +754,8 @@ class InCTRLWithAdapters(nn.Module):
             image_size=self.image_size,
         )
         self.image_head = ImageResidualHead(embed_dim, adapter_hidden_dim)
-        self.text_prior_head = TextPriorHead()
+        self.static_text_prior_head = TextPriorHead()
+        self.adaptive_text_prior_head = TextPriorHead()
         self.holistic_head = HolisticScoringHead(self.num_patches, adapter_hidden_dim)
 
         for parameter in self.visual.parameters():
@@ -987,12 +988,51 @@ class InCTRLWithAdapters(nn.Module):
         device: torch.device,
         text_inputs: Optional[Union[Dict[str, object], Sequence[object]]] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        normal_proto, anomaly_proto, _ = self._build_text_prototypes_with_reg(
+        text_proto_bundle, _ = self._build_dual_text_prototypes_with_reg(
             obj_types=obj_types,
             device=device,
             text_inputs=text_inputs,
         )
-        return normal_proto, anomaly_proto
+        return text_proto_bundle["adaptive"]["normal"], text_proto_bundle["adaptive"]["anomaly"]
+
+    def _build_dual_text_prototypes_with_reg(
+        self,
+        obj_types: Sequence[str],
+        device: torch.device,
+        text_inputs: Optional[Union[Dict[str, object], Sequence[object]]] = None,
+    ) -> Tuple[Dict[str, Dict[str, torch.Tensor]], torch.Tensor]:
+        with torch.no_grad():
+            static_normal, static_anomaly = self._build_static_text_prototypes(obj_types, device, text_inputs)
+
+        adaptive_normal = static_normal
+        adaptive_anomaly = static_anomaly
+        text_static_reg = static_normal.new_zeros(())
+        if self.use_text_adapter:
+            if self.textual_adapter.mode == "descriptor_context":
+                adaptive_normal, adaptive_anomaly = self.textual_adapter.build_prototypes(
+                    self,
+                    obj_types,
+                    device,
+                    text_inputs,
+                )
+            else:
+                adaptive_normal, adaptive_anomaly, text_static_reg = self.textual_adapter.build_static_residual_prototypes(
+                    model=self,
+                    static_normal=static_normal,
+                    static_anomaly=static_anomaly,
+                    device=device,
+                )
+
+        return {
+            "static": {
+                "normal": static_normal,
+                "anomaly": static_anomaly,
+            },
+            "adaptive": {
+                "normal": adaptive_normal,
+                "anomaly": adaptive_anomaly,
+            },
+        }, text_static_reg
 
     def _build_text_prototypes_with_reg(
         self,
@@ -1000,19 +1040,15 @@ class InCTRLWithAdapters(nn.Module):
         device: torch.device,
         text_inputs: Optional[Union[Dict[str, object], Sequence[object]]] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        with torch.no_grad():
-            static_normal, static_anomaly = self._build_static_text_prototypes(obj_types, device, text_inputs)
-
-        if not self.use_text_adapter:
-            return static_normal, static_anomaly, static_normal.new_zeros(())
-        if self.textual_adapter.mode == "descriptor_context":
-            normal_proto, anomaly_proto = self.textual_adapter.build_prototypes(self, obj_types, device, text_inputs)
-            return normal_proto, anomaly_proto, normal_proto.new_zeros(())
-        return self.textual_adapter.build_static_residual_prototypes(
-            model=self,
-            static_normal=static_normal,
-            static_anomaly=static_anomaly,
+        text_proto_bundle, text_static_reg = self._build_dual_text_prototypes_with_reg(
+            obj_types=obj_types,
             device=device,
+            text_inputs=text_inputs,
+        )
+        return (
+            text_proto_bundle["adaptive"]["normal"],
+            text_proto_bundle["adaptive"]["anomaly"],
+            text_static_reg,
         )
 
     def _build_static_text_prototypes(
@@ -1068,20 +1104,23 @@ class InCTRLWithAdapters(nn.Module):
         device: torch.device,
         text_inputs: Optional[Union[Dict[str, object], Sequence[object]]] = None,
     ) -> Dict[str, torch.Tensor]:
-        normal_proto, anomaly_proto = self._build_adapted_text_prototypes(
+        text_proto_bundle, _ = self._build_dual_text_prototypes_with_reg(
             obj_types=obj_types,
             device=device,
             text_inputs=text_inputs,
         )
         return {
-            "normal_proto": normal_proto.detach(),
-            "anomaly_proto": anomaly_proto.detach(),
+            "static_normal_proto": text_proto_bundle["static"]["normal"].detach(),
+            "static_anomaly_proto": text_proto_bundle["static"]["anomaly"].detach(),
+            "adaptive_normal_proto": text_proto_bundle["adaptive"]["normal"].detach(),
+            "adaptive_anomaly_proto": text_proto_bundle["adaptive"]["anomaly"].detach(),
         }
 
     def get_visual_parameters(self) -> List[nn.Parameter]:
         modules = [
             self.patch_projection,
             self.image_head,
+            self.static_text_prior_head,
             self.holistic_head,
         ]
         if self.use_visual_adapter:
@@ -1104,7 +1143,7 @@ class InCTRLWithAdapters(nn.Module):
         return parameters
 
     def get_text_parameters(self) -> List[nn.Parameter]:
-        modules = [self.text_prior_head]
+        modules = [self.adaptive_text_prior_head]
         if self.use_text_adapter:
             modules.append(self.textual_adapter)
         parameters: List[nn.Parameter] = []
@@ -1301,24 +1340,50 @@ class InCTRLWithAdapters(nn.Module):
 
         text_static_reg = image_logit.new_zeros(())
         if text_prototype_cache is not None:
-            normal_proto = text_prototype_cache["normal_proto"].to(
+            static_normal_proto = text_prototype_cache["static_normal_proto"].to(
                 query_image.device,
                 dtype=adapted_query_global.dtype,
             )
-            anomaly_proto = text_prototype_cache["anomaly_proto"].to(
+            static_anomaly_proto = text_prototype_cache["static_anomaly_proto"].to(
                 query_image.device,
                 dtype=adapted_query_global.dtype,
             )
-            if normal_proto.size(0) == 1 and batch_size != 1:
-                normal_proto = normal_proto.expand(batch_size, -1)
-                anomaly_proto = anomaly_proto.expand(batch_size, -1)
+            adaptive_normal_proto = text_prototype_cache["adaptive_normal_proto"].to(
+                query_image.device,
+                dtype=query_global.dtype,
+            )
+            adaptive_anomaly_proto = text_prototype_cache["adaptive_anomaly_proto"].to(
+                query_image.device,
+                dtype=query_global.dtype,
+            )
+            if static_normal_proto.size(0) == 1 and batch_size != 1:
+                static_normal_proto = static_normal_proto.expand(batch_size, -1)
+                static_anomaly_proto = static_anomaly_proto.expand(batch_size, -1)
+            if adaptive_normal_proto.size(0) == 1 and batch_size != 1:
+                adaptive_normal_proto = adaptive_normal_proto.expand(batch_size, -1)
+                adaptive_anomaly_proto = adaptive_anomaly_proto.expand(batch_size, -1)
         else:
-            normal_proto, anomaly_proto, text_static_reg = self._build_text_prototypes_with_reg(
+            text_proto_bundle, text_static_reg = self._build_dual_text_prototypes_with_reg(
                 obj_types=obj_types,
                 device=query_image.device,
                 text_inputs=text_inputs,
             )
-        text_logit, text_aux = self.text_prior_head(adapted_query_global, normal_proto, anomaly_proto)
+            static_normal_proto = text_proto_bundle["static"]["normal"]
+            static_anomaly_proto = text_proto_bundle["static"]["anomaly"]
+            adaptive_normal_proto = text_proto_bundle["adaptive"]["normal"]
+            adaptive_anomaly_proto = text_proto_bundle["adaptive"]["anomaly"]
+
+        static_text_logit, static_text_aux = self.static_text_prior_head(
+            adapted_query_global,
+            static_normal_proto,
+            static_anomaly_proto,
+        )
+        adaptive_text_logit, adaptive_text_aux = self.adaptive_text_prior_head(
+            query_global,
+            adaptive_normal_proto,
+            adaptive_anomaly_proto,
+        )
+        text_logit = 0.5 * (static_text_logit + adaptive_text_logit)
         text_score = torch.sigmoid(text_logit)
 
         alpha = self._positive_scalar(self.alpha_raw)
@@ -1386,16 +1451,30 @@ class InCTRLWithAdapters(nn.Module):
                 "per_layer_raw_residual": raw_residual_outputs["residual_maps"],
                 "per_layer_context_score": pq_outputs["context_scores"],
                 "aligned_indices": pq_outputs["aligned_indices"],
+                "raw_query_global": query_global,
                 "adapted_query_global": adapted_query_global,
                 "prompt_global_proto": prompt_global_proto,
                 "image_residual": image_residual,
                 "layer_weights": layer_weights,
                 "branch_weights": branch_weights,
                 "text_prototypes": {
-                    "normal": normal_proto,
-                    "anomaly": anomaly_proto,
+                    "static": {
+                        "normal": static_normal_proto,
+                        "anomaly": static_anomaly_proto,
+                    },
+                    "adaptive": {
+                        "normal": adaptive_normal_proto,
+                        "anomaly": adaptive_anomaly_proto,
+                    },
                 },
-                "text_logits": text_aux,
+                "text_logits": {
+                    "static": static_text_aux,
+                    "adaptive": adaptive_text_aux,
+                    "fused": {
+                        "text_logit": text_logit,
+                        "text_score": text_score,
+                    },
+                },
             }
 
         result = {
@@ -1407,6 +1486,10 @@ class InCTRLWithAdapters(nn.Module):
             "holistic_logit": holistic_logit,
             "image_score": image_score,
             "image_logit": image_logit,
+            "static_text_score": torch.sigmoid(static_text_logit),
+            "static_text_logit": static_text_logit,
+            "adaptive_text_score": torch.sigmoid(adaptive_text_logit),
+            "adaptive_text_logit": adaptive_text_logit,
             "text_score": text_score,
             "text_logit": text_logit,
             "pqa_score": pqa_score,
