@@ -42,28 +42,20 @@ def _get_base_model(model):
     return model.module if hasattr(model, "module") else model
 
 
-def _build_alternating_optimizers(model, lr=1e-3):
+def _build_optimizer(model, lr=1e-3):
     base_model = _get_base_model(model)
-    visual_optimizer = torch.optim.AdamW(
-        base_model.get_visual_parameters(),
+    return torch.optim.AdamW(
+        base_model.get_trainable_parameters(),
         lr=lr,
         betas=(0.9, 0.999),
     )
-    text_optimizer = torch.optim.AdamW(
-        base_model.get_text_parameters(),
-        lr=lr,
-        betas=(0.9, 0.999),
-    )
-    return visual_optimizer, text_optimizer
 
 def train_epoch(
     train_loader,
     model,
-    visual_optimizer,
-    text_optimizer,
+    optimizer,
     tokenizer,
     cfg,
-    phase,
 ):
     """
     Perform the training for one epoch.
@@ -81,8 +73,7 @@ def train_epoch(
     # Enable train mode.
     model.train()
     base_model = _get_base_model(model)
-    base_model.set_train_phase(phase)
-    optimizer = visual_optimizer if phase == "visual" else text_optimizer
+    base_model.set_train_phase("pqa_only")
 
     all_loss = 0.0
     for cur_iter, (inputs, types, labels) in enumerate(train_loader):
@@ -240,7 +231,7 @@ def train(cfg):
     # model = model.module
     model.load_state_dict(checkpoint, strict=False)
 
-    visual_optimizer, text_optimizer = _build_alternating_optimizers(model, lr=1e-3)
+    optimizer = _build_optimizer(model, lr=1e-3)
 
     # Create the train and val loaders.
     train_loader = loader.construct_loader(cfg, "train", transform)
@@ -255,18 +246,15 @@ def train(cfg):
     epoch_timer = EpochTimer()
     for cur_epoch in range(start_epoch, 10):
         print("Epoch: ", cur_epoch)
-        phase = "visual" if cur_epoch % 2 == 0 else "text"
-        print("Train phase: ", phase)
+        print("Train phase: pqa_only")
         # Train for one epoch.
         epoch_timer.epoch_tic()
         epoch_loss = train_epoch(
             train_loader,
             model,
-            visual_optimizer,
-            text_optimizer,
+            optimizer,
             tokenizer,
             cfg,
-            phase,
         )
         epoch_losses.append(epoch_loss)
         epoch_timer.epoch_toc()

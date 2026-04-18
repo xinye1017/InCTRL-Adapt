@@ -23,63 +23,6 @@ def _as_cfg(cfg_obj, cfg_type):
     return cfg_obj
 
 
-def _inverse_softplus(value: float) -> torch.Tensor:
-    value_tensor = torch.tensor(float(value), dtype=torch.float32)
-    return torch.log(torch.expm1(value_tensor))
-
-
-class ResidualMLP(nn.Module):
-    def __init__(self, dim: int, hidden_dim: int):
-        super().__init__()
-        self.norm = nn.LayerNorm(dim)
-        self.fc1 = nn.Linear(dim, hidden_dim)
-        self.act = nn.GELU()
-        self.fc2 = nn.Linear(hidden_dim, dim)
-        nn.init.zeros_(self.fc2.weight)
-        nn.init.zeros_(self.fc2.bias)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        residual = x
-        x = self.norm(x)
-        x = self.fc1(x)
-        x = self.act(x)
-        x = self.fc2(x)
-        return residual + x
-
-
-class ResidualProjectionMLP(nn.Module):
-    def __init__(self, dim: int, hidden_dim: int):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.LayerNorm(dim),
-            nn.Linear(dim, hidden_dim),
-            nn.GELU(),
-            nn.Linear(hidden_dim, dim),
-        )
-        nn.init.zeros_(self.net[-1].weight)
-        nn.init.zeros_(self.net[-1].bias)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x + self.net(x)
-        return F.normalize(x, dim=-1)
-
-
-class ZeroInitProjectionMLP(nn.Module):
-    def __init__(self, dim: int, hidden_dim: int):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.LayerNorm(dim),
-            nn.Linear(dim, hidden_dim),
-            nn.GELU(),
-            nn.Linear(hidden_dim, dim),
-        )
-        nn.init.zeros_(self.net[-1].weight)
-        nn.init.zeros_(self.net[-1].bias)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.net(x)
-
-
 class ContextResidualPatchHead(nn.Module):
     def __init__(self, feature_dim: int, hidden_dim: int):
         super().__init__()
@@ -165,286 +108,6 @@ class HolisticScoringHead(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x).squeeze(-1)
-
-
-class TextPriorHead(nn.Module):
-    def __init__(self, logit_scale_init: float = 1 / 0.07):
-        super().__init__()
-        self.logit_scale = nn.Parameter(torch.log(torch.tensor(logit_scale_init)))
-
-    def forward(
-        self,
-        query_global: torch.Tensor,
-        normal_proto: torch.Tensor,
-        anomaly_proto: torch.Tensor,
-    ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
-        query_global = F.normalize(query_global, dim=-1)
-        normal_proto = F.normalize(normal_proto, dim=-1)
-        anomaly_proto = F.normalize(anomaly_proto, dim=-1)
-
-        scale = self.logit_scale.exp()
-        normal_logit = scale * torch.sum(query_global * normal_proto, dim=-1)
-        anomaly_logit = scale * torch.sum(query_global * anomaly_proto, dim=-1)
-        text_logit = anomaly_logit - normal_logit
-        return text_logit, {
-            "normal_logit": normal_logit,
-            "anomaly_logit": anomaly_logit,
-            "text_logit": text_logit,
-            "text_score": torch.sigmoid(text_logit),
-        }
-
-
-class VisualAdapter(nn.Module):
-    def __init__(
-        self,
-        global_dim: int,
-        local_dim: int,
-        hidden_dim: int,
-        num_layers: int = 1,
-        local_per_layer: bool = True,
-    ):
-        super().__init__()
-        self.global_adapter = ResidualMLP(global_dim, hidden_dim)
-        self.local_per_layer = local_per_layer
-        if local_per_layer:
-            self.local_adapters = nn.ModuleList(
-                ResidualMLP(local_dim, hidden_dim) for _ in range(num_layers)
-            )
-            self.local_adapter = None
-        else:
-            self.local_adapters = None
-            self.local_adapter = ResidualMLP(local_dim, hidden_dim)
-
-    def adapt_global(self, x: torch.Tensor) -> torch.Tensor:
-        return self.global_adapter(x)
-
-    def adapt_local(self, patch_levels: Sequence[torch.Tensor]) -> List[torch.Tensor]:
-        adapted_levels = []
-        for layer_idx, level in enumerate(patch_levels):
-            adapted_levels.append(self.adapt_local_level(level, layer_idx))
-        return adapted_levels
-
-    def adapt_local_level(self, level: torch.Tensor, layer_idx: int) -> torch.Tensor:
-        if self.local_per_layer:
-            return self.local_adapters[layer_idx](level)
-        return self.local_adapter(level)
-
-
-class TextualAdapter(nn.Module):
-    def __init__(
-        self,
-        context_dim: int,
-        feature_dim: int,
-        context_length: int = 12,
-        hidden_dim: int = 256,
-        max_prompts_per_state: Optional[int] = 32,
-        mode: str = "static_residual",
-    ):
-        super().__init__()
-        self.context_length = context_length
-        self.max_prompts_per_state = max_prompts_per_state
-        self.mode = str(mode).lower()
-        if self.mode not in {"static_residual", "descriptor_context"}:
-            raise ValueError("TextualAdapter mode must be static_residual or descriptor_context.")
-        self.normal_ctx = nn.Parameter(torch.empty(context_length, context_dim))
-        self.anomaly_ctx = nn.Parameter(torch.empty(context_length, context_dim))
-        nn.init.normal_(self.normal_ctx, std=0.02)
-        nn.init.normal_(self.anomaly_ctx, std=0.02)
-        self.prototype_adapter = ResidualProjectionMLP(feature_dim, hidden_dim)
-        self.text_delta_adapter = ZeroInitProjectionMLP(feature_dim, hidden_dim)
-        self.static_normal = [
-            "{}",
-            "flawless {}",
-            "perfect {}",
-            "unblemished {}",
-            "{} without flaw",
-            "{} without defect",
-            "{} without damage",
-        ]
-        self.static_anomaly = [
-            "damaged {}",
-            "{} with flaw",
-            "{} with defect",
-            "{} with damage",
-        ]
-
-    def _build_prompt_embeddings(
-        self,
-        model: "InCTRLWithAdapters",
-        descriptors: Sequence[str],
-        context_embeddings: torch.Tensor,
-        device: torch.device,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        prompt_prefix = " ".join(["X"] * self.context_length)
-        prompt_texts = [f"{prompt_prefix} {descriptor}" for descriptor in descriptors]
-        tokenized = tokenize(prompt_texts, context_length=model.context_length).to(device)
-        token_embeddings = model.token_embedding(tokenized).to(model.transformer.get_cast_dtype())
-        prefix = token_embeddings[:, :1, :]
-        suffix = token_embeddings[:, 1 + self.context_length :, :]
-        learned_ctx = context_embeddings.unsqueeze(0).expand(len(descriptors), -1, -1)
-        prompted = torch.cat([prefix, learned_ctx, suffix], dim=1)
-        return prompted, tokenized
-
-    def _build_binary_prompt_embedding(
-        self,
-        model: "InCTRLWithAdapters",
-        context_embeddings: torch.Tensor,
-        device: torch.device,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        prompt_prefix = " ".join(["X"] * self.context_length)
-        tokenized = tokenize([prompt_prefix], context_length=model.context_length).to(device)
-        token_embeddings = model.token_embedding(tokenized).to(model.transformer.get_cast_dtype())
-        prefix = token_embeddings[:, :1, :]
-        suffix = token_embeddings[:, 1 + self.context_length :, :]
-        learned_ctx = context_embeddings.unsqueeze(0)
-        prompted = torch.cat([prefix, learned_ctx, suffix], dim=1)
-        return prompted, tokenized
-
-    def build_static_residual_prototypes(
-        self,
-        model: "InCTRLWithAdapters",
-        static_normal: torch.Tensor,
-        static_anomaly: torch.Tensor,
-        device: torch.device,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        prompted_normal, tokenized_normal = self._build_binary_prompt_embedding(
-            model=model,
-            context_embeddings=self.normal_ctx,
-            device=device,
-        )
-        prompted_anomaly, tokenized_anomaly = self._build_binary_prompt_embedding(
-            model=model,
-            context_embeddings=self.anomaly_ctx,
-            device=device,
-        )
-
-        normal_prompt = model.encode_text_prompted(prompted_normal, tokenized_normal, normalize=True)
-        anomaly_prompt = model.encode_text_prompted(prompted_anomaly, tokenized_anomaly, normalize=True)
-        normal_delta = self.text_delta_adapter(normal_prompt)
-        anomaly_delta = self.text_delta_adapter(anomaly_prompt)
-
-        normal_proto = F.normalize(static_normal + normal_delta.expand_as(static_normal), dim=-1)
-        anomaly_proto = F.normalize(static_anomaly + anomaly_delta.expand_as(static_anomaly), dim=-1)
-        text_static_reg = (
-            2.0
-            - (normal_proto * F.normalize(static_normal, dim=-1)).sum(dim=-1)
-            - (anomaly_proto * F.normalize(static_anomaly, dim=-1)).sum(dim=-1)
-        ).mean()
-        return normal_proto, anomaly_proto, text_static_reg
-
-    def _limit_descriptors(self, descriptors: Sequence[str]) -> List[str]:
-        descriptors = list(descriptors)
-        if self.max_prompts_per_state is None or self.max_prompts_per_state <= 0:
-            return descriptors
-        return descriptors[: self.max_prompts_per_state]
-
-    def _resolve_descriptors(
-        self,
-        obj_type: str,
-        text_inputs: Optional[Union[Dict[str, object], Sequence[object]]] = None,
-        index: Optional[int] = None,
-    ) -> Tuple[List[str], List[str]]:
-        if text_inputs is None:
-            return get_texts(obj_type.replace("_", " "))
-
-        if isinstance(text_inputs, dict):
-            if "normal" in text_inputs and "anomaly" in text_inputs:
-                return list(text_inputs["normal"]), list(text_inputs["anomaly"])
-            if obj_type in text_inputs:
-                per_type = text_inputs[obj_type]
-                return list(per_type["normal"]), list(per_type["anomaly"])
-
-        if isinstance(text_inputs, Sequence) and index is not None:
-            sample_item = text_inputs[index]
-            if isinstance(sample_item, dict):
-                return list(sample_item["normal"]), list(sample_item["anomaly"])
-            if isinstance(sample_item, (tuple, list)) and len(sample_item) == 2:
-                return list(sample_item[0]), list(sample_item[1])
-
-        return get_texts(obj_type.replace("_", " "))
-
-    def _build_single_prototype(
-        self,
-        model: "InCTRLWithAdapters",
-        obj_type: str,
-        device: torch.device,
-        text_inputs: Optional[Union[Dict[str, object], Sequence[object]]] = None,
-        index: Optional[int] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        normal_descriptors, anomaly_descriptors = self._resolve_descriptors(obj_type, text_inputs, index)
-        normal_descriptors = self._limit_descriptors(normal_descriptors)
-        anomaly_descriptors = self._limit_descriptors(anomaly_descriptors)
-
-        prompted_normal, tokenized_normal = self._build_prompt_embeddings(
-            model=model,
-            descriptors=normal_descriptors,
-            context_embeddings=self.normal_ctx,
-            device=device,
-        )
-        prompted_anomaly, tokenized_anomaly = self._build_prompt_embeddings(
-            model=model,
-            descriptors=anomaly_descriptors,
-            context_embeddings=self.anomaly_ctx,
-            device=device,
-        )
-
-        normal_features = model.encode_text_prompted(prompted_normal, tokenized_normal, normalize=True)
-        anomaly_features = model.encode_text_prompted(prompted_anomaly, tokenized_anomaly, normalize=True)
-
-        normal_proto = self.prototype_adapter(normal_features.mean(dim=0, keepdim=True)).squeeze(0)
-        anomaly_proto = self.prototype_adapter(anomaly_features.mean(dim=0, keepdim=True)).squeeze(0)
-        return normal_proto, anomaly_proto
-
-    def build_prototypes(
-        self,
-        model: "InCTRLWithAdapters",
-        obj_types: Sequence[str],
-        device: torch.device,
-        text_inputs: Optional[Union[Dict[str, object], Sequence[object]]] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        normal_prototypes = []
-        anomaly_prototypes = []
-
-        if text_inputs is None or isinstance(text_inputs, dict):
-            unique_obj_types = []
-            inverse_indices = []
-            unique_index = {}
-            for obj_type in obj_types:
-                obj_key = str(obj_type)
-                if obj_key not in unique_index:
-                    unique_index[obj_key] = len(unique_obj_types)
-                    unique_obj_types.append(obj_type)
-                inverse_indices.append(unique_index[obj_key])
-
-            for obj_type in unique_obj_types:
-                normal_proto, anomaly_proto = self._build_single_prototype(
-                    model=model,
-                    obj_type=obj_type,
-                    device=device,
-                    text_inputs=text_inputs,
-                )
-                normal_prototypes.append(normal_proto)
-                anomaly_prototypes.append(anomaly_proto)
-
-            normal_unique = torch.stack(normal_prototypes, dim=0)
-            anomaly_unique = torch.stack(anomaly_prototypes, dim=0)
-            inverse = torch.tensor(inverse_indices, device=device, dtype=torch.long)
-            return normal_unique.index_select(0, inverse), anomaly_unique.index_select(0, inverse)
-
-        for index, obj_type in enumerate(obj_types):
-            normal_proto, anomaly_proto = self._build_single_prototype(
-                model=model,
-                obj_type=obj_type,
-                device=device,
-                text_inputs=text_inputs,
-                index=index,
-            )
-            normal_prototypes.append(normal_proto)
-            anomaly_prototypes.append(anomaly_proto)
-
-        normal_prototypes = torch.stack(normal_prototypes, dim=0)
-        anomaly_prototypes = torch.stack(anomaly_prototypes, dim=0)
-        return normal_prototypes, anomaly_prototypes
 
 
 class PromptQueryAdapter(nn.Module):
@@ -579,21 +242,7 @@ class PromptQueryAdapter(nn.Module):
 
 
 class InCTRLWithAdapters(nn.Module):
-    """
-    InCTRL backbone with AdaptCLIP-style Textual / Visual / Prompt-Query adapters.
-
-    The architecture intentionally stays InCTRL-shaped:
-    - multi-layer patch residual learning remains the main local anomaly signal
-    - image residual learning remains a dedicated global branch
-    - text prior remains an auxiliary branch instead of a separate classifier
-    - all branches fuse through one holistic scoring head plus max-patch compensation
-
-    Alternating learning is exposed through set_train_phase():
-    optimizing text and visual adapters together can cause mutual interference,
-    overfit faster on the auxiliary training domain, and distort CLIP's original
-    vision-language alignment. The phase API lets the training script alternate
-    updates explicitly while forward() stays identical across phases.
-    """
+    """Original InCTRL backbone with a single extra prompt-query adapter branch."""
 
     def __init__(
         self,
@@ -612,20 +261,10 @@ class InCTRLWithAdapters(nn.Module):
         lambda_t: float = 1.0,
         lambda_p: float = 1.0,
         alpha: float = 0.5,
-        use_text_adapter: Optional[bool] = None,
-        use_visual_adapter: Optional[bool] = None,
-        use_prompt_query_adapter: Optional[bool] = None,
-        use_pqa_in_final_map: Optional[bool] = None,
-        use_branch_fusion: Optional[bool] = None,
-        use_max_patch_fallback: Optional[bool] = None,
-        final_score_mode: Optional[str] = None,
-        fusion_mode: Optional[str] = None,
         text_adapter_ctx_len: int = 12,
         adapter_hidden_dim: int = 256,
         patch_has_cls_token: bool = True,
         feature_is_projected: bool = True,
-        learnable_layer_weights: Optional[bool] = None,
-        visual_adapter_local_per_layer: Optional[bool] = None,
     ):
         super().__init__()
         self.output_dict = output_dict
@@ -640,70 +279,12 @@ class InCTRLWithAdapters(nn.Module):
         self.text_cfg = _as_cfg(text_cfg, CLIPTextCfg)
         self.image_size = getattr(args, "image_size", self.vision_cfg.image_size)
         self.shot = getattr(args, "shot", 1)
-        textual_adapter_cfg = getattr(args, "TEXTUAL_ADAPTER", None)
-        inctrl_adapter_cfg = getattr(args, "INCTRL_ADAPTER", None)
-        if use_text_adapter is None:
-            use_text_adapter = bool(getattr(textual_adapter_cfg, "ENABLE", False))
-        if use_visual_adapter is None:
-            use_visual_adapter = True
-        if use_prompt_query_adapter is None:
-            use_prompt_query_adapter = True
-        if use_pqa_in_final_map is None:
-            use_pqa_in_final_map = bool(
-                getattr(inctrl_adapter_cfg, "USE_PQA_IN_FINAL_MAP", False)
-            )
-        if use_branch_fusion is None:
-            use_branch_fusion = bool(getattr(inctrl_adapter_cfg, "USE_BRANCH_FUSION", True))
-        if use_max_patch_fallback is None:
-            use_max_patch_fallback = bool(
-                getattr(inctrl_adapter_cfg, "USE_MAX_PATCH_FALLBACK", True)
-            )
-        if final_score_mode is None:
-            final_score_mode = getattr(inctrl_adapter_cfg, "FINAL_SCORE_MODE", "raw_max_patch")
-        final_score_mode = str(final_score_mode).lower()
-        if final_score_mode not in {"raw_max_patch", "branch_fusion", "base"}:
-            raise ValueError("final_score_mode must be one of: raw_max_patch, branch_fusion, base")
-        if learnable_layer_weights is None:
-            learnable_layer_weights = bool(
-                getattr(inctrl_adapter_cfg, "LEARNABLE_LAYER_WEIGHTS", True)
-            )
-        if visual_adapter_local_per_layer is None:
-            visual_adapter_local_per_layer = bool(
-                getattr(inctrl_adapter_cfg, "VISUAL_LOCAL_PER_LAYER", True)
-            )
-        pqa_global_topk = int(getattr(inctrl_adapter_cfg, "PQA_GLOBAL_TOPK", 10))
-        if fusion_mode is None:
-            fusion_mode = getattr(inctrl_adapter_cfg, "FUSION_MODE", "paper_additive")
-        fusion_mode = str(fusion_mode).lower()
-        if fusion_mode not in {"inctrl", "paper_additive", "legacy_hybrid"}:
-            raise ValueError(
-                "fusion_mode must be one of: inctrl, paper_additive, legacy_hybrid"
-            )
+        pqa_cfg = getattr(args, "PQA", None)
+        pqa_global_topk = int(getattr(pqa_cfg, "GLOBAL_TOPK", 10))
 
-        self.alpha_raw = nn.Parameter(_inverse_softplus(alpha))
-        self.lambda_g_raw = nn.Parameter(_inverse_softplus(lambda_g))
-        self.lambda_t_raw = nn.Parameter(_inverse_softplus(lambda_t))
-        self.lambda_p_raw = nn.Parameter(_inverse_softplus(lambda_p))
-        self.beta_raw = nn.Parameter(_inverse_softplus(beta))
-        self.branch_logits = nn.Parameter(torch.tensor([0.0, -2.0, -4.0, 4.0], dtype=torch.float32))
-        if learnable_layer_weights:
-            self.layer_logits = nn.Parameter(torch.zeros(len(self.patch_layers)))
-        else:
-            self.register_buffer("layer_logits", torch.zeros(len(self.patch_layers)))
-        self.use_text_adapter = use_text_adapter
-        self.use_visual_adapter = use_visual_adapter
-        self.use_prompt_query_adapter = use_prompt_query_adapter
-        self.use_pqa_in_final_map = use_pqa_in_final_map
-        self.use_branch_fusion = use_branch_fusion
-        self.use_max_patch_fallback = use_max_patch_fallback
-        self.final_score_mode = final_score_mode
-        self.fusion_mode = fusion_mode
-        max_prompts_per_state = getattr(
-            textual_adapter_cfg,
-            "MAX_PROMPTS_PER_STATE",
-            32,
-        )
-        text_adapter_mode = getattr(textual_adapter_cfg, "MODE", "static_residual")
+        self.beta = float(beta)
+        self.pqa_global_topk = pqa_global_topk
+        self.train_phase = "pqa_only"
 
         self.visual = _build_vision_tower_Mul(embed_dim, self.vision_cfg, quick_gelu, cast_dtype)
 
@@ -727,21 +308,8 @@ class InCTRLWithAdapters(nn.Module):
             self.patch_projection = nn.Linear(raw_patch_dim, embed_dim)
             patch_feature_dim = embed_dim
 
-        self.textual_adapter = TextualAdapter(
-            context_dim=self.text_cfg.width,
-            feature_dim=embed_dim,
-            context_length=text_adapter_ctx_len,
-            hidden_dim=adapter_hidden_dim,
-            max_prompts_per_state=max_prompts_per_state,
-            mode=text_adapter_mode,
-        )
-        self.visual_adapter = VisualAdapter(
-            global_dim=embed_dim,
-            local_dim=patch_feature_dim,
-            hidden_dim=adapter_hidden_dim,
-            num_layers=len(self.patch_layers),
-            local_per_layer=visual_adapter_local_per_layer,
-        )
+        self.textual_adapter = None
+        self.visual_adapter = None
         self.prompt_query_adapter = PromptQueryAdapter(
             feature_dim=patch_feature_dim,
             hidden_dim=adapter_hidden_dim,
@@ -749,13 +317,11 @@ class InCTRLWithAdapters(nn.Module):
             beta=beta,
             gamma_r=gamma_r,
             gamma_c=gamma_c,
-            learnable_layer_weights=learnable_layer_weights,
+            learnable_layer_weights=False,
             global_topk=pqa_global_topk,
             image_size=self.image_size,
         )
         self.image_head = ImageResidualHead(embed_dim, adapter_hidden_dim)
-        self.static_text_prior_head = TextPriorHead()
-        self.adaptive_text_prior_head = TextPriorHead()
         self.holistic_head = HolisticScoringHead(self.num_patches, adapter_hidden_dim)
 
         for parameter in self.visual.parameters():
@@ -769,13 +335,15 @@ class InCTRLWithAdapters(nn.Module):
         self.positional_embedding.requires_grad = False
         self.text_projection.requires_grad = False
 
-        self.set_train_phase("visual")
-
-    def _positive_scalar(self, raw_value: torch.Tensor) -> torch.Tensor:
-        return F.softplus(raw_value)
+        self.set_train_phase("pqa_only")
 
     def _get_layer_weights(self, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
-        return torch.softmax(self.layer_logits.to(device=device, dtype=dtype), dim=0)
+        return torch.full(
+            (len(self.patch_layers),),
+            1.0 / len(self.patch_layers),
+            device=device,
+            dtype=dtype,
+        )
 
     def encode_text_prompted(
         self,
@@ -893,7 +461,7 @@ class InCTRLWithAdapters(nn.Module):
 
     def _adapt_patch_levels(self, patch_levels: torch.Tensor) -> List[torch.Tensor]:
         level_list = [patch_levels[:, level_idx, :, :] for level_idx in range(patch_levels.shape[1])]
-        if not self.use_visual_adapter:
+        if self.visual_adapter is None:
             return level_list
         return self.visual_adapter.adapt_local(level_list)
 
@@ -915,7 +483,7 @@ class InCTRLWithAdapters(nn.Module):
         adapted_levels = []
         for level_idx in range(patch_levels.shape[1]):
             level = patch_levels[:, level_idx, :, :, :]
-            if self.use_visual_adapter:
+            if self.visual_adapter is not None:
                 flat_level = level.reshape(-1, level.shape[-2], level.shape[-1])
                 adapted = self.visual_adapter.adapt_local_level(flat_level, level_idx)
                 adapted = adapted.reshape(level.shape[0], level.shape[1], level.shape[2], level.shape[3])
@@ -930,11 +498,7 @@ class InCTRLWithAdapters(nn.Module):
         prompt_images: Optional[torch.Tensor] = None,
         normal_list: Optional[Union[torch.Tensor, Sequence[torch.Tensor]]] = None,
     ) -> Dict[str, object]:
-        """Pre-encode shared few-shot prompt images for fast evaluation.
-
-        The cache stores prompt-side features after visual adaptation, so each
-        category/shot only pays the prompt visual-tower cost once.
-        """
+        """Pre-encode shared few-shot prompt images for fast evaluation."""
         if prompt_images is None:
             if normal_list is None:
                 raise ValueError("Either prompt_images or normal_list must be provided.")
@@ -961,10 +525,7 @@ class InCTRLWithAdapters(nn.Module):
         )
         prompt_global = prompt_global.reshape(1, num_shots, -1)
 
-        if self.use_visual_adapter:
-            adapted_prompt_global = self.visual_adapter.adapt_global(prompt_global)
-        else:
-            adapted_prompt_global = prompt_global
+        adapted_prompt_global = prompt_global
         adapted_prompt_patch_levels = self._adapt_prompt_patch_levels(prompt_patch_levels)
         prompt_patch_level_list = self._as_prompt_level_list(prompt_patch_levels)
 
@@ -982,75 +543,6 @@ class InCTRLWithAdapters(nn.Module):
             "num_shots": num_shots,
         }
 
-    def _build_adapted_text_prototypes(
-        self,
-        obj_types: Sequence[str],
-        device: torch.device,
-        text_inputs: Optional[Union[Dict[str, object], Sequence[object]]] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        text_proto_bundle, _ = self._build_dual_text_prototypes_with_reg(
-            obj_types=obj_types,
-            device=device,
-            text_inputs=text_inputs,
-        )
-        return text_proto_bundle["adaptive"]["normal"], text_proto_bundle["adaptive"]["anomaly"]
-
-    def _build_dual_text_prototypes_with_reg(
-        self,
-        obj_types: Sequence[str],
-        device: torch.device,
-        text_inputs: Optional[Union[Dict[str, object], Sequence[object]]] = None,
-    ) -> Tuple[Dict[str, Dict[str, torch.Tensor]], torch.Tensor]:
-        with torch.no_grad():
-            static_normal, static_anomaly = self._build_static_text_prototypes(obj_types, device, text_inputs)
-
-        adaptive_normal = static_normal
-        adaptive_anomaly = static_anomaly
-        text_static_reg = static_normal.new_zeros(())
-        if self.use_text_adapter:
-            if self.textual_adapter.mode == "descriptor_context":
-                adaptive_normal, adaptive_anomaly = self.textual_adapter.build_prototypes(
-                    self,
-                    obj_types,
-                    device,
-                    text_inputs,
-                )
-            else:
-                adaptive_normal, adaptive_anomaly, text_static_reg = self.textual_adapter.build_static_residual_prototypes(
-                    model=self,
-                    static_normal=static_normal,
-                    static_anomaly=static_anomaly,
-                    device=device,
-                )
-
-        return {
-            "static": {
-                "normal": static_normal,
-                "anomaly": static_anomaly,
-            },
-            "adaptive": {
-                "normal": adaptive_normal,
-                "anomaly": adaptive_anomaly,
-            },
-        }, text_static_reg
-
-    def _build_text_prototypes_with_reg(
-        self,
-        obj_types: Sequence[str],
-        device: torch.device,
-        text_inputs: Optional[Union[Dict[str, object], Sequence[object]]] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        text_proto_bundle, text_static_reg = self._build_dual_text_prototypes_with_reg(
-            obj_types=obj_types,
-            device=device,
-            text_inputs=text_inputs,
-        )
-        return (
-            text_proto_bundle["adaptive"]["normal"],
-            text_proto_bundle["adaptive"]["anomaly"],
-            text_static_reg,
-        )
-
     def _build_static_text_prototypes(
         self,
         obj_types: Sequence[str],
@@ -1060,42 +552,25 @@ class InCTRLWithAdapters(nn.Module):
         """Build the fixed InCTRL / WinCLIP text prior without trainable prompts."""
         normal_prototypes = []
         anomaly_prototypes = []
+        unique_obj_types = []
+        inverse_indices = []
+        unique_index = {}
+        for obj_type in obj_types:
+            obj_key = str(obj_type).replace("_", " ")
+            if obj_key not in unique_index:
+                unique_index[obj_key] = len(unique_obj_types)
+                unique_obj_types.append(obj_key)
+            inverse_indices.append(unique_index[obj_key])
 
-        if text_inputs is None or isinstance(text_inputs, dict):
-            unique_obj_types = []
-            inverse_indices = []
-            unique_index = {}
-            for obj_type in obj_types:
-                obj_key = str(obj_type)
-                if obj_key not in unique_index:
-                    unique_index[obj_key] = len(unique_obj_types)
-                    unique_obj_types.append(obj_type)
-                inverse_indices.append(unique_index[obj_key])
-
-            for obj_type in unique_obj_types:
-                normal_descriptors, anomaly_descriptors = self.textual_adapter._resolve_descriptors(
-                    str(obj_type),
-                    text_inputs,
-                    None,
-                )
-                normal_prototypes.append(self._encode_text_descriptors(normal_descriptors, device))
-                anomaly_prototypes.append(self._encode_text_descriptors(anomaly_descriptors, device))
-
-            normal_stack = torch.stack(normal_prototypes, dim=0)
-            anomaly_stack = torch.stack(anomaly_prototypes, dim=0)
-            index_tensor = torch.tensor(inverse_indices, device=device, dtype=torch.long)
-            return normal_stack[index_tensor], anomaly_stack[index_tensor]
-
-        for index, obj_type in enumerate(obj_types):
-            normal_descriptors, anomaly_descriptors = self.textual_adapter._resolve_descriptors(
-                str(obj_type),
-                text_inputs,
-                index,
-            )
+        for obj_type in unique_obj_types:
+            normal_descriptors, anomaly_descriptors = get_texts(obj_type)
             normal_prototypes.append(self._encode_text_descriptors(normal_descriptors, device))
             anomaly_prototypes.append(self._encode_text_descriptors(anomaly_descriptors, device))
 
-        return torch.stack(normal_prototypes, dim=0), torch.stack(anomaly_prototypes, dim=0)
+        normal_stack = torch.stack(normal_prototypes, dim=0)
+        anomaly_stack = torch.stack(anomaly_prototypes, dim=0)
+        index_tensor = torch.tensor(inverse_indices, device=device, dtype=torch.long)
+        return normal_stack[index_tensor], anomaly_stack[index_tensor]
 
     @torch.no_grad()
     def build_text_prototype_cache(
@@ -1104,71 +579,40 @@ class InCTRLWithAdapters(nn.Module):
         device: torch.device,
         text_inputs: Optional[Union[Dict[str, object], Sequence[object]]] = None,
     ) -> Dict[str, torch.Tensor]:
-        text_proto_bundle, _ = self._build_dual_text_prototypes_with_reg(
+        normal_proto, anomaly_proto = self._build_static_text_prototypes(
             obj_types=obj_types,
             device=device,
             text_inputs=text_inputs,
         )
         return {
-            "static_normal_proto": text_proto_bundle["static"]["normal"].detach(),
-            "static_anomaly_proto": text_proto_bundle["static"]["anomaly"].detach(),
-            "adaptive_normal_proto": text_proto_bundle["adaptive"]["normal"].detach(),
-            "adaptive_anomaly_proto": text_proto_bundle["adaptive"]["anomaly"].detach(),
+            "normal_proto": normal_proto.detach(),
+            "anomaly_proto": anomaly_proto.detach(),
         }
 
-    def get_visual_parameters(self) -> List[nn.Parameter]:
+    def get_trainable_parameters(self) -> List[nn.Parameter]:
         modules = [
             self.patch_projection,
             self.image_head,
-            self.static_text_prior_head,
             self.holistic_head,
+            self.prompt_query_adapter,
         ]
-        if self.use_visual_adapter:
-            modules.append(self.visual_adapter)
-        if self.use_prompt_query_adapter:
-            modules.append(self.prompt_query_adapter)
         parameters: List[nn.Parameter] = []
         for module in modules:
             parameters.extend(list(module.parameters()))
-        parameters.extend([
-            self.alpha_raw,
-            self.lambda_g_raw,
-            self.lambda_t_raw,
-            self.lambda_p_raw,
-            self.beta_raw,
-            self.branch_logits,
-        ])
-        if isinstance(self.layer_logits, nn.Parameter):
-            parameters.append(self.layer_logits)
         return parameters
+
+    def get_visual_parameters(self) -> List[nn.Parameter]:
+        return self.get_trainable_parameters()
 
     def get_text_parameters(self) -> List[nn.Parameter]:
-        modules = [self.adaptive_text_prior_head]
-        if self.use_text_adapter:
-            modules.append(self.textual_adapter)
-        parameters: List[nn.Parameter] = []
-        for module in modules:
-            parameters.extend(list(module.parameters()))
-        return parameters
+        return []
 
     def set_train_phase(self, phase: str) -> None:
-        if phase not in {"visual", "text", "joint"}:
-            raise ValueError(f"Unsupported phase: {phase}")
+        if phase != "pqa_only":
+            raise ValueError(f"Unsupported phase for the PQA-only model: {phase}")
 
-        for parameter in self.get_visual_parameters():
-            parameter.requires_grad = phase in {"visual", "joint"}
-        for parameter in self.get_text_parameters():
-            parameter.requires_grad = phase in {"text", "joint"}
-
-        if not self.use_visual_adapter:
-            for parameter in self.visual_adapter.parameters():
-                parameter.requires_grad = False
-        if not self.use_prompt_query_adapter:
-            for parameter in self.prompt_query_adapter.parameters():
-                parameter.requires_grad = False
-        if not self.use_text_adapter:
-            for parameter in self.textual_adapter.parameters():
-                parameter.requires_grad = False
+        for parameter in self.get_trainable_parameters():
+            parameter.requires_grad = True
 
         for parameter in self.visual.parameters():
             parameter.requires_grad = False
@@ -1181,7 +625,7 @@ class InCTRLWithAdapters(nn.Module):
         self.positional_embedding.requires_grad = False
         self.text_projection.requires_grad = False
 
-        self.train_phase = phase
+        self.train_phase = "pqa_only"
 
     def forward(
         self,
@@ -1201,12 +645,7 @@ class InCTRLWithAdapters(nn.Module):
         query_global, query_patch_tokens = self._encode_visual_features(query_image)
         batch_size = query_image.size(0)
         query_patch_levels = self._prepare_patch_levels(query_patch_tokens, batch_size=batch_size, num_shots=1)
-
-        if self.use_visual_adapter:
-            adapted_query_global = self.visual_adapter.adapt_global(query_global)
-        else:
-            adapted_query_global = query_global
-
+        adapted_query_global = query_global
         adapted_query_patch_levels = self._adapt_patch_levels(query_patch_levels)
 
         if prompt_feature_cache is not None:
@@ -1223,7 +662,7 @@ class InCTRLWithAdapters(nn.Module):
             ]
             adapted_prompt_global = prompt_feature_cache["adapted_prompt_global"].to(
                 query_image.device,
-                dtype=adapted_query_global.dtype,
+                dtype=query_global.dtype,
             )
             adapted_prompt_global = adapted_prompt_global.unsqueeze(0).expand(batch_size, -1, -1)
             adapted_prompt_patch_levels = [
@@ -1244,11 +683,7 @@ class InCTRLWithAdapters(nn.Module):
                 num_shots=num_shots,
             )
             prompt_global = prompt_global.reshape(batch_size, num_shots, -1)
-
-            if self.use_visual_adapter:
-                adapted_prompt_global = self.visual_adapter.adapt_global(prompt_global)
-            else:
-                adapted_prompt_global = prompt_global
+            adapted_prompt_global = prompt_global
             adapted_prompt_patch_levels = self._adapt_prompt_patch_levels(prompt_patch_levels)
 
         layer_weights = self._get_layer_weights(
@@ -1265,137 +700,79 @@ class InCTRLWithAdapters(nn.Module):
             weight * residual
             for weight, residual in zip(layer_weights, raw_residual_outputs["residual_maps"])
         )
-        beta_value = self._positive_scalar(self.beta_raw).to(
+        beta_value = torch.tensor(
+            self.beta,
             device=query_image.device,
             dtype=adapted_query_patch_levels[0].dtype,
         )
-        if self.use_prompt_query_adapter:
-            pq_outputs = self.prompt_query_adapter(
-                query_patch_levels=adapted_query_patch_levels,
-                prompt_patch_levels=adapted_prompt_patch_levels,
-                beta=beta_value,
-            )
-            hybrid_patch_map = sum(
-                weight * evidence
-                for weight, evidence in zip(layer_weights, pq_outputs["patch_evidence_maps"])
-            )
-            pqa_patch_logit = sum(
-                weight * patch_logit
-                for weight, patch_logit in zip(layer_weights, pq_outputs["patch_logits"])
-            )
-            pqa_logit = sum(
-                weight * global_logit
-                for weight, global_logit in zip(layer_weights, pq_outputs["pqa_global_logits"])
-            )
-            pqa_local_logits = sum(
-                weight * local_logit
-                for weight, local_logit in zip(layer_weights, pq_outputs["pqa_local_logits"])
-            )
-        else:
-            residual_outputs = self._compute_patch_residuals(
-                query_patch_levels=adapted_query_patch_levels,
-                prompt_patch_levels=adapted_prompt_patch_levels,
-            )
-            pq_outputs = {
-                "patch_evidence_maps": [],
-                "patch_logits": [],
-                "patch_scores": [],
-                "pqa_global_logits": [],
-                "pqa_global_logits_2c": [],
-                "pqa_global_scores": [],
-                "pqa_local_logits": [],
-                "pqa_local_scores": [],
-                "residual_maps": residual_outputs["residual_maps"],
-                "context_scores": [],
-                "aligned_indices": residual_outputs["aligned_indices"],
-                "aligned_prompt_features": residual_outputs["aligned_prompt_features"],
-                "layer_weights": layer_weights,
-            }
-            hybrid_patch_map = None
-            pqa_patch_logit = torch.zeros_like(pq_outputs["residual_maps"][0])
-            pqa_logit = torch.zeros(batch_size, device=query_image.device, dtype=adapted_query_global.dtype)
-            pqa_local_logits = torch.zeros(
-                batch_size,
-                2,
-                self.image_size,
-                self.image_size,
-                device=query_image.device,
-                dtype=adapted_query_global.dtype,
-            )
+        pq_outputs = self.prompt_query_adapter(
+            query_patch_levels=adapted_query_patch_levels,
+            prompt_patch_levels=adapted_prompt_patch_levels,
+            beta=beta_value,
+        )
+        hybrid_patch_map = sum(
+            weight * evidence
+            for weight, evidence in zip(layer_weights, pq_outputs["patch_evidence_maps"])
+        )
+        pqa_patch_logit = sum(
+            weight * patch_logit
+            for weight, patch_logit in zip(layer_weights, pq_outputs["patch_logits"])
+        )
+        pqa_logit = sum(
+            weight * global_logit
+            for weight, global_logit in zip(layer_weights, pq_outputs["pqa_global_logits"])
+        )
+        pqa_local_logits = sum(
+            weight * local_logit
+            for weight, local_logit in zip(layer_weights, pq_outputs["pqa_local_logits"])
+        )
         base_patch_map = sum(
             weight * residual
             for weight, residual in zip(layer_weights, pq_outputs["residual_maps"])
         )
-        if hybrid_patch_map is None:
-            hybrid_patch_map = base_patch_map
         pqa_patch_score = torch.sigmoid(pqa_patch_logit)
         pqa_score = torch.sigmoid(pqa_logit)
         pqa_local_scores = torch.softmax(pqa_local_logits, dim=1)
-        final_patch_map = hybrid_patch_map if self.use_pqa_in_final_map else base_patch_map
+        final_patch_map = base_patch_map
 
-        prompt_global_proto = adapted_prompt_global.mean(dim=1)
-        image_residual = adapted_query_global - prompt_global_proto
+        prompt_global_proto = prompt_global.mean(dim=1)
+        image_residual = prompt_global_proto - query_global
         image_logit = self.image_head(image_residual)
         image_score = torch.sigmoid(image_logit)
 
-        text_static_reg = image_logit.new_zeros(())
         if text_prototype_cache is not None:
-            static_normal_proto = text_prototype_cache["static_normal_proto"].to(
-                query_image.device,
-                dtype=adapted_query_global.dtype,
-            )
-            static_anomaly_proto = text_prototype_cache["static_anomaly_proto"].to(
-                query_image.device,
-                dtype=adapted_query_global.dtype,
-            )
-            adaptive_normal_proto = text_prototype_cache["adaptive_normal_proto"].to(
+            normal_proto = text_prototype_cache["normal_proto"].to(
                 query_image.device,
                 dtype=query_global.dtype,
             )
-            adaptive_anomaly_proto = text_prototype_cache["adaptive_anomaly_proto"].to(
+            anomaly_proto = text_prototype_cache["anomaly_proto"].to(
                 query_image.device,
                 dtype=query_global.dtype,
             )
-            if static_normal_proto.size(0) == 1 and batch_size != 1:
-                static_normal_proto = static_normal_proto.expand(batch_size, -1)
-                static_anomaly_proto = static_anomaly_proto.expand(batch_size, -1)
-            if adaptive_normal_proto.size(0) == 1 and batch_size != 1:
-                adaptive_normal_proto = adaptive_normal_proto.expand(batch_size, -1)
-                adaptive_anomaly_proto = adaptive_anomaly_proto.expand(batch_size, -1)
+            if normal_proto.size(0) == 1 and batch_size != 1:
+                normal_proto = normal_proto.expand(batch_size, -1)
+                anomaly_proto = anomaly_proto.expand(batch_size, -1)
         else:
-            text_proto_bundle, text_static_reg = self._build_dual_text_prototypes_with_reg(
+            normal_proto, anomaly_proto = self._build_static_text_prototypes(
                 obj_types=obj_types,
                 device=query_image.device,
                 text_inputs=text_inputs,
             )
-            static_normal_proto = text_proto_bundle["static"]["normal"]
-            static_anomaly_proto = text_proto_bundle["static"]["anomaly"]
-            adaptive_normal_proto = text_proto_bundle["adaptive"]["normal"]
-            adaptive_anomaly_proto = text_proto_bundle["adaptive"]["anomaly"]
 
-        static_text_logit, static_text_aux = self.static_text_prior_head(
-            adapted_query_global,
-            static_normal_proto,
-            static_anomaly_proto,
-        )
-        adaptive_text_logit, adaptive_text_aux = self.adaptive_text_prior_head(
-            query_global,
-            adaptive_normal_proto,
-            adaptive_anomaly_proto,
-        )
-        text_logit = 0.5 * (static_text_logit + adaptive_text_logit)
-        text_score = torch.sigmoid(text_logit)
-
-        alpha = self._positive_scalar(self.alpha_raw)
-        lambda_g = self._positive_scalar(self.lambda_g_raw)
-        lambda_t = self._positive_scalar(self.lambda_t_raw)
-        lambda_p = self._positive_scalar(self.lambda_p_raw)
+        query_global_norm = F.normalize(query_global, dim=-1)
+        normal_proto = F.normalize(normal_proto, dim=-1)
+        anomaly_proto = F.normalize(anomaly_proto, dim=-1)
+        normal_logit = 100.0 * torch.sum(query_global_norm * normal_proto, dim=-1)
+        anomaly_logit = 100.0 * torch.sum(query_global_norm * anomaly_proto, dim=-1)
+        text_logits_2c = torch.stack([normal_logit, anomaly_logit], dim=-1)
+        text_score = torch.softmax(text_logits_2c, dim=-1)[:, 1]
+        text_logit = anomaly_logit - normal_logit
 
         holistic_input = (
             base_patch_map
-            + lambda_g * image_score.unsqueeze(-1)
-            + lambda_t * text_score.unsqueeze(-1)
-            + lambda_p * pqa_score.unsqueeze(-1)
+            + image_score.unsqueeze(-1)
+            + text_score.unsqueeze(-1)
+            + pqa_score.unsqueeze(-1)
         )
         holistic_logit = self.holistic_head(holistic_input)
         holistic_score = torch.sigmoid(holistic_logit)
@@ -1404,37 +781,10 @@ class InCTRLWithAdapters(nn.Module):
         max_hybrid_patch_score = hybrid_patch_map.max(dim=-1).values
         max_patch_score = final_patch_map.max(dim=-1).values
 
-        if self.fusion_mode == "inctrl":
-            base_logit = 0.5 * (holistic_logit + max_base_patch_score)
-        elif self.fusion_mode == "paper_additive":
-            base_logit = holistic_logit + alpha * max_base_patch_score
-        else:
-            base_logit = holistic_logit + alpha * max_patch_score
-        max_patch_logit = alpha * max_base_patch_score
-        raw_max_patch_logit = alpha * raw_max_patch_score
-
-        branch_weights = torch.softmax(self.branch_logits, dim=0)
-        if self.final_score_mode == "raw_max_patch":
-            final_logit = raw_max_patch_logit
-        elif self.final_score_mode == "base":
-            final_logit = base_logit
-        elif self.use_branch_fusion:
-            if self.use_max_patch_fallback:
-                final_logit = (
-                    branch_weights[0] * base_logit
-                    + branch_weights[1] * text_logit
-                    + branch_weights[2] * pqa_logit
-                    + branch_weights[3] * max_patch_logit
-                )
-            else:
-                branch_weights_3 = torch.softmax(self.branch_logits[:3], dim=0)
-                final_logit = (
-                    branch_weights_3[0] * base_logit
-                    + branch_weights_3[1] * text_logit
-                    + branch_weights_3[2] * pqa_logit
-                )
-        else:
-            final_logit = base_logit
+        base_logit = 0.5 * (holistic_logit + max_base_patch_score)
+        max_patch_logit = max_base_patch_score
+        raw_max_patch_logit = raw_max_patch_score
+        final_logit = base_logit
         final_score = torch.sigmoid(final_logit)
         base_score = torch.sigmoid(base_logit)
 
@@ -1452,28 +802,12 @@ class InCTRLWithAdapters(nn.Module):
                 "per_layer_context_score": pq_outputs["context_scores"],
                 "aligned_indices": pq_outputs["aligned_indices"],
                 "raw_query_global": query_global,
-                "adapted_query_global": adapted_query_global,
                 "prompt_global_proto": prompt_global_proto,
                 "image_residual": image_residual,
                 "layer_weights": layer_weights,
-                "branch_weights": branch_weights,
                 "text_prototypes": {
-                    "static": {
-                        "normal": static_normal_proto,
-                        "anomaly": static_anomaly_proto,
-                    },
-                    "adaptive": {
-                        "normal": adaptive_normal_proto,
-                        "anomaly": adaptive_anomaly_proto,
-                    },
-                },
-                "text_logits": {
-                    "static": static_text_aux,
-                    "adaptive": adaptive_text_aux,
-                    "fused": {
-                        "text_logit": text_logit,
-                        "text_score": text_score,
-                    },
+                    "normal": normal_proto,
+                    "anomaly": anomaly_proto,
                 },
             }
 
@@ -1486,10 +820,6 @@ class InCTRLWithAdapters(nn.Module):
             "holistic_logit": holistic_logit,
             "image_score": image_score,
             "image_logit": image_logit,
-            "static_text_score": torch.sigmoid(static_text_logit),
-            "static_text_logit": static_text_logit,
-            "adaptive_text_score": torch.sigmoid(adaptive_text_logit),
-            "adaptive_text_logit": adaptive_text_logit,
             "text_score": text_score,
             "text_logit": text_logit,
             "pqa_score": pqa_score,
@@ -1508,8 +838,6 @@ class InCTRLWithAdapters(nn.Module):
             "raw_max_patch_logit": raw_max_patch_logit,
             "max_base_patch_score": max_base_patch_score,
             "max_hybrid_patch_score": max_hybrid_patch_score,
-            "branch_weights": branch_weights,
-            "text_static_reg": text_static_reg,
             "aux": aux,
         }
         return result
@@ -1521,7 +849,4 @@ __all__ = [
     "ImageResidualHead",
     "InCTRLWithAdapters",
     "PromptQueryAdapter",
-    "TextPriorHead",
-    "TextualAdapter",
-    "VisualAdapter",
 ]

@@ -58,7 +58,6 @@ EVAL_SHOTS = [2, 4, 8]
 DEFAULT_TRAIN_DATASETS = ["mvtec", "visa"]
 IMAGE_LOSS_WEIGHT = 1.0
 PQA_LOSS_WEIGHT = 1.0
-TEXT_REG_WEIGHT = 0.01
 MASK_LOSS_WEIGHT = 1.0
 
 
@@ -223,35 +222,22 @@ def build_model(device):
 # 训练工具
 # ============================================================================
 
-def get_trainable_parameters(model, phase):
-    """获取当前 phase 下可训练参数"""
-    if phase == "visual":
-        params = model.get_visual_parameters()
-    elif phase == "text":
-        params = model.get_text_parameters()
-    else:
-        raise ValueError(f"Unsupported phase: {phase}")
-
+def get_trainable_parameters(model):
+    """获取 PQA-only 路径下可训练参数。"""
+    params = model.get_trainable_parameters()
     params = [param for param in params if param.requires_grad]
     if not params:
-        raise RuntimeError(f"No trainable parameters found for phase={phase}.")
+        raise RuntimeError("No trainable parameters found for the PQA-only path.")
     return params
 
 
-def build_optimizers(model, lr=1e-3, weight_decay=0.0):
-    visual_optimizer = torch.optim.AdamW(
-        model.get_visual_parameters(),
+def build_optimizer(model, lr=1e-3, weight_decay=0.0):
+    return torch.optim.AdamW(
+        model.get_trainable_parameters(),
         lr=lr,
         betas=(0.9, 0.999),
         weight_decay=weight_decay,
     )
-    text_optimizer = torch.optim.AdamW(
-        model.get_text_parameters(),
-        lr=lr,
-        betas=(0.9, 0.999),
-        weight_decay=weight_decay,
-    )
-    return visual_optimizer, text_optimizer
 
 
 def build_scheduler(optimizer, n_epochs):
@@ -375,66 +361,35 @@ def compute_training_loss(
     outputs,
     labels,
     loss_fn,
-    phase,
+    phase=None,
     masks=None,
     image_loss_weight=IMAGE_LOSS_WEIGHT,
     pqa_loss_weight=PQA_LOSS_WEIGHT,
     mask_loss_weight=MASK_LOSS_WEIGHT,
-    text_reg_weight=TEXT_REG_WEIGHT,
 ):
-    """Phase-specific hybrid InCTRL objective using logits for trainable branches."""
+    """PQA-only objective: original InCTRL losses plus optional PQA supervision."""
     labels = labels.float()
     zero = outputs["final_logit"].new_zeros(())
-    final_loss = zero
-    base_loss = zero
-    image_loss = zero
-    pqa_loss = zero
-    pqa_mask_loss = zero
-    static_text_loss = zero
-    adaptive_text_loss = zero
-    text_loss = zero
-    text_reg_loss = zero
-
-    if phase == "visual":
-        final_loss = loss_fn(outputs["final_logit"], labels)
-        base_loss = loss_fn(outputs["base_logit"], labels)
-        image_loss = loss_fn(outputs["image_logit"], labels) if image_loss_weight > 0 else zero
-        pqa_loss = loss_fn(outputs["pqa_logit"], labels) if pqa_loss_weight > 0 else zero
-        static_text_logit = outputs.get("static_text_logit", outputs.get("text_logit"))
-        static_text_loss = loss_fn(static_text_logit, labels) if static_text_logit is not None else zero
-        text_loss = static_text_loss
-        pqa_mask_loss = (
-            compute_pqa_mask_loss(outputs, masks)
-            if masks is not None and mask_loss_weight > 0
-            else zero
-        )
-        total_loss = (
-            final_loss
-            + base_loss
-            + image_loss_weight * image_loss
-            + pqa_loss_weight * pqa_loss
-            + static_text_loss
-            + mask_loss_weight * pqa_mask_loss
-        )
-    elif phase == "text":
-        adaptive_text_logit = outputs.get("adaptive_text_logit", outputs.get("text_logit"))
-        adaptive_text_loss = loss_fn(adaptive_text_logit, labels) if adaptive_text_logit is not None else zero
-        text_loss = adaptive_text_loss
-        text_reg_loss = text_reg_weight * outputs.get("text_static_reg", zero)
-        total_loss = text_loss + text_reg_loss
-    else:
-        raise ValueError(f"Unsupported phase: {phase}")
+    final_loss = loss_fn(outputs["final_logit"], labels)
+    image_loss = loss_fn(outputs["image_logit"], labels) if image_loss_weight > 0 else zero
+    pqa_loss = loss_fn(outputs["pqa_logit"], labels) if pqa_loss_weight > 0 else zero
+    pqa_mask_loss = (
+        compute_pqa_mask_loss(outputs, masks)
+        if masks is not None and mask_loss_weight > 0
+        else zero
+    )
+    total_loss = (
+        final_loss
+        + image_loss_weight * image_loss
+        + pqa_loss_weight * pqa_loss
+        + mask_loss_weight * pqa_mask_loss
+    )
 
     return total_loss, {
         "final_loss": final_loss.detach(),
-        "base_loss": base_loss.detach(),
         "image_loss": image_loss.detach(),
         "pqa_loss": pqa_loss.detach(),
         "pqa_mask_loss": pqa_mask_loss.detach(),
-        "static_text_loss": static_text_loss.detach(),
-        "adaptive_text_loss": adaptive_text_loss.detach(),
-        "text_loss": text_loss.detach(),
-        "text_reg_loss": text_reg_loss.detach(),
         "total_loss": total_loss.detach(),
     }
 
@@ -455,8 +410,6 @@ def evaluate(
     preds_all, labels_all = [], []
     branch_preds = {
         "base": [],
-        "static_text": [],
-        "adaptive_text": [],
         "text": [],
         "pqa": [],
         "image": [],
@@ -482,8 +435,6 @@ def evaluate(
         labels_all.extend(labels.cpu().numpy())
         for branch_name, output_key in [
             ("base", "base_score"),
-            ("static_text", "static_text_score"),
-            ("adaptive_text", "adaptive_text_score"),
             ("text", "text_score"),
             ("pqa", "pqa_score"),
             ("image", "image_score"),
@@ -533,7 +484,6 @@ def run_experiment(
     image_loss_weight=IMAGE_LOSS_WEIGHT,
     pqa_loss_weight=PQA_LOSS_WEIGHT,
     mask_loss_weight=MASK_LOSS_WEIGHT,
-    text_reg_weight=TEXT_REG_WEIGHT,
     resume_checkpoint=None,
     start_epoch=0,
 ):
@@ -546,8 +496,7 @@ def run_experiment(
         f"train_shot={train_shot}, eval_shots={eval_shots}, n_epochs={n_epochs}, "
         f"lr={lr}, batch_size={batch_size}, num_workers={num_workers}, "
         f"weight_decay={weight_decay}, image_loss_weight={image_loss_weight}, "
-        f"pqa_loss_weight={pqa_loss_weight}, mask_loss_weight={mask_loss_weight}, "
-        f"text_reg_weight={text_reg_weight}"
+        f"pqa_loss_weight={pqa_loss_weight}, mask_loss_weight={mask_loss_weight}"
     )
     print(f"设备: {DEVICE}")
 
@@ -574,9 +523,8 @@ def run_experiment(
     tokenizer = open_clip.get_tokenizer("ViT-B-16-plus-240")
     loss_fn = BinaryFocalLoss(logits=True).to(DEVICE)
 
-    visual_optimizer, text_optimizer = build_optimizers(model, lr=lr, weight_decay=weight_decay)
-    visual_scheduler = build_scheduler(visual_optimizer, n_epochs)
-    text_scheduler = build_scheduler(text_optimizer, n_epochs)
+    optimizer = build_optimizer(model, lr=lr, weight_decay=weight_decay)
+    scheduler = build_scheduler(optimizer, n_epochs)
 
     CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -595,14 +543,14 @@ def run_experiment(
         checkpoint = torch.load(resume_checkpoint, map_location="cpu")
         if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
             model.load_state_dict(checkpoint["model_state_dict"], strict=False)
-            if "visual_optimizer_state_dict" in checkpoint:
-                visual_optimizer.load_state_dict(checkpoint["visual_optimizer_state_dict"])
-            if "text_optimizer_state_dict" in checkpoint:
-                text_optimizer.load_state_dict(checkpoint["text_optimizer_state_dict"])
-            if "visual_scheduler_state_dict" in checkpoint:
-                visual_scheduler.load_state_dict(checkpoint["visual_scheduler_state_dict"])
-            if "text_scheduler_state_dict" in checkpoint:
-                text_scheduler.load_state_dict(checkpoint["text_scheduler_state_dict"])
+            if "optimizer_state_dict" in checkpoint:
+                optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            elif "visual_optimizer_state_dict" in checkpoint:
+                optimizer.load_state_dict(checkpoint["visual_optimizer_state_dict"])
+            if "scheduler_state_dict" in checkpoint:
+                scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+            elif "visual_scheduler_state_dict" in checkpoint:
+                scheduler.load_state_dict(checkpoint["visual_scheduler_state_dict"])
             if start_epoch == 0 and "epoch" in checkpoint:
                 start_epoch = int(checkpoint["epoch"])
             if "loss" in checkpoint:
@@ -611,38 +559,26 @@ def run_experiment(
             model.load_state_dict(checkpoint, strict=False)
         model = model.to(DEVICE)
         # 调整学习率调度器的当前状态
-        if not (isinstance(checkpoint, dict) and "visual_scheduler_state_dict" in checkpoint):
+        if not (
+            isinstance(checkpoint, dict)
+            and ("scheduler_state_dict" in checkpoint or "visual_scheduler_state_dict" in checkpoint)
+        ):
             for _ in range(start_epoch):
-                visual_scheduler.step()
-                text_scheduler.step()
+                scheduler.step()
         print(f"[INFO] 从 epoch {start_epoch + 1} 继续训练")
 
-    # 尝试加载已有的 loss 历史（恢复训练时需要合并）
     history_loss = []
-    existing_results_path = results_json_path
-    if existing_results_path.exists():
-        try:
-            with open(existing_results_path, encoding="utf-8") as f:
-                existing_data = json.load(f)
-            if "loss" in existing_data and len(existing_data["loss"]) > 0:
-                history_loss = [float(x) for x in existing_data["loss"]]
-                print(f"[INFO] 已加载历史 loss 数据: {len(history_loss)} 个 epoch")
-        except Exception as e:
-            print(f"[WARNING] 加载历史 loss 失败: {e}")
-    if not history_loss and resume_loss_history:
+    if resume_loss_history:
         history_loss = resume_loss_history
         print(f"[INFO] 已从 checkpoint 加载历史 loss 数据: {len(history_loss)} 个 epoch")
 
     # 训练循环
     completed_epoch = start_epoch
     for epoch in range(start_epoch, n_epochs):
-        phase = "visual" if epoch % 2 == 0 else "text"
-        model.set_train_phase(phase)
-        optimizer = visual_optimizer if phase == "visual" else text_optimizer
-        scheduler = visual_scheduler if phase == "visual" else text_scheduler
-        trainable_params = get_trainable_parameters(model, phase)
+        model.set_train_phase("pqa_only")
+        trainable_params = get_trainable_parameters(model)
         current_lr = optimizer.param_groups[0]["lr"]
-        print(f"\nEpoch {epoch + 1}/{n_epochs} | phase={phase} | lr={current_lr:.8f}")
+        print(f"\nEpoch {epoch + 1}/{n_epochs} | phase=pqa_only | lr={current_lr:.8f}")
 
         model.train()
         epoch_loss = 0.0
@@ -675,12 +611,10 @@ def run_experiment(
                 outputs=outputs,
                 labels=labels,
                 loss_fn=loss_fn,
-                phase=phase,
                 masks=masks,
                 image_loss_weight=image_loss_weight,
                 pqa_loss_weight=pqa_loss_weight,
                 mask_loss_weight=mask_loss_weight,
-                text_reg_weight=text_reg_weight,
             )
 
             optimizer.zero_grad()
@@ -694,11 +628,9 @@ def run_experiment(
             batch_pbar.set_postfix({
                 "loss": f"{loss.item():.4f}",
                 "final": f"{loss_parts['final_loss'].item():.4f}",
-                "base": f"{loss_parts['base_loss'].item():.4f}",
                 "image": f"{loss_parts['image_loss'].item():.4f}",
                 "pqa": f"{loss_parts['pqa_loss'].item():.4f}",
                 "mask": f"{loss_parts['pqa_mask_loss'].item():.4f}",
-                "text": f"{loss_parts['text_loss'].item():.4f}",
             })
 
         batch_pbar.close()
@@ -724,25 +656,17 @@ def run_experiment(
         "image_loss_weight": image_loss_weight,
         "pqa_loss_weight": pqa_loss_weight,
         "mask_loss_weight": mask_loss_weight,
-        "text_reg_weight": text_reg_weight,
         "model_architecture": {
-            "fusion_mode": getattr(model, "fusion_mode", None),
-            "final_score_mode": getattr(model, "final_score_mode", None),
-            "use_text_adapter": getattr(model, "use_text_adapter", None),
-            "use_visual_adapter": getattr(model, "use_visual_adapter", None),
-            "use_prompt_query_adapter": getattr(model, "use_prompt_query_adapter", None),
-            "use_pqa_in_final_map": getattr(model, "use_pqa_in_final_map", None),
-            "use_branch_fusion": getattr(model, "use_branch_fusion", None),
+            "mode": "pqa_only",
+            "pqa_global_topk": getattr(model, "pqa_global_topk", None),
         },
         "label": label,
     }
     torch.save(
         {
             "model_state_dict": model.state_dict(),
-            "visual_optimizer_state_dict": visual_optimizer.state_dict(),
-            "text_optimizer_state_dict": text_optimizer.state_dict(),
-            "visual_scheduler_state_dict": visual_scheduler.state_dict(),
-            "text_scheduler_state_dict": text_scheduler.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "scheduler_state_dict": scheduler.state_dict(),
             "cfg": cfg.dump(),
             "experiment_cfg": experiment_cfg,
             "epoch": completed_epoch,
@@ -844,7 +768,6 @@ def run_all_experiments(
     image_loss_weight=IMAGE_LOSS_WEIGHT,
     pqa_loss_weight=PQA_LOSS_WEIGHT,
     mask_loss_weight=MASK_LOSS_WEIGHT,
-    text_reg_weight=TEXT_REG_WEIGHT,
     resume_checkpoint=None,
     start_epoch=0,
 ):
@@ -873,7 +796,6 @@ def run_all_experiments(
             image_loss_weight=image_loss_weight,
             pqa_loss_weight=pqa_loss_weight,
             mask_loss_weight=mask_loss_weight,
-            text_reg_weight=text_reg_weight,
             resume_checkpoint=resume_checkpoint,
             start_epoch=start_epoch,
         )
@@ -902,7 +824,6 @@ def run_all_experiments(
                 "image_loss_weight": image_loss_weight,
                 "pqa_loss_weight": pqa_loss_weight,
                 "mask_loss_weight": mask_loss_weight,
-                "text_reg_weight": text_reg_weight,
                 "summary_rows": summary_rows,
             },
             f,
@@ -945,8 +866,6 @@ if __name__ == "__main__":
                         help="PQA 全局比较分支损失权重，默认 1.0")
     parser.add_argument("--mask-loss-weight", type=float, default=MASK_LOSS_WEIGHT,
                         help="PQA 局部 mask focal/dice 损失权重，默认 1.0")
-    parser.add_argument("--text-reg-weight", type=float, default=TEXT_REG_WEIGHT,
-                        help="TA 静态文本原型残差正则权重，默认 0.01")
     parser.add_argument("--max-test-categories", type=int, default=None,
                         help="仅用于快速验证：限制每个测试域评估的类别数，默认评估全部类别")
     args = parser.parse_args()
@@ -971,7 +890,6 @@ if __name__ == "__main__":
     print(f"IMAGE_LOSS_WEIGHT = {args.image_loss_weight}")
     print(f"PQA_LOSS_WEIGHT = {args.pqa_loss_weight}")
     print(f"MASK_LOSS_WEIGHT = {args.mask_loss_weight}")
-    print(f"TEXT_REG_WEIGHT = {args.text_reg_weight}")
     print(f"MAX_TEST_CATEGORIES = {args.max_test_categories}")
     print(f"LR = {LR}")
     print(f"N_EPOCHS = {args.epochs}")
@@ -995,7 +913,6 @@ if __name__ == "__main__":
         image_loss_weight=args.image_loss_weight,
         pqa_loss_weight=args.pqa_loss_weight,
         mask_loss_weight=args.mask_loss_weight,
-        text_reg_weight=args.text_reg_weight,
         resume_checkpoint=args.resume,
         start_epoch=args.start_epoch,
     )

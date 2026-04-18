@@ -382,57 +382,13 @@ _C.VISUAL_ADAPTER.MODE = "global_local"
 
 
 # ---------------------------------------------------------------------------- #
-# Textual Adapter options
+# PQA-only ablation options
 # ---------------------------------------------------------------------------- #
-_C.TEXTUAL_ADAPTER = CfgNode()
-_C.TEXTUAL_ADAPTER.ENABLE = True
-_C.TEXTUAL_ADAPTER.MODE = "static_residual"
-
-# Maximum normal/anomaly prompt templates kept per object state during trainable
-# textual-adapter prototype construction.
-_C.TEXTUAL_ADAPTER.MAX_PROMPTS_PER_STATE = 32
-
-
-# ---------------------------------------------------------------------------- #
-# InCTRL adapter fusion options
-# ---------------------------------------------------------------------------- #
-_C.INCTRL_ADAPTER = CfgNode()
-
-# Default to the paper-form additive score:
-# base_logit = holistic_logit + alpha * max(base_residual_map).
-_C.INCTRL_ADAPTER.FUSION_MODE = "paper_additive"
-
-# Principle-first default: final prediction follows the InCTRL paper-form base
-# score instead of an engineering fallback branch.
-_C.INCTRL_ADAPTER.FINAL_SCORE_MODE = "base"
-
-# Keep AdaptCLIP-style PQA evidence as an ablation signal by default. The final
-# InCTRL path uses the pure nearest-neighbor residual map unless this is enabled.
-_C.INCTRL_ADAPTER.USE_PQA_IN_FINAL_MAP = False
-
-# Default deployment follows the paper-form InCTRL base score directly. Branch
-# fusion remains available only as an explicit ablation.
-_C.INCTRL_ADAPTER.USE_BRANCH_FUSION = False
-
-# Raw max-patch fallback is disabled by default in principle-first mode.
-_C.INCTRL_ADAPTER.USE_MAX_PATCH_FALLBACK = False
-
-# Share learnable cross-layer weights between base residual and PQA aggregation.
-_C.INCTRL_ADAPTER.LEARNABLE_LAYER_WEIGHTS = True
-
-# Use one local visual adapter per selected CLIP patch layer by default.
-_C.INCTRL_ADAPTER.VISUAL_LOCAL_PER_LAYER = True
+_C.PQA = CfgNode()
 
 # AdaptCLIP-style PQA global pooling uses mean plus top-k mean instead of mean
 # plus a single max token, which is less sensitive to one noisy patch.
-_C.INCTRL_ADAPTER.PQA_GLOBAL_TOPK = 10
-
-# InCTRL optimizes both final holistic score and image-level residual score.
-_C.INCTRL_ADAPTER.IMAGE_LOSS_WEIGHT = 1.0
-
-# AdaptCLIP-style PQA local head uses mask focal/dice supervision when masks are
-# available from the dataset.
-_C.INCTRL_ADAPTER.MASK_LOSS_WEIGHT = 1.0
+_C.PQA.GLOBAL_TOPK = 10
 
 
 # ---------------------------------------------------------------------------- #
