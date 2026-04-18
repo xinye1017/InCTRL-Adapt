@@ -23,6 +23,11 @@ def _as_cfg(cfg_obj, cfg_type):
     return cfg_obj
 
 
+def _inverse_softplus(value: float) -> torch.Tensor:
+    value_tensor = torch.tensor(float(value), dtype=torch.float32)
+    return torch.log(torch.expm1(value_tensor))
+
+
 class ResidualMLP(nn.Module):
     def __init__(self, dim: int, hidden_dim: int):
         super().__init__()
@@ -59,6 +64,22 @@ class ResidualProjectionMLP(nn.Module):
         return F.normalize(x, dim=-1)
 
 
+class ZeroInitProjectionMLP(nn.Module):
+    def __init__(self, dim: int, hidden_dim: int):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.LayerNorm(dim),
+            nn.Linear(dim, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, dim),
+        )
+        nn.init.zeros_(self.net[-1].weight)
+        nn.init.zeros_(self.net[-1].bias)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x)
+
+
 class ContextResidualPatchHead(nn.Module):
     def __init__(self, feature_dim: int, hidden_dim: int):
         super().__init__()
@@ -70,7 +91,7 @@ class ContextResidualPatchHead(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.sigmoid(self.net(x)).squeeze(-1)
+        return self.net(x).squeeze(-1)
 
 
 class ImageResidualHead(nn.Module):
@@ -84,7 +105,7 @@ class ImageResidualHead(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.sigmoid(self.net(x)).squeeze(-1)
+        return self.net(x).squeeze(-1)
 
 
 class HolisticScoringHead(nn.Module):
@@ -101,7 +122,7 @@ class HolisticScoringHead(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.sigmoid(self.net(x)).squeeze(-1)
+        return self.net(x).squeeze(-1)
 
 
 class TextPriorHead(nn.Module):
@@ -122,27 +143,49 @@ class TextPriorHead(nn.Module):
         scale = self.logit_scale.exp()
         normal_logit = scale * torch.sum(query_global * normal_proto, dim=-1)
         anomaly_logit = scale * torch.sum(query_global * anomaly_proto, dim=-1)
-        text_score = torch.sigmoid(anomaly_logit - normal_logit)
-        return text_score, {
+        text_logit = anomaly_logit - normal_logit
+        return text_logit, {
             "normal_logit": normal_logit,
             "anomaly_logit": anomaly_logit,
+            "text_logit": text_logit,
+            "text_score": torch.sigmoid(text_logit),
         }
 
 
 class VisualAdapter(nn.Module):
-    def __init__(self, global_dim: int, local_dim: int, hidden_dim: int):
+    def __init__(
+        self,
+        global_dim: int,
+        local_dim: int,
+        hidden_dim: int,
+        num_layers: int = 1,
+        local_per_layer: bool = True,
+    ):
         super().__init__()
         self.global_adapter = ResidualMLP(global_dim, hidden_dim)
-        self.local_adapter = ResidualMLP(local_dim, hidden_dim)
+        self.local_per_layer = local_per_layer
+        if local_per_layer:
+            self.local_adapters = nn.ModuleList(
+                ResidualMLP(local_dim, hidden_dim) for _ in range(num_layers)
+            )
+            self.local_adapter = None
+        else:
+            self.local_adapters = None
+            self.local_adapter = ResidualMLP(local_dim, hidden_dim)
 
     def adapt_global(self, x: torch.Tensor) -> torch.Tensor:
         return self.global_adapter(x)
 
     def adapt_local(self, patch_levels: Sequence[torch.Tensor]) -> List[torch.Tensor]:
         adapted_levels = []
-        for level in patch_levels:
-            adapted_levels.append(self.local_adapter(level))
+        for layer_idx, level in enumerate(patch_levels):
+            adapted_levels.append(self.adapt_local_level(level, layer_idx))
         return adapted_levels
+
+    def adapt_local_level(self, level: torch.Tensor, layer_idx: int) -> torch.Tensor:
+        if self.local_per_layer:
+            return self.local_adapters[layer_idx](level)
+        return self.local_adapter(level)
 
 
 class TextualAdapter(nn.Module):
@@ -153,15 +196,20 @@ class TextualAdapter(nn.Module):
         context_length: int = 12,
         hidden_dim: int = 256,
         max_prompts_per_state: Optional[int] = 32,
+        mode: str = "static_residual",
     ):
         super().__init__()
         self.context_length = context_length
         self.max_prompts_per_state = max_prompts_per_state
+        self.mode = str(mode).lower()
+        if self.mode not in {"static_residual", "descriptor_context"}:
+            raise ValueError("TextualAdapter mode must be static_residual or descriptor_context.")
         self.normal_ctx = nn.Parameter(torch.empty(context_length, context_dim))
         self.anomaly_ctx = nn.Parameter(torch.empty(context_length, context_dim))
         nn.init.normal_(self.normal_ctx, std=0.02)
         nn.init.normal_(self.anomaly_ctx, std=0.02)
         self.prototype_adapter = ResidualProjectionMLP(feature_dim, hidden_dim)
+        self.text_delta_adapter = ZeroInitProjectionMLP(feature_dim, hidden_dim)
         self.static_normal = [
             "{}",
             "flawless {}",
@@ -194,6 +242,53 @@ class TextualAdapter(nn.Module):
         learned_ctx = context_embeddings.unsqueeze(0).expand(len(descriptors), -1, -1)
         prompted = torch.cat([prefix, learned_ctx, suffix], dim=1)
         return prompted, tokenized
+
+    def _build_binary_prompt_embedding(
+        self,
+        model: "InCTRLWithAdapters",
+        context_embeddings: torch.Tensor,
+        device: torch.device,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        prompt_prefix = " ".join(["X"] * self.context_length)
+        tokenized = tokenize([prompt_prefix], context_length=model.context_length).to(device)
+        token_embeddings = model.token_embedding(tokenized).to(model.transformer.get_cast_dtype())
+        prefix = token_embeddings[:, :1, :]
+        suffix = token_embeddings[:, 1 + self.context_length :, :]
+        learned_ctx = context_embeddings.unsqueeze(0)
+        prompted = torch.cat([prefix, learned_ctx, suffix], dim=1)
+        return prompted, tokenized
+
+    def build_static_residual_prototypes(
+        self,
+        model: "InCTRLWithAdapters",
+        static_normal: torch.Tensor,
+        static_anomaly: torch.Tensor,
+        device: torch.device,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        prompted_normal, tokenized_normal = self._build_binary_prompt_embedding(
+            model=model,
+            context_embeddings=self.normal_ctx,
+            device=device,
+        )
+        prompted_anomaly, tokenized_anomaly = self._build_binary_prompt_embedding(
+            model=model,
+            context_embeddings=self.anomaly_ctx,
+            device=device,
+        )
+
+        normal_prompt = model.encode_text_prompted(prompted_normal, tokenized_normal, normalize=True)
+        anomaly_prompt = model.encode_text_prompted(prompted_anomaly, tokenized_anomaly, normalize=True)
+        normal_delta = self.text_delta_adapter(normal_prompt)
+        anomaly_delta = self.text_delta_adapter(anomaly_prompt)
+
+        normal_proto = F.normalize(static_normal + normal_delta.expand_as(static_normal), dim=-1)
+        anomaly_proto = F.normalize(static_anomaly + anomaly_delta.expand_as(static_anomaly), dim=-1)
+        text_static_reg = (
+            2.0
+            - (normal_proto * F.normalize(static_normal, dim=-1)).sum(dim=-1)
+            - (anomaly_proto * F.normalize(static_anomaly, dim=-1)).sum(dim=-1)
+        ).mean()
+        return normal_proto, anomaly_proto, text_static_reg
 
     def _limit_descriptors(self, descriptors: Sequence[str]) -> List[str]:
         descriptors = list(descriptors)
@@ -329,6 +424,9 @@ class PromptQueryAdapter(nn.Module):
         self.patch_heads = nn.ModuleList(
             ContextResidualPatchHead(feature_dim, hidden_dim) for _ in range(num_layers)
         )
+        self.global_heads = nn.ModuleList(
+            ImageResidualHead(feature_dim, hidden_dim) for _ in range(num_layers)
+        )
         if learnable_layer_weights:
             self.layer_weights = nn.Parameter(torch.zeros(num_layers))
         else:
@@ -343,12 +441,18 @@ class PromptQueryAdapter(nn.Module):
         self,
         query_patch_levels: Sequence[torch.Tensor],
         prompt_patch_levels: Sequence[torch.Tensor],
+        beta: Optional[torch.Tensor] = None,
     ) -> Dict[str, List[torch.Tensor]]:
         patch_evidence_maps = []
+        patch_logits = []
+        patch_scores = []
+        pqa_global_logits = []
+        pqa_global_scores = []
         residual_maps = []
         context_scores = []
         aligned_indices = []
         aligned_prompt_features = []
+        beta_value = self.beta if beta is None else beta
 
         for layer_idx, (query_level, prompt_level) in enumerate(zip(query_patch_levels, prompt_patch_levels)):
             batch_size, num_patches, dim = query_level.shape
@@ -358,15 +462,22 @@ class PromptQueryAdapter(nn.Module):
             prompt_norm = F.normalize(prompt_flat, dim=-1)
             similarity = torch.einsum("bnc,bmc->bnm", query_norm, prompt_norm)
             max_cosine, best_indices = similarity.max(dim=-1)
-            residual = 0.5 * (1.0 - max_cosine)
+            residual = 1.0 - max_cosine
 
             gather_index = best_indices.unsqueeze(-1).expand(-1, -1, dim)
             aligned_prompt = torch.gather(prompt_flat, 1, gather_index)
-            context_feat = query_level + self.beta * torch.abs(query_level - aligned_prompt)
-            context_score = self.patch_heads[layer_idx](context_feat)
+            context_feat = query_level + beta_value * torch.abs(query_level - aligned_prompt)
+            patch_logit = self.patch_heads[layer_idx](context_feat)
+            context_score = torch.sigmoid(patch_logit)
             patch_evidence = self.gamma_r * residual + self.gamma_c * context_score
+            global_feat = 0.5 * (context_feat.mean(dim=1) + context_feat.max(dim=1).values)
+            pqa_global_logit = self.global_heads[layer_idx](global_feat)
 
             patch_evidence_maps.append(patch_evidence)
+            patch_logits.append(patch_logit)
+            patch_scores.append(context_score)
+            pqa_global_logits.append(pqa_global_logit)
+            pqa_global_scores.append(torch.sigmoid(pqa_global_logit))
             residual_maps.append(residual)
             context_scores.append(context_score)
             aligned_indices.append(best_indices)
@@ -374,6 +485,10 @@ class PromptQueryAdapter(nn.Module):
 
         return {
             "patch_evidence_maps": patch_evidence_maps,
+            "patch_logits": patch_logits,
+            "patch_scores": patch_scores,
+            "pqa_global_logits": pqa_global_logits,
+            "pqa_global_scores": pqa_global_scores,
             "residual_maps": residual_maps,
             "context_scores": context_scores,
             "aligned_indices": aligned_indices,
@@ -414,29 +529,27 @@ class InCTRLWithAdapters(nn.Module):
         gamma_c: float = 0.5,
         lambda_g: float = 1.0,
         lambda_t: float = 1.0,
+        lambda_p: float = 1.0,
         alpha: float = 0.5,
-        use_text_adapter: bool = True,
-        use_visual_adapter: bool = True,
-        use_prompt_query_adapter: bool = True,
+        use_text_adapter: Optional[bool] = None,
+        use_visual_adapter: Optional[bool] = None,
+        use_prompt_query_adapter: Optional[bool] = None,
+        use_pqa_in_final_map: Optional[bool] = None,
+        use_branch_fusion: Optional[bool] = None,
+        fusion_mode: Optional[str] = None,
         text_adapter_ctx_len: int = 12,
         adapter_hidden_dim: int = 256,
         patch_has_cls_token: bool = True,
         feature_is_projected: bool = True,
-        learnable_layer_weights: bool = False,
+        learnable_layer_weights: Optional[bool] = None,
+        visual_adapter_local_per_layer: Optional[bool] = None,
     ):
         super().__init__()
         self.output_dict = output_dict
         self.embed_dim = embed_dim
         self.patch_layers = tuple(patch_layers)
-        self.beta = beta
         self.gamma_r = gamma_r
         self.gamma_c = gamma_c
-        self.lambda_g = lambda_g
-        self.lambda_t = lambda_t
-        self.alpha = alpha
-        self.use_text_adapter = use_text_adapter
-        self.use_visual_adapter = use_visual_adapter
-        self.use_prompt_query_adapter = use_prompt_query_adapter
         self.patch_has_cls_token = patch_has_cls_token
         self.feature_is_projected = feature_is_projected
 
@@ -445,11 +558,57 @@ class InCTRLWithAdapters(nn.Module):
         self.image_size = getattr(args, "image_size", self.vision_cfg.image_size)
         self.shot = getattr(args, "shot", 1)
         textual_adapter_cfg = getattr(args, "TEXTUAL_ADAPTER", None)
+        inctrl_adapter_cfg = getattr(args, "INCTRL_ADAPTER", None)
+        if use_text_adapter is None:
+            use_text_adapter = bool(getattr(textual_adapter_cfg, "ENABLE", False))
+        if use_visual_adapter is None:
+            use_visual_adapter = True
+        if use_prompt_query_adapter is None:
+            use_prompt_query_adapter = True
+        if use_pqa_in_final_map is None:
+            use_pqa_in_final_map = bool(
+                getattr(inctrl_adapter_cfg, "USE_PQA_IN_FINAL_MAP", False)
+            )
+        if use_branch_fusion is None:
+            use_branch_fusion = bool(getattr(inctrl_adapter_cfg, "USE_BRANCH_FUSION", True))
+        if learnable_layer_weights is None:
+            learnable_layer_weights = bool(
+                getattr(inctrl_adapter_cfg, "LEARNABLE_LAYER_WEIGHTS", True)
+            )
+        if visual_adapter_local_per_layer is None:
+            visual_adapter_local_per_layer = bool(
+                getattr(inctrl_adapter_cfg, "VISUAL_LOCAL_PER_LAYER", True)
+            )
+        if fusion_mode is None:
+            fusion_mode = getattr(inctrl_adapter_cfg, "FUSION_MODE", "paper_additive")
+        fusion_mode = str(fusion_mode).lower()
+        if fusion_mode not in {"inctrl", "paper_additive", "legacy_hybrid"}:
+            raise ValueError(
+                "fusion_mode must be one of: inctrl, paper_additive, legacy_hybrid"
+            )
+
+        self.alpha_raw = nn.Parameter(_inverse_softplus(alpha))
+        self.lambda_g_raw = nn.Parameter(_inverse_softplus(lambda_g))
+        self.lambda_t_raw = nn.Parameter(_inverse_softplus(lambda_t))
+        self.lambda_p_raw = nn.Parameter(_inverse_softplus(lambda_p))
+        self.beta_raw = nn.Parameter(_inverse_softplus(beta))
+        self.branch_logits = nn.Parameter(torch.tensor([2.0, 0.0, 0.0], dtype=torch.float32))
+        if learnable_layer_weights:
+            self.layer_logits = nn.Parameter(torch.zeros(len(self.patch_layers)))
+        else:
+            self.register_buffer("layer_logits", torch.zeros(len(self.patch_layers)))
+        self.use_text_adapter = use_text_adapter
+        self.use_visual_adapter = use_visual_adapter
+        self.use_prompt_query_adapter = use_prompt_query_adapter
+        self.use_pqa_in_final_map = use_pqa_in_final_map
+        self.use_branch_fusion = use_branch_fusion
+        self.fusion_mode = fusion_mode
         max_prompts_per_state = getattr(
             textual_adapter_cfg,
             "MAX_PROMPTS_PER_STATE",
             32,
         )
+        text_adapter_mode = getattr(textual_adapter_cfg, "MODE", "static_residual")
 
         self.visual = _build_vision_tower_Mul(embed_dim, self.vision_cfg, quick_gelu, cast_dtype)
 
@@ -479,11 +638,14 @@ class InCTRLWithAdapters(nn.Module):
             context_length=text_adapter_ctx_len,
             hidden_dim=adapter_hidden_dim,
             max_prompts_per_state=max_prompts_per_state,
+            mode=text_adapter_mode,
         )
         self.visual_adapter = VisualAdapter(
             global_dim=embed_dim,
             local_dim=patch_feature_dim,
             hidden_dim=adapter_hidden_dim,
+            num_layers=len(self.patch_layers),
+            local_per_layer=visual_adapter_local_per_layer,
         )
         self.prompt_query_adapter = PromptQueryAdapter(
             feature_dim=patch_feature_dim,
@@ -509,7 +671,13 @@ class InCTRLWithAdapters(nn.Module):
         self.positional_embedding.requires_grad = False
         self.text_projection.requires_grad = False
 
-        self.set_train_phase("joint")
+        self.set_train_phase("visual")
+
+    def _positive_scalar(self, raw_value: torch.Tensor) -> torch.Tensor:
+        return F.softplus(raw_value)
+
+    def _get_layer_weights(self, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
+        return torch.softmax(self.layer_logits.to(device=device, dtype=dtype), dim=0)
 
     def encode_text_prompted(
         self,
@@ -526,6 +694,48 @@ class InCTRLWithAdapters(nn.Module):
         x = self.ln_final(x)
         x = x[torch.arange(x.shape[0], device=x.device), tokenized_prompts.argmax(dim=-1)] @ self.text_projection
         return F.normalize(x, dim=-1) if normalize else x
+
+    def _encode_text_descriptors(
+        self,
+        descriptors: Sequence[str],
+        device: torch.device,
+    ) -> torch.Tensor:
+        tokenized = tokenize(list(descriptors), context_length=self.context_length).to(device)
+        token_embeddings = self.token_embedding(tokenized).to(self.transformer.get_cast_dtype())
+        features = self.encode_text_prompted(token_embeddings, tokenized, normalize=True)
+        return F.normalize(features.mean(dim=0, keepdim=True), dim=-1).squeeze(0)
+
+    def _compute_patch_residuals(
+        self,
+        query_patch_levels: Sequence[torch.Tensor],
+        prompt_patch_levels: Sequence[torch.Tensor],
+    ) -> Dict[str, List[torch.Tensor]]:
+        residual_maps = []
+        aligned_indices = []
+        aligned_prompt_features = []
+
+        for query_level, prompt_level in zip(query_patch_levels, prompt_patch_levels):
+            _, _, dim = query_level.shape
+            prompt_flat = prompt_level.reshape(query_level.size(0), -1, dim)
+
+            query_norm = F.normalize(query_level, dim=-1)
+            prompt_norm = F.normalize(prompt_flat, dim=-1)
+            similarity = torch.einsum("bnc,bmc->bnm", query_norm, prompt_norm)
+            max_cosine, best_indices = similarity.max(dim=-1)
+            residual = 1.0 - max_cosine
+
+            gather_index = best_indices.unsqueeze(-1).expand(-1, -1, dim)
+            aligned_prompt = torch.gather(prompt_flat, 1, gather_index)
+
+            residual_maps.append(residual)
+            aligned_indices.append(best_indices)
+            aligned_prompt_features.append(aligned_prompt)
+
+        return {
+            "residual_maps": residual_maps,
+            "aligned_indices": aligned_indices,
+            "aligned_prompt_features": aligned_prompt_features,
+        }
 
     def _parse_visual_outputs(
         self,
@@ -595,7 +805,7 @@ class InCTRLWithAdapters(nn.Module):
             level = patch_levels[:, level_idx, :, :, :]
             if self.use_visual_adapter:
                 flat_level = level.reshape(-1, level.shape[-2], level.shape[-1])
-                adapted = self.visual_adapter.local_adapter(flat_level)
+                adapted = self.visual_adapter.adapt_local_level(flat_level, level_idx)
                 adapted = adapted.reshape(level.shape[0], level.shape[1], level.shape[2], level.shape[3])
             else:
                 adapted = level
@@ -660,9 +870,79 @@ class InCTRLWithAdapters(nn.Module):
         device: torch.device,
         text_inputs: Optional[Union[Dict[str, object], Sequence[object]]] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
+        normal_proto, anomaly_proto, _ = self._build_text_prototypes_with_reg(
+            obj_types=obj_types,
+            device=device,
+            text_inputs=text_inputs,
+        )
+        return normal_proto, anomaly_proto
+
+    def _build_text_prototypes_with_reg(
+        self,
+        obj_types: Sequence[str],
+        device: torch.device,
+        text_inputs: Optional[Union[Dict[str, object], Sequence[object]]] = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        with torch.no_grad():
+            static_normal, static_anomaly = self._build_static_text_prototypes(obj_types, device, text_inputs)
+
         if not self.use_text_adapter:
-            return self.textual_adapter.build_prototypes(self, obj_types, device, text_inputs)
-        return self.textual_adapter.build_prototypes(self, obj_types, device, text_inputs)
+            return static_normal, static_anomaly, static_normal.new_zeros(())
+        if self.textual_adapter.mode == "descriptor_context":
+            normal_proto, anomaly_proto = self.textual_adapter.build_prototypes(self, obj_types, device, text_inputs)
+            return normal_proto, anomaly_proto, normal_proto.new_zeros(())
+        return self.textual_adapter.build_static_residual_prototypes(
+            model=self,
+            static_normal=static_normal,
+            static_anomaly=static_anomaly,
+            device=device,
+        )
+
+    def _build_static_text_prototypes(
+        self,
+        obj_types: Sequence[str],
+        device: torch.device,
+        text_inputs: Optional[Union[Dict[str, object], Sequence[object]]] = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Build the fixed InCTRL / WinCLIP text prior without trainable prompts."""
+        normal_prototypes = []
+        anomaly_prototypes = []
+
+        if text_inputs is None or isinstance(text_inputs, dict):
+            unique_obj_types = []
+            inverse_indices = []
+            unique_index = {}
+            for obj_type in obj_types:
+                obj_key = str(obj_type)
+                if obj_key not in unique_index:
+                    unique_index[obj_key] = len(unique_obj_types)
+                    unique_obj_types.append(obj_type)
+                inverse_indices.append(unique_index[obj_key])
+
+            for obj_type in unique_obj_types:
+                normal_descriptors, anomaly_descriptors = self.textual_adapter._resolve_descriptors(
+                    str(obj_type),
+                    text_inputs,
+                    None,
+                )
+                normal_prototypes.append(self._encode_text_descriptors(normal_descriptors, device))
+                anomaly_prototypes.append(self._encode_text_descriptors(anomaly_descriptors, device))
+
+            normal_stack = torch.stack(normal_prototypes, dim=0)
+            anomaly_stack = torch.stack(anomaly_prototypes, dim=0)
+            index_tensor = torch.tensor(inverse_indices, device=device, dtype=torch.long)
+            return normal_stack[index_tensor], anomaly_stack[index_tensor]
+
+        for index, obj_type in enumerate(obj_types):
+            normal_descriptors, anomaly_descriptors = self.textual_adapter._resolve_descriptors(
+                str(obj_type),
+                text_inputs,
+                index,
+            )
+            normal_prototypes.append(self._encode_text_descriptors(normal_descriptors, device))
+            anomaly_prototypes.append(self._encode_text_descriptors(anomaly_descriptors, device))
+
+        return torch.stack(normal_prototypes, dim=0), torch.stack(anomaly_prototypes, dim=0)
 
     @torch.no_grad()
     def build_text_prototype_cache(
@@ -684,21 +964,32 @@ class InCTRLWithAdapters(nn.Module):
     def get_visual_parameters(self) -> List[nn.Parameter]:
         modules = [
             self.patch_projection,
-            self.visual_adapter,
-            self.prompt_query_adapter,
             self.image_head,
             self.holistic_head,
         ]
+        if self.use_visual_adapter:
+            modules.append(self.visual_adapter)
+        if self.use_prompt_query_adapter:
+            modules.append(self.prompt_query_adapter)
         parameters: List[nn.Parameter] = []
         for module in modules:
             parameters.extend(list(module.parameters()))
+        parameters.extend([
+            self.alpha_raw,
+            self.lambda_g_raw,
+            self.lambda_t_raw,
+            self.lambda_p_raw,
+            self.beta_raw,
+            self.branch_logits,
+        ])
+        if isinstance(self.layer_logits, nn.Parameter):
+            parameters.append(self.layer_logits)
         return parameters
 
     def get_text_parameters(self) -> List[nn.Parameter]:
-        modules = [
-            self.textual_adapter,
-            self.text_prior_head,
-        ]
+        modules = [self.text_prior_head]
+        if self.use_text_adapter:
+            modules.append(self.textual_adapter)
         parameters: List[nn.Parameter] = []
         for module in modules:
             parameters.extend(list(module.parameters()))
@@ -712,6 +1003,16 @@ class InCTRLWithAdapters(nn.Module):
             parameter.requires_grad = phase in {"visual", "joint"}
         for parameter in self.get_text_parameters():
             parameter.requires_grad = phase in {"text", "joint"}
+
+        if not self.use_visual_adapter:
+            for parameter in self.visual_adapter.parameters():
+                parameter.requires_grad = False
+        if not self.use_prompt_query_adapter:
+            for parameter in self.prompt_query_adapter.parameters():
+                parameter.requires_grad = False
+        if not self.use_text_adapter:
+            for parameter in self.textual_adapter.parameters():
+                parameter.requires_grad = False
 
         for parameter in self.visual.parameters():
             parameter.requires_grad = False
@@ -783,32 +1084,68 @@ class InCTRLWithAdapters(nn.Module):
                 adapted_prompt_global = prompt_global
             adapted_prompt_patch_levels = self._adapt_prompt_patch_levels(prompt_patch_levels)
 
+        layer_weights = self._get_layer_weights(
+            device=query_image.device,
+            dtype=adapted_query_patch_levels[0].dtype,
+        )
+        beta_value = self._positive_scalar(self.beta_raw).to(
+            device=query_image.device,
+            dtype=adapted_query_patch_levels[0].dtype,
+        )
         if self.use_prompt_query_adapter:
             pq_outputs = self.prompt_query_adapter(
                 query_patch_levels=adapted_query_patch_levels,
                 prompt_patch_levels=adapted_prompt_patch_levels,
+                beta=beta_value,
             )
-            layer_weights = pq_outputs["layer_weights"]
             hybrid_patch_map = sum(
                 weight * evidence
                 for weight, evidence in zip(layer_weights, pq_outputs["patch_evidence_maps"])
             )
+            pqa_patch_logit = sum(
+                weight * patch_logit
+                for weight, patch_logit in zip(layer_weights, pq_outputs["patch_logits"])
+            )
+            pqa_logit = sum(
+                weight * global_logit
+                for weight, global_logit in zip(layer_weights, pq_outputs["pqa_global_logits"])
+            )
         else:
+            residual_outputs = self._compute_patch_residuals(
+                query_patch_levels=adapted_query_patch_levels,
+                prompt_patch_levels=adapted_prompt_patch_levels,
+            )
             pq_outputs = {
                 "patch_evidence_maps": [],
-                "residual_maps": [],
+                "patch_logits": [],
+                "patch_scores": [],
+                "pqa_global_logits": [],
+                "pqa_global_scores": [],
+                "residual_maps": residual_outputs["residual_maps"],
                 "context_scores": [],
-                "aligned_indices": [],
-                "aligned_prompt_features": [],
-                "layer_weights": torch.ones(len(adapted_query_patch_levels), device=query_image.device)
-                / len(adapted_query_patch_levels),
+                "aligned_indices": residual_outputs["aligned_indices"],
+                "aligned_prompt_features": residual_outputs["aligned_prompt_features"],
+                "layer_weights": layer_weights,
             }
-            hybrid_patch_map = torch.zeros(batch_size, self.num_patches, device=query_image.device)
+            hybrid_patch_map = None
+            pqa_patch_logit = torch.zeros_like(pq_outputs["residual_maps"][0])
+            pqa_logit = torch.zeros(batch_size, device=query_image.device, dtype=adapted_query_global.dtype)
+        base_patch_map = sum(
+            weight * residual
+            for weight, residual in zip(layer_weights, pq_outputs["residual_maps"])
+        )
+        if hybrid_patch_map is None:
+            hybrid_patch_map = base_patch_map
+        pqa_patch_score = torch.sigmoid(pqa_patch_logit)
+        pqa_score = torch.sigmoid(pqa_logit)
+        final_patch_map = hybrid_patch_map if self.use_pqa_in_final_map else base_patch_map
 
         prompt_global_proto = adapted_prompt_global.mean(dim=1)
-        image_residual = prompt_global_proto - adapted_query_global
-        image_score = self.image_head(image_residual)
+        image_residual = adapted_query_global - prompt_global_proto
+        image_logit = self.image_head(image_residual)
+        image_score = torch.sigmoid(image_logit)
 
+        text_static_reg = image_logit.new_zeros(())
         if text_prototype_cache is not None:
             normal_proto = text_prototype_cache["normal_proto"].to(
                 query_image.device,
@@ -822,27 +1159,66 @@ class InCTRLWithAdapters(nn.Module):
                 normal_proto = normal_proto.expand(batch_size, -1)
                 anomaly_proto = anomaly_proto.expand(batch_size, -1)
         else:
-            normal_proto, anomaly_proto = self._build_adapted_text_prototypes(
+            normal_proto, anomaly_proto, text_static_reg = self._build_text_prototypes_with_reg(
                 obj_types=obj_types,
                 device=query_image.device,
                 text_inputs=text_inputs,
             )
-        text_score, text_aux = self.text_prior_head(adapted_query_global, normal_proto, anomaly_proto)
+        text_logit, text_aux = self.text_prior_head(adapted_query_global, normal_proto, anomaly_proto)
+        text_score = torch.sigmoid(text_logit)
 
-        holistic_input = hybrid_patch_map + self.lambda_g * image_score.unsqueeze(-1) + self.lambda_t * text_score.unsqueeze(-1)
-        holistic_score = self.holistic_head(holistic_input)
-        max_patch_score = hybrid_patch_map.max(dim=-1).values
-        final_score = torch.clamp(holistic_score + self.alpha * max_patch_score, min=0.0, max=1.0)
+        alpha = self._positive_scalar(self.alpha_raw)
+        lambda_g = self._positive_scalar(self.lambda_g_raw)
+        lambda_t = self._positive_scalar(self.lambda_t_raw)
+        lambda_p = self._positive_scalar(self.lambda_p_raw)
+
+        holistic_input = (
+            base_patch_map
+            + lambda_g * image_score.unsqueeze(-1)
+            + lambda_t * text_score.unsqueeze(-1)
+            + lambda_p * pqa_score.unsqueeze(-1)
+        )
+        holistic_logit = self.holistic_head(holistic_input)
+        holistic_score = torch.sigmoid(holistic_logit)
+        max_base_patch_score = base_patch_map.max(dim=-1).values
+        max_hybrid_patch_score = hybrid_patch_map.max(dim=-1).values
+        max_patch_score = final_patch_map.max(dim=-1).values
+
+        if self.fusion_mode == "inctrl":
+            base_logit = 0.5 * (holistic_logit + max_base_patch_score)
+        elif self.fusion_mode == "paper_additive":
+            base_logit = holistic_logit + alpha * max_base_patch_score
+        else:
+            base_logit = holistic_logit + alpha * max_patch_score
+
+        branch_weights = torch.softmax(self.branch_logits, dim=0)
+        if self.use_branch_fusion:
+            final_logit = (
+                branch_weights[0] * base_logit
+                + branch_weights[1] * text_logit
+                + branch_weights[2] * pqa_logit
+            )
+        else:
+            final_logit = base_logit
+        final_score = torch.sigmoid(final_logit)
+        base_score = torch.sigmoid(base_logit)
 
         patch_side = int(self.num_patches ** 0.5)
         aux = {}
         if return_aux:
             aux = {
-                "patch_map_2d": hybrid_patch_map.reshape(batch_size, patch_side, patch_side),
+                "patch_map_2d": final_patch_map.reshape(batch_size, patch_side, patch_side),
+                "base_patch_map_2d": base_patch_map.reshape(batch_size, patch_side, patch_side),
+                "hybrid_patch_map_2d": hybrid_patch_map.reshape(batch_size, patch_side, patch_side),
                 "per_layer_patch_evidence": pq_outputs["patch_evidence_maps"],
                 "per_layer_residual": pq_outputs["residual_maps"],
                 "per_layer_context_score": pq_outputs["context_scores"],
                 "aligned_indices": pq_outputs["aligned_indices"],
+                "adapted_query_global": adapted_query_global,
+                "prompt_global_proto": prompt_global_proto,
+                "image_residual": image_residual,
+                "layer_weights": layer_weights,
+                "branch_weights": branch_weights,
                 "text_prototypes": {
                     "normal": normal_proto,
                     "anomaly": anomaly_proto,
@@ -852,11 +1228,26 @@ class InCTRLWithAdapters(nn.Module):
 
         result = {
             "final_score": final_score,
+            "final_logit": final_logit,
+            "base_score": base_score,
+            "base_logit": base_logit,
             "holistic_score": holistic_score,
+            "holistic_logit": holistic_logit,
             "image_score": image_score,
+            "image_logit": image_logit,
             "text_score": text_score,
-            "patch_map": hybrid_patch_map,
+            "text_logit": text_logit,
+            "pqa_score": pqa_score,
+            "pqa_logit": pqa_logit,
+            "pqa_patch_score": pqa_patch_score,
+            "pqa_patch_logit": pqa_patch_logit,
+            "patch_map": final_patch_map,
+            "base_patch_map": base_patch_map,
+            "hybrid_patch_map": hybrid_patch_map,
             "max_patch_score": max_patch_score,
+            "max_base_patch_score": max_base_patch_score,
+            "max_hybrid_patch_score": max_hybrid_patch_score,
+            "text_static_reg": text_static_reg,
             "aux": aux,
         }
         return result

@@ -1,0 +1,69 @@
+import torch
+
+from train_local import compute_training_loss
+
+
+def test_visual_training_loss_uses_logit_branches():
+    loss_fn = torch.nn.MSELoss()
+    labels = torch.tensor([0.0, 1.0])
+    outputs = {
+        "final_logit": torch.tensor([0.2, 0.7]),
+        "base_logit": torch.tensor([0.3, 0.6]),
+        "image_logit": torch.tensor([0.1, 0.8]),
+        "pqa_logit": torch.tensor([0.4, 0.9]),
+        "text_logit": torch.tensor([0.5, 0.5]),
+        "text_static_reg": torch.tensor(0.25),
+    }
+
+    total_loss, parts = compute_training_loss(
+        outputs=outputs,
+        labels=labels,
+        loss_fn=loss_fn,
+        phase="visual",
+        image_loss_weight=1.0,
+        pqa_loss_weight=0.5,
+        text_reg_weight=0.1,
+    )
+
+    expected_final = loss_fn(outputs["final_logit"], labels)
+    expected_base = loss_fn(outputs["base_logit"], labels)
+    expected_image = loss_fn(outputs["image_logit"], labels)
+    expected_pqa = loss_fn(outputs["pqa_logit"], labels)
+
+    assert torch.allclose(total_loss, expected_final + expected_base + expected_image + 0.5 * expected_pqa)
+    assert torch.allclose(parts["final_loss"], expected_final.detach())
+    assert torch.allclose(parts["base_loss"], expected_base.detach())
+    assert torch.allclose(parts["image_loss"], expected_image.detach())
+    assert torch.allclose(parts["pqa_loss"], expected_pqa.detach())
+    assert torch.allclose(parts["text_loss"], torch.tensor(0.0))
+
+
+def test_text_training_loss_uses_text_logit_and_static_regularizer():
+    loss_fn = torch.nn.MSELoss()
+    labels = torch.tensor([0.0, 1.0])
+    outputs = {
+        "final_logit": torch.tensor([0.2, 0.7]),
+        "base_logit": torch.tensor([0.3, 0.6]),
+        "image_logit": torch.tensor([0.1, 0.8]),
+        "pqa_logit": torch.tensor([0.4, 0.9]),
+        "text_logit": torch.tensor([0.5, 0.5]),
+        "text_static_reg": torch.tensor(0.25),
+    }
+
+    total_loss, parts = compute_training_loss(
+        outputs=outputs,
+        labels=labels,
+        loss_fn=loss_fn,
+        phase="text",
+        image_loss_weight=1.0,
+        pqa_loss_weight=0.5,
+        text_reg_weight=0.1,
+    )
+
+    expected_text = loss_fn(outputs["text_logit"], labels)
+    expected_reg = 0.1 * outputs["text_static_reg"]
+
+    assert torch.allclose(total_loss, expected_text + expected_reg)
+    assert torch.allclose(parts["text_loss"], expected_text.detach())
+    assert torch.allclose(parts["text_reg_loss"], expected_reg.detach())
+    assert torch.allclose(parts["final_loss"], torch.tensor(0.0))

@@ -55,6 +55,9 @@ WEIGHT_DECAY = 0.0
 TRAIN_SHOT = 4
 EVAL_SHOTS = [2, 4, 8]
 DEFAULT_TRAIN_DATASETS = ["mvtec", "visa"]
+IMAGE_LOSS_WEIGHT = 1.0
+PQA_LOSS_WEIGHT = 1.0
+TEXT_REG_WEIGHT = 0.01
 
 
 def get_default_num_workers():
@@ -319,6 +322,49 @@ def split_query_prompt_inputs(inputs, device):
     return query_image, prompt_images
 
 
+def compute_training_loss(
+    outputs,
+    labels,
+    loss_fn,
+    phase,
+    image_loss_weight=IMAGE_LOSS_WEIGHT,
+    pqa_loss_weight=PQA_LOSS_WEIGHT,
+    text_reg_weight=TEXT_REG_WEIGHT,
+):
+    """Phase-specific hybrid InCTRL objective using logits for trainable branches."""
+    labels = labels.float()
+    zero = outputs["final_logit"].new_zeros(())
+    final_loss = zero
+    base_loss = zero
+    image_loss = zero
+    pqa_loss = zero
+    text_loss = zero
+    text_reg_loss = zero
+
+    if phase == "visual":
+        final_loss = loss_fn(outputs["final_logit"], labels)
+        base_loss = loss_fn(outputs["base_logit"], labels)
+        image_loss = loss_fn(outputs["image_logit"], labels) if image_loss_weight > 0 else zero
+        pqa_loss = loss_fn(outputs["pqa_logit"], labels) if pqa_loss_weight > 0 else zero
+        total_loss = final_loss + base_loss + image_loss_weight * image_loss + pqa_loss_weight * pqa_loss
+    elif phase == "text":
+        text_loss = loss_fn(outputs["text_logit"], labels)
+        text_reg_loss = text_reg_weight * outputs.get("text_static_reg", zero)
+        total_loss = text_loss + text_reg_loss
+    else:
+        raise ValueError(f"Unsupported phase: {phase}")
+
+    return total_loss, {
+        "final_loss": final_loss.detach(),
+        "base_loss": base_loss.detach(),
+        "image_loss": image_loss.detach(),
+        "pqa_loss": pqa_loss.detach(),
+        "text_loss": text_loss.detach(),
+        "text_reg_loss": text_reg_loss.detach(),
+        "total_loss": total_loss.detach(),
+    }
+
+
 @torch.no_grad()
 def evaluate(
     model,
@@ -328,10 +374,19 @@ def evaluate(
     cached_normal_list=None,
     prompt_feature_cache=None,
     text_prototype_cache=None,
+    return_branch_metrics=False,
 ):
     """评估模型"""
     model.eval()
     preds_all, labels_all = [], []
+    branch_preds = {
+        "base": [],
+        "text": [],
+        "pqa": [],
+        "image": [],
+        "holistic": [],
+        "max_patch": [],
+    }
 
     for inputs, types, labels in tqdm(loader, desc="[TEST] Batch", leave=False):
         labels = labels.to(device)
@@ -347,10 +402,32 @@ def evaluate(
         )
         preds_all.extend(outputs["final_score"].detach().cpu().float().numpy())
         labels_all.extend(labels.cpu().numpy())
+        for branch_name, output_key in [
+            ("base", "base_score"),
+            ("text", "text_score"),
+            ("pqa", "pqa_score"),
+            ("image", "image_score"),
+            ("holistic", "holistic_score"),
+            ("max_patch", "max_base_patch_score"),
+        ]:
+            if output_key in outputs:
+                branch_preds[branch_name].extend(outputs[output_key].detach().cpu().float().numpy())
 
     auroc = roc_auc_score(labels_all, preds_all)
     aupr = average_precision_score(labels_all, preds_all)
-    return float(auroc), float(aupr)
+    if not return_branch_metrics:
+        return float(auroc), float(aupr)
+
+    branch_metrics = {}
+    for branch_name, branch_values in branch_preds.items():
+        if len(branch_values) != len(labels_all):
+            continue
+        branch_metrics[branch_name] = {
+            "auroc": float(roc_auc_score(labels_all, branch_values)),
+            "aupr": float(average_precision_score(labels_all, branch_values)),
+        }
+    branch_metrics["final"] = {"auroc": float(auroc), "aupr": float(aupr)}
+    return float(auroc), float(aupr), branch_metrics
 
 
 # ============================================================================
@@ -372,6 +449,9 @@ def run_experiment(
     num_workers=DEFAULT_NUM_WORKERS,
     max_test_categories=None,
     weight_decay=0.0,
+    image_loss_weight=IMAGE_LOSS_WEIGHT,
+    pqa_loss_weight=PQA_LOSS_WEIGHT,
+    text_reg_weight=TEXT_REG_WEIGHT,
     resume_checkpoint=None,
     start_epoch=0,
 ):
@@ -383,7 +463,8 @@ def run_experiment(
         f"配置: train_dataset={train_dataset}, test_datasets={test_datasets}, "
         f"train_shot={train_shot}, eval_shots={eval_shots}, n_epochs={n_epochs}, "
         f"lr={lr}, batch_size={batch_size}, num_workers={num_workers}, "
-        f"weight_decay={weight_decay}"
+        f"weight_decay={weight_decay}, image_loss_weight={image_loss_weight}, "
+        f"pqa_loss_weight={pqa_loss_weight}, text_reg_weight={text_reg_weight}"
     )
     print(f"设备: {DEVICE}")
 
@@ -408,7 +489,7 @@ def run_experiment(
     transform = get_transform()
     train_loader = ds_loader.construct_loader(cfg, "train", transform)
     tokenizer = open_clip.get_tokenizer("ViT-B-16-plus-240")
-    loss_fn = BinaryFocalLoss(logits=False).to(DEVICE)
+    loss_fn = BinaryFocalLoss(logits=True).to(DEVICE)
 
     visual_optimizer, text_optimizer = build_optimizers(model, lr=lr, weight_decay=weight_decay)
     visual_scheduler = build_scheduler(visual_optimizer, n_epochs)
@@ -504,7 +585,15 @@ def run_experiment(
                 return_aux=False,
                 return_dict=True,
             )
-            loss = loss_fn(outputs["final_score"], labels.float())
+            loss, loss_parts = compute_training_loss(
+                outputs=outputs,
+                labels=labels,
+                loss_fn=loss_fn,
+                phase=phase,
+                image_loss_weight=image_loss_weight,
+                pqa_loss_weight=pqa_loss_weight,
+                text_reg_weight=text_reg_weight,
+            )
 
             optimizer.zero_grad()
             loss.backward()
@@ -514,7 +603,14 @@ def run_experiment(
             epoch_loss += loss.item()
             actual_steps += 1
             batch_pbar.update(1)
-            batch_pbar.set_postfix({"loss": f"{loss.item():.4f}"})
+            batch_pbar.set_postfix({
+                "loss": f"{loss.item():.4f}",
+                "final": f"{loss_parts['final_loss'].item():.4f}",
+                "base": f"{loss_parts['base_loss'].item():.4f}",
+                "image": f"{loss_parts['image_loss'].item():.4f}",
+                "pqa": f"{loss_parts['pqa_loss'].item():.4f}",
+                "text": f"{loss_parts['text_loss'].item():.4f}",
+            })
 
         batch_pbar.close()
         scheduler.step()
@@ -536,6 +632,17 @@ def run_experiment(
         "num_workers": num_workers,
         "steps_per_epoch": steps_per_epoch,
         "weight_decay": weight_decay,
+        "image_loss_weight": image_loss_weight,
+        "pqa_loss_weight": pqa_loss_weight,
+        "text_reg_weight": text_reg_weight,
+        "model_architecture": {
+            "fusion_mode": getattr(model, "fusion_mode", None),
+            "use_text_adapter": getattr(model, "use_text_adapter", None),
+            "use_visual_adapter": getattr(model, "use_visual_adapter", None),
+            "use_prompt_query_adapter": getattr(model, "use_prompt_query_adapter", None),
+            "use_pqa_in_final_map": getattr(model, "use_pqa_in_final_map", None),
+            "use_branch_fusion": getattr(model, "use_branch_fusion", None),
+        },
         "label": label,
     }
     torch.save(
@@ -578,16 +685,29 @@ def run_experiment(
                 fs_pt = find_fs_pt(ds, cat, shot)
                 prompt_feature_cache = build_cached_prompt_features(model, fs_pt, DEVICE)
                 text_prototype_cache = build_cached_text_prototypes(model, cat, DEVICE)
-                auroc, aupr = evaluate(
+                eval_output = evaluate(
                     model,
                     tokenizer,
                     val_loader,
                     DEVICE,
                     prompt_feature_cache=prompt_feature_cache,
                     text_prototype_cache=text_prototype_cache,
+                    return_branch_metrics=True,
                 )
-                ds_res.append({"cat": cat, "auroc": auroc, "aupr": aupr})
+                auroc, aupr, branch_metrics = eval_output
+                ds_res.append({
+                    "cat": cat,
+                    "auroc": auroc,
+                    "aupr": aupr,
+                    "branch_metrics": branch_metrics,
+                })
                 print(f"  {cat}: AUROC={auroc:.4f}, AUPR={aupr:.4f}")
+                branch_summary = ", ".join(
+                    f"{name}={metrics['auroc']:.4f}"
+                    for name, metrics in branch_metrics.items()
+                    if name != "final"
+                )
+                print(f"    branches AUROC: {branch_summary}")
 
             avg_auroc = float(np.mean([r["auroc"] for r in ds_res]))
             avg_aupr = float(np.mean([r["aupr"] for r in ds_res]))
@@ -630,6 +750,9 @@ def run_all_experiments(
     num_workers=DEFAULT_NUM_WORKERS,
     max_test_categories=None,
     weight_decay=0.0,
+    image_loss_weight=IMAGE_LOSS_WEIGHT,
+    pqa_loss_weight=PQA_LOSS_WEIGHT,
+    text_reg_weight=TEXT_REG_WEIGHT,
     resume_checkpoint=None,
     start_epoch=0,
 ):
@@ -655,6 +778,9 @@ def run_all_experiments(
             num_workers=num_workers,
             max_test_categories=max_test_categories,
             weight_decay=weight_decay,
+            image_loss_weight=image_loss_weight,
+            pqa_loss_weight=pqa_loss_weight,
+            text_reg_weight=text_reg_weight,
             resume_checkpoint=resume_checkpoint,
             start_epoch=start_epoch,
         )
@@ -680,6 +806,9 @@ def run_all_experiments(
                 "train_datasets": train_datasets,
                 "train_shot": train_shot,
                 "eval_shots": eval_shots,
+                "image_loss_weight": image_loss_weight,
+                "pqa_loss_weight": pqa_loss_weight,
+                "text_reg_weight": text_reg_weight,
                 "summary_rows": summary_rows,
             },
             f,
@@ -716,6 +845,12 @@ if __name__ == "__main__":
                         help="训练 epoch 数")
     parser.add_argument("--num-workers", type=int, default=DEFAULT_NUM_WORKERS,
                         help=f"DataLoader worker 数，默认 {DEFAULT_NUM_WORKERS}；可按机器情况覆盖")
+    parser.add_argument("--image-loss-weight", type=float, default=IMAGE_LOSS_WEIGHT,
+                        help="图像级残差 LIRL 损失权重，默认 1.0")
+    parser.add_argument("--pqa-loss-weight", type=float, default=PQA_LOSS_WEIGHT,
+                        help="PQA 全局比较分支损失权重，默认 1.0")
+    parser.add_argument("--text-reg-weight", type=float, default=TEXT_REG_WEIGHT,
+                        help="TA 静态文本原型残差正则权重，默认 0.01")
     parser.add_argument("--max-test-categories", type=int, default=None,
                         help="仅用于快速验证：限制每个测试域评估的类别数，默认评估全部类别")
     args = parser.parse_args()
@@ -737,6 +872,9 @@ if __name__ == "__main__":
     print(f"TEST_BATCH_SIZE = {args.test_batch_size}")
     print(f"STEPS_PER_EPOCH = {args.steps_per_epoch}")
     print(f"NUM_WORKERS = {args.num_workers}")
+    print(f"IMAGE_LOSS_WEIGHT = {args.image_loss_weight}")
+    print(f"PQA_LOSS_WEIGHT = {args.pqa_loss_weight}")
+    print(f"TEXT_REG_WEIGHT = {args.text_reg_weight}")
     print(f"MAX_TEST_CATEGORIES = {args.max_test_categories}")
     print(f"LR = {LR}")
     print(f"N_EPOCHS = {args.epochs}")
@@ -757,6 +895,9 @@ if __name__ == "__main__":
         num_workers=args.num_workers,
         max_test_categories=args.max_test_categories,
         weight_decay=WEIGHT_DECAY,
+        image_loss_weight=args.image_loss_weight,
+        pqa_loss_weight=args.pqa_loss_weight,
+        text_reg_weight=args.text_reg_weight,
         resume_checkpoint=args.resume,
         start_epoch=args.start_epoch,
     )
