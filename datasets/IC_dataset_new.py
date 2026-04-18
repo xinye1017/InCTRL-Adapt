@@ -215,6 +215,64 @@ class IC_dataset(VisionDataset):
         self._resolved_path_cache[raw_path] = candidate
         return candidate
 
+    def _resolve_mask_path(
+        self,
+        raw_image_path: str,
+        label: int,
+        explicit_mask_path: Optional[str] = None,
+    ) -> Optional[Path]:
+        """Resolve or derive a ground-truth anomaly mask path for one query image."""
+        if int(label) == 0:
+            return None
+
+        if explicit_mask_path:
+            mask_candidate = self._resolve_image_path(explicit_mask_path)
+            if mask_candidate.exists():
+                return mask_candidate
+
+        image_path = self._resolve_image_path(raw_image_path)
+        parts = [part for part in str(image_path).replace("\\", "/").split("/") if part]
+        lowered_parts = [part.lower() for part in parts]
+
+        if "mvtec" in lowered_parts:
+            dataset_idx = lowered_parts.index("mvtec")
+            if len(parts) > dataset_idx + 4 and lowered_parts[dataset_idx + 2] == "test":
+                category = parts[dataset_idx + 1]
+                defect_type = parts[dataset_idx + 3]
+                if defect_type.lower() != "good":
+                    stem = Path(parts[dataset_idx + 4]).stem
+                    mask_path = DATA_ROOT / "mvtec" / category / "ground_truth" / defect_type / f"{stem}_mask.png"
+                    if mask_path.exists():
+                        return mask_path
+
+        if "visa" in lowered_parts:
+            dataset_idx = lowered_parts.index("visa")
+            if len(parts) > dataset_idx + 4 and lowered_parts[dataset_idx + 2] == "test":
+                category = parts[dataset_idx + 1]
+                defect_type = parts[dataset_idx + 3]
+                if defect_type.lower() != "good":
+                    stem = Path(parts[dataset_idx + 4]).stem
+                    mask_path = DATA_ROOT / "visa" / category / "ground_truth" / defect_type / f"{stem}.png"
+                    if mask_path.exists():
+                        return mask_path
+
+        return None
+
+    def _load_query_mask(self, sample: dict, size: Tuple[int, int]) -> torch.Tensor:
+        mask_path = self._resolve_mask_path(
+            sample["image_path"],
+            label=sample["target"],
+            explicit_mask_path=sample.get("mask_path"),
+        )
+        if mask_path is None or not mask_path.exists():
+            return torch.zeros(1, size[0], size[1], dtype=torch.float32)
+
+        with Image.open(mask_path) as mask_image:
+            mask_image = mask_image.convert("L")
+            mask_image = mask_image.resize((size[1], size[0]), Image.Resampling.NEAREST)
+            mask_array = np.array(mask_image, dtype=np.float32)
+        return torch.from_numpy((mask_array > 0).astype(np.float32)).unsqueeze(0)
+
     def _combine_images(self, image, image2):
         h, w = image.shape[1], image.shape[2]
         dst = torch.cat([image, image2], dim=1)
@@ -229,6 +287,7 @@ class IC_dataset(VisionDataset):
         # decide mode for interpolation
         cur_transforms = self.transform
         image = cur_transforms(image)
+        mask = self._load_query_mask(sample, size=(image.shape[-2], image.shape[-1]))
 
         # ========== 优化1: 使用预计算的shot索引 ==========
         # 直接查表，避免每次random.sample + 重复IO
@@ -246,7 +305,7 @@ class IC_dataset(VisionDataset):
 
         image_type = sample_type
 
-        return image_list, image_type, label
+        return image_list, image_type, label, mask
 
     def __len__(self) -> int:
         return len(self.image)

@@ -49,3 +49,32 @@ def test_repo_relative_json_image_paths_resolve_under_current_repo_root():
 
     assert resolved == PROJECT_ROOT / relative_path
     assert resolved.exists()
+
+
+def test_mvtec_outlier_mask_path_is_derived_from_image_path():
+    dataset = _dataset_without_init()
+    image_path = PROJECT_ROOT / "data" / "mvtec" / "bottle" / "test" / "broken_large" / "000.png"
+
+    mask_path = dataset._resolve_mask_path(str(image_path), label=1)
+
+    assert mask_path == PROJECT_ROOT / "data" / "mvtec" / "bottle" / "ground_truth" / "broken_large" / "000_mask.png"
+    assert mask_path.exists()
+
+
+def test_visa_outlier_mask_path_is_derived_from_image_path():
+    dataset = _dataset_without_init()
+    image_path = PROJECT_ROOT / "data" / "visa" / "candle" / "test" / "defect" / "000.JPG"
+
+    mask_path = dataset._resolve_mask_path(str(image_path), label=1)
+
+    assert mask_path == PROJECT_ROOT / "data" / "visa" / "candle" / "ground_truth" / "defect" / "000.png"
+    assert mask_path.exists()
+
+
+def test_normal_sample_uses_empty_mask():
+    dataset = _dataset_without_init()
+    image_path = PROJECT_ROOT / "data" / "visa" / "candle" / "test" / "good" / "0011.JPG"
+
+    mask_path = dataset._resolve_mask_path(str(image_path), label=0)
+
+    assert mask_path is None

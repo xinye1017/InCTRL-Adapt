@@ -43,6 +43,44 @@ def test_visual_training_loss_uses_logit_branches():
     assert torch.allclose(parts["text_loss"], torch.tensor(0.0))
 
 
+def test_visual_training_loss_uses_pqa_mask_supervision_when_masks_are_available():
+    loss_fn = torch.nn.MSELoss()
+    labels = torch.tensor([0.0, 1.0])
+    outputs = {
+        "final_logit": torch.tensor([0.2, 0.7]),
+        "base_logit": torch.tensor([0.3, 0.6]),
+        "image_logit": torch.tensor([0.1, 0.8]),
+        "pqa_logit": torch.tensor([0.4, 0.9]),
+        "text_logit": torch.tensor([0.5, 0.5]),
+        "text_static_reg": torch.tensor(0.25),
+        "pqa_local_logits": [torch.randn(2, 2, 8, 8)],
+    }
+    masks = torch.zeros(2, 1, 8, 8)
+    masks[1, :, 2:6, 2:6] = 1.0
+
+    total_loss, parts = compute_training_loss(
+        outputs=outputs,
+        labels=labels,
+        loss_fn=loss_fn,
+        phase="visual",
+        masks=masks,
+        image_loss_weight=1.0,
+        pqa_loss_weight=0.5,
+        mask_loss_weight=2.0,
+        text_reg_weight=0.1,
+    )
+
+    expected_without_mask = (
+        loss_fn(outputs["final_logit"], labels)
+        + loss_fn(outputs["base_logit"], labels)
+        + loss_fn(outputs["image_logit"], labels)
+        + 0.5 * loss_fn(outputs["pqa_logit"], labels)
+    )
+
+    assert parts["pqa_mask_loss"] > 0
+    assert torch.allclose(total_loss, expected_without_mask + 2.0 * parts["pqa_mask_loss"])
+
+
 def test_text_training_loss_uses_text_logit_and_static_regularizer():
     loss_fn = torch.nn.MSELoss()
     labels = torch.tensor([0.0, 1.0])

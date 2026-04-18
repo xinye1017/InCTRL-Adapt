@@ -14,16 +14,17 @@ The model should keep InCTRL's multi-layer nearest-neighbor patch residual as th
 - Visual adapter keeps residual global adaptation and now uses per-layer local adapters by default.
 - Base residual and PQA share parent-level learnable layer weights.
 - PQA always runs when enabled and is included in visual-phase parameters even when its local map is not used as the final `patch_map`.
-- PQA now returns local patch logits/scores and a global image logit/score from avg/max pooled context-residual features.
+- PQA now follows the AdaptCLIP shape more closely: each layer aligns query patches to nearest prompt patches, forms `query + beta * abs(query - aligned_prompt)`, applies shared BN, uses a convolution/deconvolution local head with 2-channel normal/anomaly logits, and uses an MLP global head with 2-channel logits from mean plus top-k pooled features.
 - Textual adapter default is `static_residual`: static InCTRL text prototypes plus two AdaptCLIP-style learnable binary prompts through a zero-init delta projector.
 - Classification branches are logits-first. Evaluation still uses sigmoid scores.
-- Default fusion is additive and InCTRL-preserving:
+- Default final scoring is now protected by raw InCTRL residuals:
 
 ```text
-M_plus = M + lambda_g * image_score + lambda_t * text_score + lambda_p * pqa_score
-base_logit = holistic_head(M_plus) + alpha * max(M)
-final_logit = softmax(branch_logits) dot [base_logit, text_logit, pqa_logit]
+M_raw = nearest_neighbor_residual(raw_clip_query_tokens, raw_clip_prompt_tokens)
+final_logit = alpha * max(M_raw)
 ```
+
+The additive hybrid score is still produced as `base_logit` for ablations and auxiliary training, but it no longer overwrites the final evaluation score by default. This protects the original InCTRL geometry from being damaged by undertrained VA/PQA/holistic branches in early or low-step runs.
 
 ## Config Knobs
 
@@ -35,10 +36,12 @@ final_logit = softmax(branch_logits) dot [base_logit, text_logit, pqa_logit]
 - `cfg.INCTRL_ADAPTER.USE_BRANCH_FUSION = True`
 - `cfg.INCTRL_ADAPTER.LEARNABLE_LAYER_WEIGHTS = True`
 - `cfg.INCTRL_ADAPTER.VISUAL_LOCAL_PER_LAYER = True`
+- `cfg.INCTRL_ADAPTER.FINAL_SCORE_MODE = "raw_max_patch"`
+- `cfg.INCTRL_ADAPTER.MASK_LOSS_WEIGHT = 1.0`
 - CLI loss overrides:
 
 ```text
-python train_local.py --image-loss-weight 1.0 --pqa-loss-weight 1.0 --text-reg-weight 0.01
+python train_local.py --image-loss-weight 1.0 --pqa-loss-weight 1.0 --mask-loss-weight 1.0 --text-reg-weight 0.01
 ```
 
 ## Training Objective
@@ -50,6 +53,7 @@ L_visual = focal(final_logit, y)
          + focal(base_logit, y)
          + image_loss_weight * focal(image_logit, y)
          + pqa_loss_weight * focal(pqa_logit, y)
+         + mask_loss_weight * pqa_mask_loss
 ```
 
 Text phase:
@@ -58,19 +62,28 @@ Text phase:
 L_text = focal(text_logit, y) + text_reg_weight * text_static_reg
 ```
 
-The current dataset loader provides image labels but not masks, so PQA local segmentation loss remains disabled.
+PQA local mask supervision is enabled when masks are available. MVTec and VisA mask paths are derived from the query image path when JSON files do not include explicit mask paths. Normal samples and datasets without masks use an all-zero mask, so the same batch shape works for AITEX/ELPV.
+
+PQA mask loss:
+
+```text
+pqa_mask_loss = multiclass_focal(pqa_local_logits, mask_0_1)
+              + dice(anomaly_prob, mask)
+              + dice(normal_prob, 1 - mask)
+```
 
 ## Validation Notes
 
 Run selected behavior tests with the local `dexter` environment because `pytest` is not installed:
 
 ```text
-C:\Users\dex\miniconda3\envs\dexter\python.exe -m py_compile train_local.py open_clip\inctrl_three_adapters.py open_clip\config\defaults.py
+C:\Users\dex\miniconda3\envs\dexter\python.exe -m py_compile train_local.py datasets\IC_dataset_new.py datasets\loader.py open_clip\inctrl_three_adapters.py open_clip\config\defaults.py
 ```
 
 ```text
-tests/test_inctrl_three_adapters.py
+tests/test_dataset_path_resolution.py
 tests/test_train_local_loss.py
+tests/test_inctrl_three_adapters.py
 ```
 
 Expected covered behaviors:
@@ -82,6 +95,10 @@ Expected covered behaviors:
 - image residual direction is query minus prompt prototype
 - TA zero-init residual starts from static text prototypes
 - PQA global head receives gradients in visual phase
+- PQA local head returns 2-channel full-resolution logits/scores
+- visual phase adds PQA mask focal/dice loss when masks are present
+- MVTec and VisA defect masks are derived from image paths
+- raw InCTRL `max(M_raw)` is the default `final_logit`
 - prompt and text caches match direct forward outputs
 - visual/text phase losses use the intended logit branches
 
@@ -96,11 +113,15 @@ This smoke run is only a path check and must not be treated as a trained model.
 Actual local smoke result:
 
 ```text
-Epoch 1 完成 | avg_loss=0.6980
-train=MVTEC train_shot=4 -> test=VISA eval_shot=4 | AUROC=0.8619, AUPR=0.8795
-loss=0.6980, final=0.1668, base=0.1758, image=0.1872, pqa=0.1682, text=0.0000
-local RTX 3060 Laptop GPU speed: about 2.37s/batch for the single visual-phase batch
+Epoch 1 完成 | avg_loss=2.0941
+loss=2.0941, final=0.1667, base=0.1667, image=0.1183, pqa=0.1958, mask=1.4466, text=0.0000
+train=MVTEC train_shot=4 -> test=AITEX eval_shot=4 | AUROC=0.7632, AUPR=0.4161
+train=MVTEC train_shot=4 -> test=ELPV eval_shot=4 | AUROC=0.8790, AUPR=0.9418
+train=MVTEC train_shot=4 -> test=VISA eval_shot=4 | AUROC=0.9253, AUPR=0.9311
+local RTX 3060 Laptop GPU speed: about 2.98s/batch for the single visual-phase batch
 ```
+
+The smoke result is only a path and tensor-shape check. It should not be treated as a trained model, but it confirms that the new 4-tuple dataset output, PQA mask loss, raw residual final score, and cross-domain evaluation targets can run end-to-end.
 
 ## Cloud Smoke Failure Follow-up
 

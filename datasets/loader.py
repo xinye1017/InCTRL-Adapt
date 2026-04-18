@@ -24,12 +24,19 @@ def multiple_samples_collate(batch):
     Returns:
         (tuple): collated data batch.
     """
-    inputs, targets, labels = zip(*batch)
+    has_masks = len(batch[0]) == 4
+    if has_masks:
+        inputs, targets, labels, masks = zip(*batch)
+    else:
+        inputs, targets, labels = zip(*batch)
     inputs = [item for sublist in inputs for item in sublist]
     targets = [item for sublist in targets for item in sublist]
     labels = [item for sublist in labels for item in sublist]
 
     inputs, targets, labels = default_collate(inputs), default_collate(targets), default_collate(labels)
+    if has_masks:
+        masks = default_collate(masks)
+        return inputs, targets, labels, masks
 
     return inputs, targets, labels
 

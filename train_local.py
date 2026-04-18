@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from sklearn.metrics import average_precision_score, roc_auc_score
 from torchvision import transforms
 from tqdm import tqdm
@@ -58,6 +59,7 @@ DEFAULT_TRAIN_DATASETS = ["mvtec", "visa"]
 IMAGE_LOSS_WEIGHT = 1.0
 PQA_LOSS_WEIGHT = 1.0
 TEXT_REG_WEIGHT = 0.01
+MASK_LOSS_WEIGHT = 1.0
 
 
 def get_default_num_workers():
@@ -322,13 +324,62 @@ def split_query_prompt_inputs(inputs, device):
     return query_image, prompt_images
 
 
+def unpack_batch(batch):
+    if len(batch) == 4:
+        inputs, types, labels, masks = batch
+        return inputs, types, labels, masks
+    inputs, types, labels = batch
+    return inputs, types, labels, None
+
+
+def _binary_dice_loss(probabilities, targets, eps=1e-6):
+    probabilities = probabilities.reshape(probabilities.size(0), -1)
+    targets = targets.reshape(targets.size(0), -1)
+    intersection = (probabilities * targets).sum(dim=1)
+    denominator = probabilities.sum(dim=1) + targets.sum(dim=1)
+    return (1.0 - (2.0 * intersection + eps) / (denominator + eps)).mean()
+
+
+def _multiclass_focal_loss(logits, targets, gamma=2.0):
+    ce_loss = F.cross_entropy(logits, targets, reduction="none")
+    pt = torch.exp(-ce_loss)
+    return ((1.0 - pt) ** gamma * ce_loss).mean()
+
+
+def compute_pqa_mask_loss(outputs, masks):
+    local_logits = outputs.get("pqa_local_logits")
+    if local_logits is None or masks is None:
+        return outputs["final_logit"].new_zeros(())
+
+    if isinstance(local_logits, torch.Tensor):
+        local_logits = [local_logits]
+
+    masks = masks.float()
+    if masks.dim() == 3:
+        masks = masks.unsqueeze(1)
+
+    losses = []
+    for logits in local_logits:
+        target_mask = F.interpolate(masks, size=logits.shape[-2:], mode="nearest").clamp(0.0, 1.0)
+        target_labels = target_mask.squeeze(1).long()
+        probabilities = torch.softmax(logits, dim=1)
+        focal_loss = _multiclass_focal_loss(logits, target_labels)
+        anomaly_dice = _binary_dice_loss(probabilities[:, 1], target_mask.squeeze(1))
+        normal_dice = _binary_dice_loss(probabilities[:, 0], 1.0 - target_mask.squeeze(1))
+        losses.append(focal_loss + anomaly_dice + normal_dice)
+
+    return torch.stack(losses).mean()
+
+
 def compute_training_loss(
     outputs,
     labels,
     loss_fn,
     phase,
+    masks=None,
     image_loss_weight=IMAGE_LOSS_WEIGHT,
     pqa_loss_weight=PQA_LOSS_WEIGHT,
+    mask_loss_weight=MASK_LOSS_WEIGHT,
     text_reg_weight=TEXT_REG_WEIGHT,
 ):
     """Phase-specific hybrid InCTRL objective using logits for trainable branches."""
@@ -338,6 +389,7 @@ def compute_training_loss(
     base_loss = zero
     image_loss = zero
     pqa_loss = zero
+    pqa_mask_loss = zero
     text_loss = zero
     text_reg_loss = zero
 
@@ -346,7 +398,18 @@ def compute_training_loss(
         base_loss = loss_fn(outputs["base_logit"], labels)
         image_loss = loss_fn(outputs["image_logit"], labels) if image_loss_weight > 0 else zero
         pqa_loss = loss_fn(outputs["pqa_logit"], labels) if pqa_loss_weight > 0 else zero
-        total_loss = final_loss + base_loss + image_loss_weight * image_loss + pqa_loss_weight * pqa_loss
+        pqa_mask_loss = (
+            compute_pqa_mask_loss(outputs, masks)
+            if masks is not None and mask_loss_weight > 0
+            else zero
+        )
+        total_loss = (
+            final_loss
+            + base_loss
+            + image_loss_weight * image_loss
+            + pqa_loss_weight * pqa_loss
+            + mask_loss_weight * pqa_mask_loss
+        )
     elif phase == "text":
         text_loss = loss_fn(outputs["text_logit"], labels)
         text_reg_loss = text_reg_weight * outputs.get("text_static_reg", zero)
@@ -359,6 +422,7 @@ def compute_training_loss(
         "base_loss": base_loss.detach(),
         "image_loss": image_loss.detach(),
         "pqa_loss": pqa_loss.detach(),
+        "pqa_mask_loss": pqa_mask_loss.detach(),
         "text_loss": text_loss.detach(),
         "text_reg_loss": text_reg_loss.detach(),
         "total_loss": total_loss.detach(),
@@ -386,9 +450,11 @@ def evaluate(
         "image": [],
         "holistic": [],
         "max_patch": [],
+        "raw_max_patch": [],
     }
 
-    for inputs, types, labels in tqdm(loader, desc="[TEST] Batch", leave=False):
+    for batch in tqdm(loader, desc="[TEST] Batch", leave=False):
+        inputs, types, labels, _ = unpack_batch(batch)
         labels = labels.to(device)
         query_image, _ = split_query_prompt_inputs(inputs, device)
         outputs = model(
@@ -409,6 +475,7 @@ def evaluate(
             ("image", "image_score"),
             ("holistic", "holistic_score"),
             ("max_patch", "max_base_patch_score"),
+            ("raw_max_patch", "raw_max_patch_score"),
         ]:
             if output_key in outputs:
                 branch_preds[branch_name].extend(outputs[output_key].detach().cpu().float().numpy())
@@ -451,6 +518,7 @@ def run_experiment(
     weight_decay=0.0,
     image_loss_weight=IMAGE_LOSS_WEIGHT,
     pqa_loss_weight=PQA_LOSS_WEIGHT,
+    mask_loss_weight=MASK_LOSS_WEIGHT,
     text_reg_weight=TEXT_REG_WEIGHT,
     resume_checkpoint=None,
     start_epoch=0,
@@ -464,7 +532,8 @@ def run_experiment(
         f"train_shot={train_shot}, eval_shots={eval_shots}, n_epochs={n_epochs}, "
         f"lr={lr}, batch_size={batch_size}, num_workers={num_workers}, "
         f"weight_decay={weight_decay}, image_loss_weight={image_loss_weight}, "
-        f"pqa_loss_weight={pqa_loss_weight}, text_reg_weight={text_reg_weight}"
+        f"pqa_loss_weight={pqa_loss_weight}, mask_loss_weight={mask_loss_weight}, "
+        f"text_reg_weight={text_reg_weight}"
     )
     print(f"设备: {DEVICE}")
 
@@ -572,11 +641,14 @@ def run_experiment(
             leave=False,
         )
 
-        for batch_idx, (inputs, types, labels) in enumerate(train_loader):
+        for batch_idx, batch in enumerate(train_loader):
             if batch_idx >= steps_per_epoch:
                 break
 
+            inputs, types, labels, masks = unpack_batch(batch)
             labels = labels.to(DEVICE)
+            if masks is not None:
+                masks = masks.to(DEVICE, non_blocking=True)
             query_image, prompt_images = split_query_prompt_inputs(inputs, DEVICE)
             outputs = model(
                 query_image=query_image,
@@ -590,8 +662,10 @@ def run_experiment(
                 labels=labels,
                 loss_fn=loss_fn,
                 phase=phase,
+                masks=masks,
                 image_loss_weight=image_loss_weight,
                 pqa_loss_weight=pqa_loss_weight,
+                mask_loss_weight=mask_loss_weight,
                 text_reg_weight=text_reg_weight,
             )
 
@@ -609,6 +683,7 @@ def run_experiment(
                 "base": f"{loss_parts['base_loss'].item():.4f}",
                 "image": f"{loss_parts['image_loss'].item():.4f}",
                 "pqa": f"{loss_parts['pqa_loss'].item():.4f}",
+                "mask": f"{loss_parts['pqa_mask_loss'].item():.4f}",
                 "text": f"{loss_parts['text_loss'].item():.4f}",
             })
 
@@ -634,9 +709,11 @@ def run_experiment(
         "weight_decay": weight_decay,
         "image_loss_weight": image_loss_weight,
         "pqa_loss_weight": pqa_loss_weight,
+        "mask_loss_weight": mask_loss_weight,
         "text_reg_weight": text_reg_weight,
         "model_architecture": {
             "fusion_mode": getattr(model, "fusion_mode", None),
+            "final_score_mode": getattr(model, "final_score_mode", None),
             "use_text_adapter": getattr(model, "use_text_adapter", None),
             "use_visual_adapter": getattr(model, "use_visual_adapter", None),
             "use_prompt_query_adapter": getattr(model, "use_prompt_query_adapter", None),
@@ -752,6 +829,7 @@ def run_all_experiments(
     weight_decay=0.0,
     image_loss_weight=IMAGE_LOSS_WEIGHT,
     pqa_loss_weight=PQA_LOSS_WEIGHT,
+    mask_loss_weight=MASK_LOSS_WEIGHT,
     text_reg_weight=TEXT_REG_WEIGHT,
     resume_checkpoint=None,
     start_epoch=0,
@@ -780,6 +858,7 @@ def run_all_experiments(
             weight_decay=weight_decay,
             image_loss_weight=image_loss_weight,
             pqa_loss_weight=pqa_loss_weight,
+            mask_loss_weight=mask_loss_weight,
             text_reg_weight=text_reg_weight,
             resume_checkpoint=resume_checkpoint,
             start_epoch=start_epoch,
@@ -808,6 +887,7 @@ def run_all_experiments(
                 "eval_shots": eval_shots,
                 "image_loss_weight": image_loss_weight,
                 "pqa_loss_weight": pqa_loss_weight,
+                "mask_loss_weight": mask_loss_weight,
                 "text_reg_weight": text_reg_weight,
                 "summary_rows": summary_rows,
             },
@@ -849,6 +929,8 @@ if __name__ == "__main__":
                         help="图像级残差 LIRL 损失权重，默认 1.0")
     parser.add_argument("--pqa-loss-weight", type=float, default=PQA_LOSS_WEIGHT,
                         help="PQA 全局比较分支损失权重，默认 1.0")
+    parser.add_argument("--mask-loss-weight", type=float, default=MASK_LOSS_WEIGHT,
+                        help="PQA 局部 mask focal/dice 损失权重，默认 1.0")
     parser.add_argument("--text-reg-weight", type=float, default=TEXT_REG_WEIGHT,
                         help="TA 静态文本原型残差正则权重，默认 0.01")
     parser.add_argument("--max-test-categories", type=int, default=None,
@@ -874,6 +956,7 @@ if __name__ == "__main__":
     print(f"NUM_WORKERS = {args.num_workers}")
     print(f"IMAGE_LOSS_WEIGHT = {args.image_loss_weight}")
     print(f"PQA_LOSS_WEIGHT = {args.pqa_loss_weight}")
+    print(f"MASK_LOSS_WEIGHT = {args.mask_loss_weight}")
     print(f"TEXT_REG_WEIGHT = {args.text_reg_weight}")
     print(f"MAX_TEST_CATEGORIES = {args.max_test_categories}")
     print(f"LR = {LR}")
@@ -897,6 +980,7 @@ if __name__ == "__main__":
         weight_decay=WEIGHT_DECAY,
         image_loss_weight=args.image_loss_weight,
         pqa_loss_weight=args.pqa_loss_weight,
+        mask_loss_weight=args.mask_loss_weight,
         text_reg_weight=args.text_reg_weight,
         resume_checkpoint=args.resume,
         start_epoch=args.start_epoch,

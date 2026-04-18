@@ -402,6 +402,11 @@ _C.INCTRL_ADAPTER = CfgNode()
 # base_logit = holistic_logit + alpha * max(base_residual_map).
 _C.INCTRL_ADAPTER.FUSION_MODE = "paper_additive"
 
+# Keep the deployed image score anchored to InCTRL's frozen CLIP nearest-neighbor
+# residual. Adapter branches are trained as auxiliary evidence unless explicitly
+# selected for ablation.
+_C.INCTRL_ADAPTER.FINAL_SCORE_MODE = "raw_max_patch"
+
 # Keep AdaptCLIP-style PQA evidence as an ablation signal by default. The final
 # InCTRL path uses the pure nearest-neighbor residual map unless this is enabled.
 _C.INCTRL_ADAPTER.USE_PQA_IN_FINAL_MAP = False
@@ -426,6 +431,10 @@ _C.INCTRL_ADAPTER.PQA_GLOBAL_TOPK = 10
 
 # InCTRL optimizes both final holistic score and image-level residual score.
 _C.INCTRL_ADAPTER.IMAGE_LOSS_WEIGHT = 1.0
+
+# AdaptCLIP-style PQA local head uses mask focal/dice supervision when masks are
+# available from the dataset.
+_C.INCTRL_ADAPTER.MASK_LOSS_WEIGHT = 1.0
 
 
 # ---------------------------------------------------------------------------- #

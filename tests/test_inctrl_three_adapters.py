@@ -63,13 +63,20 @@ def test_prompt_query_adapter_matches_bruteforce_nearest_neighbor():
         feature_dim=4,
         hidden_dim=8,
         num_layers=1,
+        image_size=32,
         beta=1.0,
         gamma_r=0.5,
         gamma_c=0.5,
     )
+    adapter.eval()
 
     query = torch.tensor(
-        [[[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]]],
+        [[
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ]],
         dtype=torch.float32,
     )
     prompt = torch.tensor(
@@ -94,7 +101,10 @@ def test_prompt_query_adapter_matches_bruteforce_nearest_neighbor():
     assert torch.equal(aligned_indices, brute_idx)
     assert torch.allclose(residual_map, brute_residual, atol=1e-5)
     assert outputs["pqa_global_logits"][0].shape == (1,)
-    assert outputs["patch_logits"][0].shape == (1, 2)
+    assert outputs["pqa_global_logits_2c"][0].shape == (1, 2)
+    assert outputs["patch_logits"][0].shape == (1, 4)
+    assert outputs["pqa_local_logits"][0].shape == (1, 2, 32, 32)
+    assert outputs["pqa_local_scores"][0].shape == (1, 2, 32, 32)
 
 
 def test_default_phase_is_visual_not_joint():
@@ -215,6 +225,28 @@ def test_default_final_fusion_is_protected_by_max_patch_branch():
         model._positive_scalar(model.alpha_raw) * outputs["max_base_patch_score"],
         atol=1e-6,
     )
+
+
+def test_default_final_score_uses_raw_inctrl_max_patch_as_backbone():
+    torch.manual_seed(29)
+    model = _build_model()
+    model.eval()
+
+    query_image = torch.randn(2, 3, 32, 32)
+    prompt_images = torch.randn(2, 2, 3, 32, 32)
+
+    outputs = model(
+        query_image=query_image,
+        prompt_images=prompt_images,
+        obj_types=["candle", "candle"],
+        return_aux=True,
+        return_dict=True,
+    )
+
+    expected_raw_max = outputs["raw_base_patch_map"].max(dim=-1).values
+
+    assert torch.allclose(outputs["raw_max_patch_score"], expected_raw_max, atol=1e-6)
+    assert torch.allclose(outputs["final_logit"], outputs["raw_max_patch_logit"], atol=1e-6)
 
 
 def test_image_residual_uses_query_minus_prompt_direction():

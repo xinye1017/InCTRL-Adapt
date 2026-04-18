@@ -108,6 +108,46 @@ class ImageResidualHead(nn.Module):
         return self.net(x).squeeze(-1)
 
 
+class PQAConvLocalHead(nn.Module):
+    """AdaptCLIP-style local segmentation head for prompt-query fusion features."""
+
+    def __init__(self, feature_dim: int, hidden_dim: int):
+        super().__init__()
+        mid_dim = max(hidden_dim // 2, 1)
+        self.net = nn.Sequential(
+            nn.Conv2d(feature_dim, hidden_dim, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(hidden_dim),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(hidden_dim, hidden_dim, kernel_size=2, stride=2, padding=0),
+            nn.Conv2d(hidden_dim, mid_dim, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(mid_dim),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(mid_dim, mid_dim, kernel_size=2, stride=2, padding=0),
+            nn.Conv2d(mid_dim, 2, kernel_size=1, stride=1, padding=0),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x)
+
+
+class PQAGlobalHead(nn.Module):
+    def __init__(self, feature_dim: int, hidden_dim: int):
+        super().__init__()
+        mid_dim = max(hidden_dim // 2, 1)
+        self.net = nn.Sequential(
+            nn.Linear(feature_dim, hidden_dim, bias=False),
+            nn.BatchNorm1d(hidden_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden_dim, mid_dim, bias=False),
+            nn.BatchNorm1d(mid_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(mid_dim, 2, bias=False),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x)
+
+
 class HolisticScoringHead(nn.Module):
     def __init__(self, patch_dim: int, hidden_dim: int):
         super().__init__()
@@ -418,6 +458,7 @@ class PromptQueryAdapter(nn.Module):
         gamma_c: float = 0.5,
         learnable_layer_weights: bool = False,
         global_topk: int = 10,
+        image_size: int = 240,
     ):
         super().__init__()
         self.beta = beta
@@ -425,11 +466,15 @@ class PromptQueryAdapter(nn.Module):
         self.gamma_c = gamma_c
         self.learnable_layer_weights = learnable_layer_weights
         self.global_topk = max(int(global_topk), 1)
-        self.patch_heads = nn.ModuleList(
-            ContextResidualPatchHead(feature_dim, hidden_dim) for _ in range(num_layers)
+        self.image_size = int(image_size)
+        self.sharebn = nn.ModuleList(
+            nn.BatchNorm2d(feature_dim) for _ in range(num_layers)
+        )
+        self.local_heads = nn.ModuleList(
+            PQAConvLocalHead(feature_dim, hidden_dim) for _ in range(num_layers)
         )
         self.global_heads = nn.ModuleList(
-            ImageResidualHead(feature_dim, hidden_dim) for _ in range(num_layers)
+            PQAGlobalHead(feature_dim, hidden_dim) for _ in range(num_layers)
         )
         if learnable_layer_weights:
             self.layer_weights = nn.Parameter(torch.zeros(num_layers))
@@ -438,7 +483,7 @@ class PromptQueryAdapter(nn.Module):
 
     def _get_layer_weights(self, device: torch.device) -> torch.Tensor:
         if self.layer_weights is None:
-            return torch.ones(len(self.patch_heads), device=device) / len(self.patch_heads)
+            return torch.ones(len(self.local_heads), device=device) / len(self.local_heads)
         return torch.softmax(self.layer_weights, dim=0)
 
     def forward(
@@ -451,7 +496,10 @@ class PromptQueryAdapter(nn.Module):
         patch_logits = []
         patch_scores = []
         pqa_global_logits = []
+        pqa_global_logits_2c = []
         pqa_global_scores = []
+        pqa_local_logits = []
+        pqa_local_scores = []
         residual_maps = []
         context_scores = []
         aligned_indices = []
@@ -471,19 +519,43 @@ class PromptQueryAdapter(nn.Module):
             gather_index = best_indices.unsqueeze(-1).expand(-1, -1, dim)
             aligned_prompt = torch.gather(prompt_flat, 1, gather_index)
             context_feat = query_level + beta_value * torch.abs(query_level - aligned_prompt)
-            patch_logit = self.patch_heads[layer_idx](context_feat)
-            context_score = torch.sigmoid(patch_logit)
+            grid_side = int(num_patches ** 0.5)
+            context_map = context_feat.permute(0, 2, 1).reshape(batch_size, dim, grid_side, grid_side)
+            context_map = self.sharebn[layer_idx](context_map)
+
+            local_logit_2c = self.local_heads[layer_idx](context_map)
+            local_logit_2c = F.interpolate(
+                local_logit_2c,
+                size=(self.image_size, self.image_size),
+                mode="bilinear",
+                align_corners=False,
+            )
+            local_score_2c = torch.softmax(local_logit_2c, dim=1)
+            patch_logit_2c = F.interpolate(
+                local_logit_2c,
+                size=(grid_side, grid_side),
+                mode="bilinear",
+                align_corners=False,
+            )
+            patch_score_2c = torch.softmax(patch_logit_2c, dim=1)
+            patch_logit = (patch_logit_2c[:, 1] - patch_logit_2c[:, 0]).flatten(1)
+            context_score = patch_score_2c[:, 1].flatten(1)
             patch_evidence = self.gamma_r * residual + self.gamma_c * context_score
-            topk = min(self.global_topk, num_patches)
-            topk_feat = context_feat.topk(topk, dim=1).values.mean(dim=1)
-            global_feat = 0.5 * (context_feat.mean(dim=1) + topk_feat)
-            pqa_global_logit = self.global_heads[layer_idx](global_feat)
+            fusion_img_feat = context_map.reshape(batch_size, dim, -1)
+            topk = min(self.global_topk, fusion_img_feat.shape[-1])
+            topk_feat = fusion_img_feat.topk(topk, dim=-1).values.mean(dim=-1)
+            global_feat = 0.5 * (fusion_img_feat.mean(dim=-1) + topk_feat)
+            pqa_global_logit_2c = self.global_heads[layer_idx](global_feat)
+            pqa_global_logit = pqa_global_logit_2c[:, 1] - pqa_global_logit_2c[:, 0]
 
             patch_evidence_maps.append(patch_evidence)
             patch_logits.append(patch_logit)
             patch_scores.append(context_score)
             pqa_global_logits.append(pqa_global_logit)
+            pqa_global_logits_2c.append(pqa_global_logit_2c)
             pqa_global_scores.append(torch.sigmoid(pqa_global_logit))
+            pqa_local_logits.append(local_logit_2c)
+            pqa_local_scores.append(local_score_2c)
             residual_maps.append(residual)
             context_scores.append(context_score)
             aligned_indices.append(best_indices)
@@ -494,7 +566,10 @@ class PromptQueryAdapter(nn.Module):
             "patch_logits": patch_logits,
             "patch_scores": patch_scores,
             "pqa_global_logits": pqa_global_logits,
+            "pqa_global_logits_2c": pqa_global_logits_2c,
             "pqa_global_scores": pqa_global_scores,
+            "pqa_local_logits": pqa_local_logits,
+            "pqa_local_scores": pqa_local_scores,
             "residual_maps": residual_maps,
             "context_scores": context_scores,
             "aligned_indices": aligned_indices,
@@ -543,6 +618,7 @@ class InCTRLWithAdapters(nn.Module):
         use_pqa_in_final_map: Optional[bool] = None,
         use_branch_fusion: Optional[bool] = None,
         use_max_patch_fallback: Optional[bool] = None,
+        final_score_mode: Optional[str] = None,
         fusion_mode: Optional[str] = None,
         text_adapter_ctx_len: int = 12,
         adapter_hidden_dim: int = 256,
@@ -582,6 +658,11 @@ class InCTRLWithAdapters(nn.Module):
             use_max_patch_fallback = bool(
                 getattr(inctrl_adapter_cfg, "USE_MAX_PATCH_FALLBACK", True)
             )
+        if final_score_mode is None:
+            final_score_mode = getattr(inctrl_adapter_cfg, "FINAL_SCORE_MODE", "raw_max_patch")
+        final_score_mode = str(final_score_mode).lower()
+        if final_score_mode not in {"raw_max_patch", "branch_fusion", "base"}:
+            raise ValueError("final_score_mode must be one of: raw_max_patch, branch_fusion, base")
         if learnable_layer_weights is None:
             learnable_layer_weights = bool(
                 getattr(inctrl_adapter_cfg, "LEARNABLE_LAYER_WEIGHTS", True)
@@ -615,6 +696,7 @@ class InCTRLWithAdapters(nn.Module):
         self.use_pqa_in_final_map = use_pqa_in_final_map
         self.use_branch_fusion = use_branch_fusion
         self.use_max_patch_fallback = use_max_patch_fallback
+        self.final_score_mode = final_score_mode
         self.fusion_mode = fusion_mode
         max_prompts_per_state = getattr(
             textual_adapter_cfg,
@@ -669,6 +751,7 @@ class InCTRLWithAdapters(nn.Module):
             gamma_c=gamma_c,
             learnable_layer_weights=learnable_layer_weights,
             global_topk=pqa_global_topk,
+            image_size=self.image_size,
         )
         self.image_head = ImageResidualHead(embed_dim, adapter_hidden_dim)
         self.text_prior_head = TextPriorHead()
@@ -813,6 +896,20 @@ class InCTRLWithAdapters(nn.Module):
             return level_list
         return self.visual_adapter.adapt_local(level_list)
 
+    def _as_query_level_list(self, patch_levels: Union[torch.Tensor, Sequence[torch.Tensor]]) -> List[torch.Tensor]:
+        if isinstance(patch_levels, torch.Tensor):
+            if patch_levels.dim() != 4:
+                raise ValueError("Query patch levels must be [B, L, N, D].")
+            return [patch_levels[:, level_idx, :, :] for level_idx in range(patch_levels.shape[1])]
+        return list(patch_levels)
+
+    def _as_prompt_level_list(self, patch_levels: Union[torch.Tensor, Sequence[torch.Tensor]]) -> List[torch.Tensor]:
+        if isinstance(patch_levels, torch.Tensor):
+            if patch_levels.dim() != 5:
+                raise ValueError("Prompt patch levels must be [B, L, K, N, D].")
+            return [patch_levels[:, level_idx, :, :, :] for level_idx in range(patch_levels.shape[1])]
+        return list(patch_levels)
+
     def _adapt_prompt_patch_levels(self, patch_levels: torch.Tensor) -> List[torch.Tensor]:
         adapted_levels = []
         for level_idx in range(patch_levels.shape[1]):
@@ -868,8 +965,14 @@ class InCTRLWithAdapters(nn.Module):
         else:
             adapted_prompt_global = prompt_global
         adapted_prompt_patch_levels = self._adapt_prompt_patch_levels(prompt_patch_levels)
+        prompt_patch_level_list = self._as_prompt_level_list(prompt_patch_levels)
 
         return {
+            "prompt_global": prompt_global.squeeze(0).detach(),
+            "prompt_patch_levels": [
+                level.squeeze(0).detach()
+                for level in prompt_patch_level_list
+            ],
             "adapted_prompt_global": adapted_prompt_global.squeeze(0).detach(),
             "adapted_prompt_patch_levels": [
                 level.squeeze(0).detach()
@@ -1068,6 +1171,17 @@ class InCTRLWithAdapters(nn.Module):
         adapted_query_patch_levels = self._adapt_patch_levels(query_patch_levels)
 
         if prompt_feature_cache is not None:
+            prompt_global = prompt_feature_cache["prompt_global"].to(
+                query_image.device,
+                dtype=query_global.dtype,
+            )
+            prompt_global = prompt_global.unsqueeze(0).expand(batch_size, -1, -1)
+            prompt_patch_levels = [
+                level.to(query_image.device, dtype=query_patch_levels[0].dtype)
+                .unsqueeze(0)
+                .expand(batch_size, -1, -1, -1)
+                for level in prompt_feature_cache["prompt_patch_levels"]
+            ]
             adapted_prompt_global = prompt_feature_cache["adapted_prompt_global"].to(
                 query_image.device,
                 dtype=adapted_query_global.dtype,
@@ -1102,6 +1216,16 @@ class InCTRLWithAdapters(nn.Module):
             device=query_image.device,
             dtype=adapted_query_patch_levels[0].dtype,
         )
+        raw_query_patch_levels = self._as_query_level_list(query_patch_levels)
+        raw_prompt_patch_levels = self._as_prompt_level_list(prompt_patch_levels)
+        raw_residual_outputs = self._compute_patch_residuals(
+            query_patch_levels=raw_query_patch_levels,
+            prompt_patch_levels=raw_prompt_patch_levels,
+        )
+        raw_base_patch_map = sum(
+            weight * residual
+            for weight, residual in zip(layer_weights, raw_residual_outputs["residual_maps"])
+        )
         beta_value = self._positive_scalar(self.beta_raw).to(
             device=query_image.device,
             dtype=adapted_query_patch_levels[0].dtype,
@@ -1124,6 +1248,10 @@ class InCTRLWithAdapters(nn.Module):
                 weight * global_logit
                 for weight, global_logit in zip(layer_weights, pq_outputs["pqa_global_logits"])
             )
+            pqa_local_logits = sum(
+                weight * local_logit
+                for weight, local_logit in zip(layer_weights, pq_outputs["pqa_local_logits"])
+            )
         else:
             residual_outputs = self._compute_patch_residuals(
                 query_patch_levels=adapted_query_patch_levels,
@@ -1134,7 +1262,10 @@ class InCTRLWithAdapters(nn.Module):
                 "patch_logits": [],
                 "patch_scores": [],
                 "pqa_global_logits": [],
+                "pqa_global_logits_2c": [],
                 "pqa_global_scores": [],
+                "pqa_local_logits": [],
+                "pqa_local_scores": [],
                 "residual_maps": residual_outputs["residual_maps"],
                 "context_scores": [],
                 "aligned_indices": residual_outputs["aligned_indices"],
@@ -1144,6 +1275,14 @@ class InCTRLWithAdapters(nn.Module):
             hybrid_patch_map = None
             pqa_patch_logit = torch.zeros_like(pq_outputs["residual_maps"][0])
             pqa_logit = torch.zeros(batch_size, device=query_image.device, dtype=adapted_query_global.dtype)
+            pqa_local_logits = torch.zeros(
+                batch_size,
+                2,
+                self.image_size,
+                self.image_size,
+                device=query_image.device,
+                dtype=adapted_query_global.dtype,
+            )
         base_patch_map = sum(
             weight * residual
             for weight, residual in zip(layer_weights, pq_outputs["residual_maps"])
@@ -1152,6 +1291,7 @@ class InCTRLWithAdapters(nn.Module):
             hybrid_patch_map = base_patch_map
         pqa_patch_score = torch.sigmoid(pqa_patch_logit)
         pqa_score = torch.sigmoid(pqa_logit)
+        pqa_local_scores = torch.softmax(pqa_local_logits, dim=1)
         final_patch_map = hybrid_patch_map if self.use_pqa_in_final_map else base_patch_map
 
         prompt_global_proto = adapted_prompt_global.mean(dim=1)
@@ -1195,6 +1335,7 @@ class InCTRLWithAdapters(nn.Module):
         holistic_logit = self.holistic_head(holistic_input)
         holistic_score = torch.sigmoid(holistic_logit)
         max_base_patch_score = base_patch_map.max(dim=-1).values
+        raw_max_patch_score = raw_base_patch_map.max(dim=-1).values
         max_hybrid_patch_score = hybrid_patch_map.max(dim=-1).values
         max_patch_score = final_patch_map.max(dim=-1).values
 
@@ -1205,9 +1346,14 @@ class InCTRLWithAdapters(nn.Module):
         else:
             base_logit = holistic_logit + alpha * max_patch_score
         max_patch_logit = alpha * max_base_patch_score
+        raw_max_patch_logit = alpha * raw_max_patch_score
 
         branch_weights = torch.softmax(self.branch_logits, dim=0)
-        if self.use_branch_fusion:
+        if self.final_score_mode == "raw_max_patch":
+            final_logit = raw_max_patch_logit
+        elif self.final_score_mode == "base":
+            final_logit = base_logit
+        elif self.use_branch_fusion:
             if self.use_max_patch_fallback:
                 final_logit = (
                     branch_weights[0] * base_logit
@@ -1232,10 +1378,12 @@ class InCTRLWithAdapters(nn.Module):
         if return_aux:
             aux = {
                 "patch_map_2d": final_patch_map.reshape(batch_size, patch_side, patch_side),
+                "raw_base_patch_map_2d": raw_base_patch_map.reshape(batch_size, patch_side, patch_side),
                 "base_patch_map_2d": base_patch_map.reshape(batch_size, patch_side, patch_side),
                 "hybrid_patch_map_2d": hybrid_patch_map.reshape(batch_size, patch_side, patch_side),
                 "per_layer_patch_evidence": pq_outputs["patch_evidence_maps"],
                 "per_layer_residual": pq_outputs["residual_maps"],
+                "per_layer_raw_residual": raw_residual_outputs["residual_maps"],
                 "per_layer_context_score": pq_outputs["context_scores"],
                 "aligned_indices": pq_outputs["aligned_indices"],
                 "adapted_query_global": adapted_query_global,
@@ -1265,11 +1413,16 @@ class InCTRLWithAdapters(nn.Module):
             "pqa_logit": pqa_logit,
             "pqa_patch_score": pqa_patch_score,
             "pqa_patch_logit": pqa_patch_logit,
+            "pqa_local_scores": pqa_local_scores,
+            "pqa_local_logits": pqa_local_logits,
             "patch_map": final_patch_map,
+            "raw_base_patch_map": raw_base_patch_map,
             "base_patch_map": base_patch_map,
             "hybrid_patch_map": hybrid_patch_map,
             "max_patch_score": max_patch_score,
             "max_patch_logit": max_patch_logit,
+            "raw_max_patch_score": raw_max_patch_score,
+            "raw_max_patch_logit": raw_max_patch_logit,
             "max_base_patch_score": max_base_patch_score,
             "max_hybrid_patch_score": max_hybrid_patch_score,
             "branch_weights": branch_weights,
