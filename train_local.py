@@ -19,7 +19,7 @@ from torchvision import transforms
 from tqdm import tqdm
 
 # 添加项目路径
-PROJECT_ROOT = Path(__file__).parent
+PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import open_clip

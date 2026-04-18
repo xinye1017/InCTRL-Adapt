@@ -175,8 +175,9 @@ class IC_dataset(VisionDataset):
 
         candidate = Path(raw_path)
         if candidate.exists():
-            self._resolved_path_cache[raw_path] = candidate
-            return candidate
+            resolved_candidate = candidate if candidate.is_absolute() else candidate.resolve()
+            self._resolved_path_cache[raw_path] = resolved_candidate
+            return resolved_candidate
 
         normalized = raw_path.replace("\\", "/")
         relative_candidate = PROJECT_ROOT / normalized
