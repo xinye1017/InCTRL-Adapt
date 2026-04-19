@@ -25,8 +25,15 @@ def compute_pqa_mask_loss(
     masks: Optional[torch.Tensor],
 ) -> torch.Tensor:
     local_logits = outputs.get("pqa_local_logits")
-    if local_logits is None or masks is None:
-        return outputs["final_logit"].new_zeros(())
+    if masks is None or local_logits is None:
+        if isinstance(local_logits, torch.Tensor):
+            return local_logits.new_zeros(())
+        if isinstance(local_logits, (list, tuple)) and local_logits:
+            return local_logits[0].new_zeros(())
+        final_logit = outputs.get("final_logit")
+        if isinstance(final_logit, torch.Tensor):
+            return final_logit.new_zeros(())
+        raise KeyError("outputs must contain 'pqa_local_logits' or 'final_logit'")
 
     if isinstance(local_logits, torch.Tensor):
         local_logits = [local_logits]
@@ -49,7 +56,7 @@ def compute_pqa_mask_loss(
 
 
 def compute_training_loss(
-    outputs: Dict[str, torch.Tensor],
+    outputs: Dict[str, object],
     labels: torch.Tensor,
     loss_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
     phase: Optional[str] = None,
@@ -58,25 +65,36 @@ def compute_training_loss(
     mask_loss_weight: float = 1.0,
     image_loss_weight: float = 0.0,
 ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
-    """Fused PQA objective: supervise final decision, PQA global, and optional PQA masks."""
+    """Compute fused training loss using only final/image/PQA logits and optional PQA masks."""
     del phase
     labels = labels.float()
-    zero = outputs["final_logit"].new_zeros(())
-    final_loss = loss_fn(outputs["final_logit"], labels)
-    image_loss = loss_fn(outputs["image_logit"], labels) if image_loss_weight > 0 else zero
-    pqa_loss = loss_fn(outputs["pqa_logit"], labels) if pqa_loss_weight > 0 else zero
-    pqa_mask_loss = compute_pqa_mask_loss(outputs, masks) if masks is not None and mask_loss_weight > 0 else zero
-    total_loss = (
-        final_loss
-        + image_loss_weight * image_loss
-        + pqa_loss_weight * pqa_loss
-        + mask_loss_weight * pqa_mask_loss
-    )
 
-    return total_loss, {
+    final_logit = outputs["final_logit"]
+    if not isinstance(final_logit, torch.Tensor):
+        raise TypeError("outputs['final_logit'] must be a tensor")
+
+    zero = final_logit.new_zeros(())
+    final_loss = loss_fn(final_logit, labels)
+
+    image_logit = outputs.get("image_logit")
+    if image_loss_weight > 0 and not isinstance(image_logit, torch.Tensor):
+        raise KeyError("outputs['image_logit'] is required when image_loss_weight > 0")
+    image_loss = loss_fn(image_logit, labels) if image_loss_weight > 0 else zero
+
+    pqa_logit = outputs.get("pqa_logit")
+    if pqa_loss_weight > 0 and not isinstance(pqa_logit, torch.Tensor):
+        raise KeyError("outputs['pqa_logit'] is required when pqa_loss_weight > 0")
+    pqa_loss = loss_fn(pqa_logit, labels) if pqa_loss_weight > 0 else zero
+
+    pqa_mask_loss = compute_pqa_mask_loss(outputs, masks) if masks is not None and mask_loss_weight > 0 else zero
+
+    total_loss = final_loss + pqa_loss_weight * pqa_loss + image_loss_weight * image_loss + mask_loss_weight * pqa_mask_loss
+
+    metrics = {
         "final_loss": final_loss.detach(),
         "image_loss": image_loss.detach(),
         "pqa_loss": pqa_loss.detach(),
         "pqa_mask_loss": pqa_mask_loss.detach(),
         "total_loss": total_loss.detach(),
     }
+    return total_loss, metrics

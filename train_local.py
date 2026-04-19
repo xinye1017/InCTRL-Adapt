@@ -286,7 +286,7 @@ def find_fs_pt(ds, cat, shot):
 
 def build_cached_normal_img_features(model, few_shot_path, device):
     """构建用于测试的 normal_list (返回 list of tensors)"""
-    few_shot_list = torch.load(few_shot_path)
+    few_shot_list = torch.load(few_shot_path, map_location="cpu")
     # 返回 list of tensors，每个 tensor 是 [3, 240, 240]
     return [tensor.to(device) for tensor in few_shot_list]
 
@@ -333,13 +333,10 @@ def evaluate(
     model.eval()
     preds_all, labels_all = [], []
     branch_preds = {
-        "base": [],
+        "patch": [],
         "text": [],
         "pqa": [],
         "image": [],
-        "holistic": [],
-        "max_patch": [],
-        "raw_max_patch": [],
     }
 
     for batch in tqdm(loader, desc="[TEST] Batch", leave=False):
@@ -358,16 +355,12 @@ def evaluate(
         preds_all.extend(outputs["final_score"].detach().cpu().float().numpy())
         labels_all.extend(labels.cpu().numpy())
         for branch_name, output_key in [
-            ("base", "base_score"),
+            ("patch", "patch_score"),
             ("text", "text_score"),
             ("pqa", "pqa_score"),
             ("image", "image_score"),
-            ("holistic", "holistic_score"),
-            ("max_patch", "max_base_patch_score"),
-            ("raw_max_patch", "raw_max_patch_score"),
         ]:
-            if output_key in outputs:
-                branch_preds[branch_name].extend(outputs[output_key].detach().cpu().float().numpy())
+            branch_preds[branch_name].extend(outputs[output_key].detach().cpu().float().numpy())
 
     auroc = roc_auc_score(labels_all, preds_all)
     aupr = average_precision_score(labels_all, preds_all)
