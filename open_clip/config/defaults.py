@@ -382,13 +382,17 @@ _C.VISUAL_ADAPTER.MODE = "global_local"
 
 
 # ---------------------------------------------------------------------------- #
-# PQA-only ablation options
+# PQA architecture options
 # ---------------------------------------------------------------------------- #
 _C.PQA = CfgNode()
 
-# AdaptCLIP-style PQA global pooling uses mean plus top-k mean instead of mean
-# plus a single max token, which is less sensitive to one noisy patch.
+# PQA global pooling averages GAP with top-k MIL pooling over patch logits.
 _C.PQA.GLOBAL_TOPK = 10
+
+# Fused PQA training objective weights.
+_C.PQA.GLOBAL_LOSS_WEIGHT = 1.0
+_C.PQA.MASK_LOSS_WEIGHT = 1.0
+_C.PQA.IMAGE_LOSS_WEIGHT = 0.0
 
 
 # ---------------------------------------------------------------------------- #

@@ -14,7 +14,6 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from sklearn.metrics import average_precision_score, roc_auc_score
 from torchvision import transforms
 from tqdm import tqdm
@@ -26,7 +25,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 import open_clip
 from open_clip.model import get_cast_dtype
 from open_clip.config.defaults import get_cfg
-from open_clip.inctrl_three_adapters import InCTRLWithAdapters
+from open_clip.inctrl_pqa_fused import InCTRLPQA
+from open_clip.inctrl_pqa_losses import compute_training_loss
 from datasets import loader as ds_loader
 from datasets.new_utlis import worker_init_fn_seed, BalancedBatchSampler
 from binary_focal_loss import BinaryFocalLoss
@@ -56,7 +56,7 @@ WEIGHT_DECAY = 0.0
 TRAIN_SHOT = 4
 EVAL_SHOTS = [2, 4, 8]
 DEFAULT_TRAIN_DATASETS = ["mvtec", "visa"]
-IMAGE_LOSS_WEIGHT = 1.0
+IMAGE_LOSS_WEIGHT = 0.0
 PQA_LOSS_WEIGHT = 1.0
 MASK_LOSS_WEIGHT = 1.0
 
@@ -199,7 +199,7 @@ def build_model(device):
         model_config = json.load(f)
 
     cfg = get_cfg()
-    model = InCTRLWithAdapters(
+    model = InCTRLPQA(
         cfg,
         model_config["embed_dim"],
         model_config["vision_cfg"],
@@ -316,82 +316,6 @@ def unpack_batch(batch):
         return inputs, types, labels, masks
     inputs, types, labels = batch
     return inputs, types, labels, None
-
-
-def _binary_dice_loss(probabilities, targets, eps=1e-6):
-    probabilities = probabilities.reshape(probabilities.size(0), -1)
-    targets = targets.reshape(targets.size(0), -1)
-    intersection = (probabilities * targets).sum(dim=1)
-    denominator = probabilities.sum(dim=1) + targets.sum(dim=1)
-    return (1.0 - (2.0 * intersection + eps) / (denominator + eps)).mean()
-
-
-def _multiclass_focal_loss(logits, targets, gamma=2.0):
-    ce_loss = F.cross_entropy(logits, targets, reduction="none")
-    pt = torch.exp(-ce_loss)
-    return ((1.0 - pt) ** gamma * ce_loss).mean()
-
-
-def compute_pqa_mask_loss(outputs, masks):
-    local_logits = outputs.get("pqa_local_logits")
-    if local_logits is None or masks is None:
-        return outputs["final_logit"].new_zeros(())
-
-    if isinstance(local_logits, torch.Tensor):
-        local_logits = [local_logits]
-
-    masks = masks.float()
-    if masks.dim() == 3:
-        masks = masks.unsqueeze(1)
-
-    losses = []
-    for logits in local_logits:
-        target_mask = F.interpolate(masks, size=logits.shape[-2:], mode="nearest").clamp(0.0, 1.0)
-        target_labels = target_mask.squeeze(1).long()
-        probabilities = torch.softmax(logits, dim=1)
-        focal_loss = _multiclass_focal_loss(logits, target_labels)
-        anomaly_dice = _binary_dice_loss(probabilities[:, 1], target_mask.squeeze(1))
-        normal_dice = _binary_dice_loss(probabilities[:, 0], 1.0 - target_mask.squeeze(1))
-        losses.append(focal_loss + anomaly_dice + normal_dice)
-
-    return torch.stack(losses).mean()
-
-
-def compute_training_loss(
-    outputs,
-    labels,
-    loss_fn,
-    phase=None,
-    masks=None,
-    image_loss_weight=IMAGE_LOSS_WEIGHT,
-    pqa_loss_weight=PQA_LOSS_WEIGHT,
-    mask_loss_weight=MASK_LOSS_WEIGHT,
-):
-    """PQA-only objective: original InCTRL losses plus optional PQA supervision."""
-    labels = labels.float()
-    zero = outputs["final_logit"].new_zeros(())
-    final_loss = loss_fn(outputs["final_logit"], labels)
-    image_loss = loss_fn(outputs["image_logit"], labels) if image_loss_weight > 0 else zero
-    pqa_loss = loss_fn(outputs["pqa_logit"], labels) if pqa_loss_weight > 0 else zero
-    pqa_mask_loss = (
-        compute_pqa_mask_loss(outputs, masks)
-        if masks is not None and mask_loss_weight > 0
-        else zero
-    )
-    total_loss = (
-        final_loss
-        + image_loss_weight * image_loss
-        + pqa_loss_weight * pqa_loss
-        + mask_loss_weight * pqa_mask_loss
-    )
-
-    return total_loss, {
-        "final_loss": final_loss.detach(),
-        "image_loss": image_loss.detach(),
-        "pqa_loss": pqa_loss.detach(),
-        "pqa_mask_loss": pqa_mask_loss.detach(),
-        "total_loss": total_loss.detach(),
-    }
 
 
 @torch.no_grad()
@@ -515,6 +439,9 @@ def run_experiment(
     cfg.steps_per_epoch = steps_per_epoch
     cfg.normal_json_path = dataset_registry["train_jsons"][train_dataset]["normal"]
     cfg.outlier_json_path = dataset_registry["train_jsons"][train_dataset]["outlier"]
+    cfg.PQA.GLOBAL_LOSS_WEIGHT = pqa_loss_weight
+    cfg.PQA.MASK_LOSS_WEIGHT = mask_loss_weight
+    cfg.PQA.IMAGE_LOSS_WEIGHT = image_loss_weight
     cfg.DATA_LOADER.NUM_WORKERS = num_workers
     cfg.DATA_LOADER.PIN_MEMORY = DEVICE == "cuda"
 
@@ -575,10 +502,10 @@ def run_experiment(
     # 训练循环
     completed_epoch = start_epoch
     for epoch in range(start_epoch, n_epochs):
-        model.set_train_phase("pqa_only")
+        model.enable_pqa_training()
         trainable_params = get_trainable_parameters(model)
         current_lr = optimizer.param_groups[0]["lr"]
-        print(f"\nEpoch {epoch + 1}/{n_epochs} | phase=pqa_only | lr={current_lr:.8f}")
+        print(f"\nEpoch {epoch + 1}/{n_epochs} | phase=pqa_fused | lr={current_lr:.8f}")
 
         model.train()
         epoch_loss = 0.0
@@ -657,7 +584,7 @@ def run_experiment(
         "pqa_loss_weight": pqa_loss_weight,
         "mask_loss_weight": mask_loss_weight,
         "model_architecture": {
-            "mode": "pqa_only",
+            "mode": "pqa_fused_loss_closure",
             "pqa_global_topk": getattr(model, "pqa_global_topk", None),
         },
         "label": label,
