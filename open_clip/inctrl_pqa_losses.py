@@ -55,6 +55,32 @@ def compute_pqa_mask_loss(
     return torch.stack(losses).mean()
 
 
+def compute_pqa_local_mil_loss(
+    outputs: Dict[str, object],
+    labels: torch.Tensor,
+    topk_ratio: float = 0.01,
+) -> torch.Tensor:
+    local_logits = outputs.get("pqa_local_logits")
+    if local_logits is None:
+        final_logit = outputs.get("final_logit")
+        if isinstance(final_logit, torch.Tensor):
+            return final_logit.new_zeros(())
+        raise KeyError("outputs must contain 'pqa_local_logits' or 'final_logit'")
+    if isinstance(local_logits, torch.Tensor):
+        local_logits = [local_logits]
+
+    labels = labels.float()
+    losses = []
+    for logits in local_logits:
+        anomaly_prob = torch.softmax(logits, dim=1)[:, 1].flatten(1)
+        topk_count = max(1, int(anomaly_prob.shape[-1] * float(topk_ratio)))
+        topk_count = min(topk_count, anomaly_prob.shape[-1])
+        local_score = anomaly_prob.topk(topk_count, dim=-1).values.mean(dim=-1)
+        losses.append(F.binary_cross_entropy(local_score.clamp(1e-6, 1.0 - 1e-6), labels))
+
+    return torch.stack(losses).mean()
+
+
 def compute_training_loss(
     outputs: Dict[str, object],
     labels: torch.Tensor,
@@ -63,7 +89,9 @@ def compute_training_loss(
     masks: Optional[torch.Tensor] = None,
     pqa_loss_weight: float = 1.0,
     mask_loss_weight: float = 1.0,
-    image_loss_weight: float = 0.0,
+    image_loss_weight: float = 1.0,
+    local_mil_loss_weight: float = 0.0,
+    local_mil_topk_ratio: float = 0.01,
 ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
     """Compute fused training loss using only final/image/PQA logits and optional PQA masks."""
     del phase
@@ -87,14 +115,26 @@ def compute_training_loss(
     pqa_loss = loss_fn(pqa_logit, labels) if pqa_loss_weight > 0 else zero
 
     pqa_mask_loss = compute_pqa_mask_loss(outputs, masks) if masks is not None and mask_loss_weight > 0 else zero
+    pqa_local_mil_loss = (
+        compute_pqa_local_mil_loss(outputs, labels, topk_ratio=local_mil_topk_ratio)
+        if masks is None and local_mil_loss_weight > 0
+        else zero
+    )
 
-    total_loss = final_loss + pqa_loss_weight * pqa_loss + image_loss_weight * image_loss + mask_loss_weight * pqa_mask_loss
+    total_loss = (
+        final_loss
+        + pqa_loss_weight * pqa_loss
+        + image_loss_weight * image_loss
+        + mask_loss_weight * pqa_mask_loss
+        + local_mil_loss_weight * pqa_local_mil_loss
+    )
 
     metrics = {
         "final_loss": final_loss.detach(),
         "image_loss": image_loss.detach(),
         "pqa_loss": pqa_loss.detach(),
         "pqa_mask_loss": pqa_mask_loss.detach(),
+        "pqa_local_mil_loss": pqa_local_mil_loss.detach(),
         "total_loss": total_loss.detach(),
     }
     return total_loss, metrics

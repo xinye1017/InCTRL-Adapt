@@ -56,9 +56,11 @@ WEIGHT_DECAY = 0.0
 TRAIN_SHOT = 4
 EVAL_SHOTS = [2, 4, 8]
 DEFAULT_TRAIN_DATASETS = ["mvtec", "visa"]
-IMAGE_LOSS_WEIGHT = 0.0
+IMAGE_LOSS_WEIGHT = 1.0
 PQA_LOSS_WEIGHT = 1.0
 MASK_LOSS_WEIGHT = 1.0
+LOCAL_MIL_LOSS_WEIGHT = 0.0
+LOCAL_MIL_TOPK_RATIO = 0.01
 
 
 def get_default_num_workers():
@@ -292,10 +294,10 @@ def build_cached_normal_img_features(model, few_shot_path, device):
 
 
 @torch.no_grad()
-def build_cached_prompt_features(model, few_shot_path, device):
+def build_cached_prompt_features(model, few_shot_path, device, category_name=None):
     """预编码 few-shot prompt 特征，避免评估时重复跑 prompt visual tower。"""
     normal_list = build_cached_normal_img_features(model, few_shot_path, device)
-    return model.build_prompt_feature_cache(normal_list=normal_list)
+    return model.build_prompt_feature_cache(normal_list=normal_list, category=category_name)
 
 
 @torch.no_grad()
@@ -355,7 +357,7 @@ def evaluate(
         preds_all.extend(outputs["final_score"].detach().cpu().float().numpy())
         labels_all.extend(labels.cpu().numpy())
         for branch_name, output_key in [
-            ("patch", "patch_score"),
+            ("patch", "max_patch_score"),
             ("text", "text_score"),
             ("pqa", "pqa_score"),
             ("image", "image_score"),
@@ -401,6 +403,8 @@ def run_experiment(
     image_loss_weight=IMAGE_LOSS_WEIGHT,
     pqa_loss_weight=PQA_LOSS_WEIGHT,
     mask_loss_weight=MASK_LOSS_WEIGHT,
+    local_mil_loss_weight=LOCAL_MIL_LOSS_WEIGHT,
+    local_mil_topk_ratio=LOCAL_MIL_TOPK_RATIO,
     resume_checkpoint=None,
     start_epoch=0,
 ):
@@ -413,7 +417,8 @@ def run_experiment(
         f"train_shot={train_shot}, eval_shots={eval_shots}, n_epochs={n_epochs}, "
         f"lr={lr}, batch_size={batch_size}, num_workers={num_workers}, "
         f"weight_decay={weight_decay}, image_loss_weight={image_loss_weight}, "
-        f"pqa_loss_weight={pqa_loss_weight}, mask_loss_weight={mask_loss_weight}"
+        f"pqa_loss_weight={pqa_loss_weight}, mask_loss_weight={mask_loss_weight}, "
+        f"local_mil_loss_weight={local_mil_loss_weight}, local_mil_topk_ratio={local_mil_topk_ratio}"
     )
     print(f"设备: {DEVICE}")
 
@@ -435,6 +440,8 @@ def run_experiment(
     cfg.PQA.GLOBAL_LOSS_WEIGHT = pqa_loss_weight
     cfg.PQA.MASK_LOSS_WEIGHT = mask_loss_weight
     cfg.PQA.IMAGE_LOSS_WEIGHT = image_loss_weight
+    cfg.PQA.LOCAL_MIL_LOSS_WEIGHT = local_mil_loss_weight
+    cfg.PQA.LOCAL_MIL_TOPK_RATIO = local_mil_topk_ratio
     cfg.DATA_LOADER.NUM_WORKERS = num_workers
     cfg.DATA_LOADER.PIN_MEMORY = DEVICE == "cuda"
 
@@ -535,6 +542,8 @@ def run_experiment(
                 image_loss_weight=image_loss_weight,
                 pqa_loss_weight=pqa_loss_weight,
                 mask_loss_weight=mask_loss_weight,
+                local_mil_loss_weight=local_mil_loss_weight,
+                local_mil_topk_ratio=local_mil_topk_ratio,
             )
 
             optimizer.zero_grad()
@@ -551,6 +560,7 @@ def run_experiment(
                 "image": f"{loss_parts['image_loss'].item():.4f}",
                 "pqa": f"{loss_parts['pqa_loss'].item():.4f}",
                 "mask": f"{loss_parts['pqa_mask_loss'].item():.4f}",
+                "local_mil": f"{loss_parts['pqa_local_mil_loss'].item():.4f}",
             })
 
         batch_pbar.close()
@@ -576,9 +586,11 @@ def run_experiment(
         "image_loss_weight": image_loss_weight,
         "pqa_loss_weight": pqa_loss_weight,
         "mask_loss_weight": mask_loss_weight,
+        "local_mil_loss_weight": local_mil_loss_weight,
+        "local_mil_topk_ratio": local_mil_topk_ratio,
         "model_architecture": {
             "mode": "pqa_fused_loss_closure",
-            "pqa_global_topk": getattr(model, "pqa_global_topk", None),
+            "pqa_global_pooling": "learnable_gap_gmp",
         },
         "label": label,
     }
@@ -618,7 +630,7 @@ def run_experiment(
                 val_loader = ds_loader.construct_loader(cfg, "test", transform)
 
                 fs_pt = find_fs_pt(ds, cat, shot)
-                prompt_feature_cache = build_cached_prompt_features(model, fs_pt, DEVICE)
+                prompt_feature_cache = build_cached_prompt_features(model, fs_pt, DEVICE, category_name=cat)
                 text_prototype_cache = build_cached_text_prototypes(model, cat, DEVICE)
                 eval_output = evaluate(
                     model,
@@ -688,6 +700,8 @@ def run_all_experiments(
     image_loss_weight=IMAGE_LOSS_WEIGHT,
     pqa_loss_weight=PQA_LOSS_WEIGHT,
     mask_loss_weight=MASK_LOSS_WEIGHT,
+    local_mil_loss_weight=LOCAL_MIL_LOSS_WEIGHT,
+    local_mil_topk_ratio=LOCAL_MIL_TOPK_RATIO,
     resume_checkpoint=None,
     start_epoch=0,
 ):
@@ -716,6 +730,8 @@ def run_all_experiments(
             image_loss_weight=image_loss_weight,
             pqa_loss_weight=pqa_loss_weight,
             mask_loss_weight=mask_loss_weight,
+            local_mil_loss_weight=local_mil_loss_weight,
+            local_mil_topk_ratio=local_mil_topk_ratio,
             resume_checkpoint=resume_checkpoint,
             start_epoch=start_epoch,
         )
@@ -744,6 +760,8 @@ def run_all_experiments(
                 "image_loss_weight": image_loss_weight,
                 "pqa_loss_weight": pqa_loss_weight,
                 "mask_loss_weight": mask_loss_weight,
+                "local_mil_loss_weight": local_mil_loss_weight,
+                "local_mil_topk_ratio": local_mil_topk_ratio,
                 "summary_rows": summary_rows,
             },
             f,
@@ -786,6 +804,10 @@ if __name__ == "__main__":
                         help="PQA 全局比较分支损失权重，默认 1.0")
     parser.add_argument("--mask-loss-weight", type=float, default=MASK_LOSS_WEIGHT,
                         help="PQA 局部 mask focal/dice 损失权重，默认 1.0")
+    parser.add_argument("--local-mil-loss-weight", type=float, default=LOCAL_MIL_LOSS_WEIGHT,
+                        help="无 mask 时 PQA 局部 MIL 弱监督权重，默认 0.0（关闭）")
+    parser.add_argument("--local-mil-topk-ratio", type=float, default=LOCAL_MIL_TOPK_RATIO,
+                        help="无 mask 局部 MIL top-k 比例，默认 0.01")
     parser.add_argument("--max-test-categories", type=int, default=None,
                         help="仅用于快速验证：限制每个测试域评估的类别数，默认评估全部类别")
     args = parser.parse_args()
@@ -810,6 +832,8 @@ if __name__ == "__main__":
     print(f"IMAGE_LOSS_WEIGHT = {args.image_loss_weight}")
     print(f"PQA_LOSS_WEIGHT = {args.pqa_loss_weight}")
     print(f"MASK_LOSS_WEIGHT = {args.mask_loss_weight}")
+    print(f"LOCAL_MIL_LOSS_WEIGHT = {args.local_mil_loss_weight}")
+    print(f"LOCAL_MIL_TOPK_RATIO = {args.local_mil_topk_ratio}")
     print(f"MAX_TEST_CATEGORIES = {args.max_test_categories}")
     print(f"LR = {LR}")
     print(f"N_EPOCHS = {args.epochs}")
@@ -833,6 +857,8 @@ if __name__ == "__main__":
         image_loss_weight=args.image_loss_weight,
         pqa_loss_weight=args.pqa_loss_weight,
         mask_loss_weight=args.mask_loss_weight,
+        local_mil_loss_weight=args.local_mil_loss_weight,
+        local_mil_topk_ratio=args.local_mil_topk_ratio,
         resume_checkpoint=args.resume,
         start_epoch=args.start_epoch,
     )
