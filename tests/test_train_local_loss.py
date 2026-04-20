@@ -1,6 +1,6 @@
 import torch
 
-from open_clip.inctrl_pqa_losses import compute_pqa_mask_loss, compute_training_loss
+from open_clip.inctrl_pqa_losses import compute_pqa_local_mil_loss, compute_pqa_mask_loss, compute_training_loss
 from train_local import TEST_DATASETS_BY_TRAIN
 
 
@@ -9,7 +9,7 @@ def test_cross_domain_eval_mapping_matches_experiment_design():
     assert TEST_DATASETS_BY_TRAIN["visa"] == ["mvtec"]
 
 
-def test_pqa_fused_training_loss_defaults_to_final_and_pqa_terms():
+def test_pqa_fused_training_loss_defaults_to_final_pqa_and_image_terms():
     loss_fn = torch.nn.MSELoss()
     labels = torch.tensor([0.0, 1.0])
     outputs = {
@@ -26,12 +26,14 @@ def test_pqa_fused_training_loss_defaults_to_final_and_pqa_terms():
 
     expected_final = loss_fn(outputs["final_logit"], labels)
     expected_pqa = loss_fn(outputs["pqa_logit"], labels)
+    expected_image = loss_fn(outputs["image_logit"], labels)
 
-    assert torch.allclose(total_loss, expected_final + expected_pqa)
+    assert torch.allclose(total_loss, expected_final + expected_pqa + expected_image)
     assert torch.allclose(parts["final_loss"], expected_final.detach())
-    assert torch.allclose(parts["image_loss"], torch.tensor(0.0))
+    assert torch.allclose(parts["image_loss"], expected_image.detach())
     assert torch.allclose(parts["pqa_loss"], expected_pqa.detach())
     assert torch.allclose(parts["pqa_mask_loss"], torch.tensor(0.0))
+    assert torch.allclose(parts["pqa_local_mil_loss"], torch.tensor(0.0))
     assert torch.allclose(parts["total_loss"], total_loss.detach())
 
 
@@ -98,3 +100,33 @@ def test_pqa_only_training_loss_adds_mask_supervision_when_masks_are_available()
 
     assert parts["pqa_mask_loss"] > 0
     assert torch.allclose(total_loss, expected_without_mask + 2.0 * parts["pqa_mask_loss"])
+
+
+def test_training_loss_can_add_local_mil_without_masks():
+    loss_fn = torch.nn.MSELoss()
+    labels = torch.tensor([0.0, 1.0])
+    outputs = {
+        "final_logit": torch.tensor([0.2, 0.7], requires_grad=True),
+        "image_logit": torch.tensor([0.1, 0.8], requires_grad=True),
+        "pqa_logit": torch.tensor([0.4, 0.9], requires_grad=True),
+        "pqa_local_logits": torch.randn(2, 2, 8, 8, requires_grad=True),
+    }
+
+    total_loss, parts = compute_training_loss(
+        outputs=outputs,
+        labels=labels,
+        loss_fn=loss_fn,
+        masks=None,
+        local_mil_loss_weight=0.5,
+        local_mil_topk_ratio=0.1,
+    )
+    expected_mil = compute_pqa_local_mil_loss(outputs, labels, topk_ratio=0.1)
+    expected_total = (
+        loss_fn(outputs["final_logit"], labels)
+        + loss_fn(outputs["image_logit"], labels)
+        + loss_fn(outputs["pqa_logit"], labels)
+        + 0.5 * expected_mil
+    )
+
+    assert torch.allclose(parts["pqa_local_mil_loss"], expected_mil.detach())
+    assert torch.allclose(total_loss, expected_total)

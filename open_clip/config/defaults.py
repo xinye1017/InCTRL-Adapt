@@ -386,13 +386,15 @@ _C.VISUAL_ADAPTER.MODE = "global_local"
 # ---------------------------------------------------------------------------- #
 _C.PQA = CfgNode()
 
-# PQA global pooling averages GAP with top-k MIL pooling over patch logits.
+# Legacy compatibility knob; fused PQA global head uses learnable GAP/GMP pooling.
 _C.PQA.GLOBAL_TOPK = 10
 
 # Fused PQA training objective weights.
 _C.PQA.GLOBAL_LOSS_WEIGHT = 1.0
 _C.PQA.MASK_LOSS_WEIGHT = 1.0
-_C.PQA.IMAGE_LOSS_WEIGHT = 0.0
+_C.PQA.IMAGE_LOSS_WEIGHT = 1.0
+_C.PQA.LOCAL_MIL_LOSS_WEIGHT = 0.0
+_C.PQA.LOCAL_MIL_TOPK_RATIO = 0.01
 
 
 # ---------------------------------------------------------------------------- #

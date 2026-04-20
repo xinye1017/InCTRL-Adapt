@@ -58,70 +58,58 @@ class PQAConvLocalHead(nn.Module):
         return self.net(x)
 
 
+class MLPAdapter(nn.Module):
+    """Small-batch-safe MLP: Linear -> LayerNorm -> ReLU -> Linear."""
+
+    def __init__(self, input_dim: int, hidden_dim: int):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim, bias=False),
+            nn.LayerNorm(hidden_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden_dim, 2),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x)
+
+
 class PQAGlobalHead(nn.Module):
-    """Patch-wise classification adapter followed by GAP and MIL pooling."""
+    """Global PQA head using learnable GAP/GMP fusion for image-level scoring."""
 
     def __init__(
         self,
         feature_dim: int,
         hidden_dim: int,
-        global_topk: int = 10,
-        projector_layers: int = 2,
     ):
         super().__init__()
-        if projector_layers < 1:
-            raise ValueError("projector_layers must be >= 1")
-        self.global_topk = max(int(global_topk), 1)
-        if projector_layers == 1:
-            adapter_layers = [nn.Conv1d(feature_dim, 2, kernel_size=1)]
-        else:
-            adapter_layers = [
-                nn.Conv1d(feature_dim, hidden_dim, kernel_size=1, bias=False),
-                nn.BatchNorm1d(hidden_dim),
-                nn.ReLU(inplace=True),
-            ]
-            for _ in range(projector_layers - 2):
-                adapter_layers.extend(
-                    [
-                        nn.Conv1d(hidden_dim, hidden_dim, kernel_size=1, bias=False),
-                        nn.BatchNorm1d(hidden_dim),
-                        nn.ReLU(inplace=True),
-                    ]
-                )
-            adapter_layers.append(nn.Conv1d(hidden_dim, 2, kernel_size=1))
-        self.classification_adapter = nn.Sequential(*adapter_layers)
+        self.mlp_adapter = MLPAdapter(feature_dim, hidden_dim)
+        self.pool_fusion_logits = nn.Parameter(torch.zeros(2))
 
-    def project_patch_logits(self, patch_features: torch.Tensor) -> torch.Tensor:
-        return self.classification_adapter(patch_features)
-
-    def pool_projected_logits(self, projected_logits: torch.Tensor) -> torch.Tensor:
-        topk = min(self.global_topk, projected_logits.shape[-1])
-        gap_logits = projected_logits.mean(dim=-1)
-        topk_logits = projected_logits.topk(topk, dim=-1).values.mean(dim=-1)
-        return 0.5 * (gap_logits + topk_logits)
+    def get_pool_weights(
+        self,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
+    ) -> torch.Tensor:
+        weights = torch.softmax(self.pool_fusion_logits, dim=0)
+        if device is not None or dtype is not None:
+            weights = weights.to(device=device if device is not None else weights.device, dtype=dtype or weights.dtype)
+        return weights
 
     def forward(self, patch_features: torch.Tensor) -> torch.Tensor:
-        projected_logits = self.project_patch_logits(patch_features)
-        return self.pool_projected_logits(projected_logits)
-
-
-class HolisticScoringHead(nn.Module):
-    def __init__(self, patch_dim: int, hidden_dim: int):
-        super().__init__()
-        mid_dim = max(hidden_dim // 2, 1)
-        self.net = nn.Sequential(
-            nn.LayerNorm(patch_dim),
-            nn.Linear(patch_dim, hidden_dim),
-            nn.GELU(),
-            nn.Linear(hidden_dim, mid_dim),
-            nn.GELU(),
-            nn.Linear(mid_dim, 1),
-        )
-        nn.init.zeros_(self.net[-1].weight)
-        nn.init.zeros_(self.net[-1].bias)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.net(x).squeeze(-1)
+        """
+        Args:
+            patch_features: [B, N, D] raw patch features (e.g. context_map flattened)
+        Returns:
+            global_logit: [B,] anomaly logit (anomaly_score - normal_score)
+        """
+        feat_2d = patch_features.transpose(1, 2).contiguous()
+        gap = feat_2d.mean(dim=-1)  # [B, D]
+        gmp = feat_2d.max(dim=-1).values  # [B, D]
+        pool_weights = self.get_pool_weights(device=feat_2d.device, dtype=feat_2d.dtype)
+        pooled = pool_weights[0] * gap + pool_weights[1] * gmp
+        logits_2c = self.mlp_adapter(pooled)  # [B, 2]
+        return logits_2c[:, 1] - logits_2c[:, 0]
 
 
 class ScalarFusionHead(nn.Module):
@@ -136,15 +124,13 @@ class ScalarFusionHead(nn.Module):
             nn.GELU(),
             nn.Linear(hidden_dim, 1),
         )
-        nn.init.zeros_(self.net[-1].weight)
-        nn.init.zeros_(self.net[-1].bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x).squeeze(-1)
 
 
 class PQAdapter(nn.Module):
-    """Safe prompt-query adapter aligned with the InCTRLPQA interface."""
+    """Prompt-query adapter that emits residual, local, and global PQA cues."""
 
     def __init__(
         self,
@@ -152,14 +138,10 @@ class PQAdapter(nn.Module):
         hidden_dim: int,
         num_layers: int,
         beta: float = 1.0,
-        learnable_layer_weights: bool = False,
-        global_topk: int = 10,
         image_size: int = 240,
     ):
         super().__init__()
         self.beta = beta
-        self.learnable_layer_weights = learnable_layer_weights
-        self.global_topk = max(int(global_topk), 1)
         self.image_size = int(image_size)
         self.sharebn = nn.ModuleList(
             nn.BatchNorm2d(feature_dim) for _ in range(num_layers)
@@ -168,17 +150,8 @@ class PQAdapter(nn.Module):
             PQAConvLocalHead(feature_dim, hidden_dim) for _ in range(num_layers)
         )
         self.global_heads = nn.ModuleList(
-            PQAGlobalHead(feature_dim, hidden_dim, global_topk=self.global_topk) for _ in range(num_layers)
+            PQAGlobalHead(feature_dim, hidden_dim) for _ in range(num_layers)
         )
-        if learnable_layer_weights:
-            self.layer_weights = nn.Parameter(torch.zeros(num_layers))
-        else:
-            self.register_parameter("layer_weights", None)
-
-    def _get_layer_weights(self, device: torch.device) -> torch.Tensor:
-        if self.layer_weights is None:
-            return torch.ones(len(self.local_heads), device=device) / len(self.local_heads)
-        return torch.softmax(self.layer_weights, dim=0)
 
     def _flatten_prompt_level(self, prompt_level: torch.Tensor) -> torch.Tensor:
         batch_size, _, _, feature_dim = prompt_level.shape
@@ -222,18 +195,18 @@ class PQAdapter(nn.Module):
         layer_idx: int,
         grid_side: int,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        local_logits = self.local_heads[layer_idx](context_map)
+        raw_local_logits = self.local_heads[layer_idx](context_map)
+        patch_logits_2c = F.adaptive_avg_pool2d(raw_local_logits, output_size=(grid_side, grid_side))
+        patch_scores_2c = torch.softmax(patch_logits_2c, dim=1)
+        patch_logits = (patch_logits_2c[:, 1] - patch_logits_2c[:, 0]).flatten(1)
+        patch_scores = patch_scores_2c[:, 1].flatten(1)
         local_logits = F.interpolate(
-            local_logits,
+            raw_local_logits,
             size=(self.image_size, self.image_size),
             mode="bilinear",
             align_corners=False,
         )
         local_scores = torch.softmax(local_logits, dim=1)
-        patch_logits_2c = F.adaptive_avg_pool2d(local_logits, output_size=(grid_side, grid_side))
-        patch_scores_2c = torch.softmax(patch_logits_2c, dim=1)
-        patch_logits = (patch_logits_2c[:, 1] - patch_logits_2c[:, 0]).flatten(1)
-        patch_scores = patch_scores_2c[:, 1].flatten(1)
         return local_logits, local_scores, patch_logits, patch_scores
 
     def forward(
@@ -241,7 +214,7 @@ class PQAdapter(nn.Module):
         query_patch_levels: Sequence[torch.Tensor],
         prompt_patch_levels: Sequence[torch.Tensor],
         beta: Optional[torch.Tensor] = None,
-    ) -> Dict[str, List[torch.Tensor]]:
+    ) -> Dict[str, object]:
         query_levels = list(query_patch_levels)
         prompt_levels = list(prompt_patch_levels)
         if not query_levels:
@@ -255,15 +228,13 @@ class PQAdapter(nn.Module):
                 f"Expected {len(self.local_heads)} layers, got {len(query_levels)}."
             )
 
-        patch_logits = []
-        patch_scores = []
+        inctrl_patch_maps = []
         pqa_patch_maps = []
         pqa_global_logits = []
-        pqa_global_logits_2c = []
-        pqa_global_scores = []
         pqa_local_logits = []
-        pqa_local_scores = []
-        residual_maps = []
+        patch_logits_list = []
+        patch_scores_list = []
+        global_pool_weights = []
         aligned_indices = []
         aligned_prompt_features = []
         beta_value = self.beta if beta is None else beta
@@ -274,43 +245,46 @@ class PQAdapter(nn.Module):
             prompt_flat = self._flatten_prompt_level(prompt_level)
             residual, best_indices, aligned_prompt = self._match_prompt_patches(query_level, prompt_flat)
             context_map = self._build_context_map(query_level, aligned_prompt, beta_value, layer_idx)
-            local_logit_2c, local_score_2c, patch_logit, patch_score = self._compute_local_outputs(
+            local_logits_2c, _, patch_logits_from_pool, patch_scores_from_pool = self._compute_local_outputs(
                 context_map=context_map,
                 layer_idx=layer_idx,
                 grid_side=grid_side,
             )
-            pqa_global_logit_2c = self.global_heads[layer_idx](context_map.flatten(2))
-            pqa_global_logit = pqa_global_logit_2c[:, 1] - pqa_global_logit_2c[:, 0]
+            # Reshape [B, D, H, W] -> [B, N, D] for AdaptCLIP-style global head
+            context_flat = context_map.flatten(2).transpose(1, 2)  # [B, N, D]
+            pqa_global_logit = self.global_heads[layer_idx](context_flat)  # [B,] image-level anomaly logit
 
-            patch_logits.append(patch_logit)
-            patch_scores.append(patch_score)
-            pqa_patch_maps.append(patch_score)
+            inctrl_patch_maps.append(residual)
+            pqa_patch_maps.append(patch_scores_from_pool)
             pqa_global_logits.append(pqa_global_logit)
-            pqa_global_logits_2c.append(pqa_global_logit_2c)
-            pqa_global_scores.append(torch.sigmoid(pqa_global_logit))
-            pqa_local_logits.append(local_logit_2c)
-            pqa_local_scores.append(local_score_2c)
-            residual_maps.append(residual)
+            pqa_local_logits.append(local_logits_2c)
+            patch_logits_list.append(patch_logits_from_pool)
+            patch_scores_list.append(patch_scores_from_pool)
+            global_pool_weights.append(
+                self.global_heads[layer_idx].get_pool_weights(
+                    device=context_map.device,
+                    dtype=context_map.dtype,
+                )
+            )
             aligned_indices.append(best_indices)
             aligned_prompt_features.append(aligned_prompt)
 
         return {
-            "patch_logits": patch_logits,
-            "patch_scores": patch_scores,
+            "residual_maps": inctrl_patch_maps,
+            "inctrl_patch_maps": inctrl_patch_maps,
             "pqa_patch_maps": pqa_patch_maps,
+            "patch_logits": patch_logits_list,
+            "patch_scores": patch_scores_list,
             "pqa_global_logits": pqa_global_logits,
-            "pqa_global_logits_2c": pqa_global_logits_2c,
-            "pqa_global_scores": pqa_global_scores,
             "pqa_local_logits": pqa_local_logits,
-            "pqa_local_scores": pqa_local_scores,
-            "residual_maps": residual_maps,
+            "global_pool_weights": global_pool_weights,
             "aligned_indices": aligned_indices,
             "aligned_prompt_features": aligned_prompt_features,
-            "layer_weights": self._get_layer_weights(query_levels[0].device),
         }
 
+
 class InCTRLPQA(nn.Module):
-    """Original InCTRL backbone with a single prompt-query branch."""
+    """Frozen CLIP backbone with fused residual, PQA, image, and text anomaly cues."""
 
     def __init__(
         self,
@@ -337,12 +311,7 @@ class InCTRLPQA(nn.Module):
         self.vision_cfg = _as_cfg(vision_cfg, CLIPVisionCfg)
         self.text_cfg = _as_cfg(text_cfg, CLIPTextCfg)
         self.image_size = getattr(args, "image_size", self.vision_cfg.image_size)
-        self.shot = getattr(args, "shot", 1)
-        pqa_cfg = getattr(args, "PQA", None)
-        pqa_global_topk = int(getattr(pqa_cfg, "GLOBAL_TOPK", 10))
-
         self.beta = float(beta)
-        self.pqa_global_topk = pqa_global_topk
 
         self.visual = _build_vision_tower_Mul(embed_dim, self.vision_cfg, quick_gelu, cast_dtype)
 
@@ -374,14 +343,16 @@ class InCTRLPQA(nn.Module):
             hidden_dim=hidden_dim,
             num_layers=len(self.patch_layers),
             beta=beta,
-            learnable_layer_weights=False,
-            global_topk=pqa_global_topk,
             image_size=self.image_size,
         )
         self.image_head = ImageResidualHead(embed_dim, hidden_dim)
-        self.holistic_head = HolisticScoringHead(self.num_patches, hidden_dim)
-        self.decision_head = ScalarFusionHead(input_dim=5, hidden_dim=max(hidden_dim // 2, 32))
+        self.holistic_head = ScalarFusionHead(
+            input_dim=self.num_patches,
+            hidden_dim=max(hidden_dim // 2, 32),
+        )
         self.patch_map_fusion_logits = nn.Parameter(torch.zeros(2))
+        self.final_logit_fusion_logits = nn.Parameter(torch.zeros(2))
+        self.layer_weights_logits = nn.Parameter(torch.zeros(len(self.patch_layers)))
 
         for parameter in self.visual.parameters():
             parameter.requires_grad = False
@@ -396,18 +367,17 @@ class InCTRLPQA(nn.Module):
 
         self.enable_pqa_training()
 
-    def _get_layer_weights(self, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
-        return torch.full(
-            (len(self.patch_layers),),
-            1.0 / len(self.patch_layers),
-            device=device,
-            dtype=dtype,
-        )
-
     @staticmethod
     def _score_to_logit(score: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
         score = score.clamp(min=eps, max=1.0 - eps)
         return torch.log(score) - torch.log1p(-score)
+
+    def _get_layer_weights(
+        self,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> torch.Tensor:
+        return torch.softmax(self.layer_weights_logits, dim=0).to(device=device, dtype=dtype)
 
     def encode_text_prompted(
         self,
@@ -441,31 +411,16 @@ class InCTRLPQA(nn.Module):
         prompt_patch_levels: Sequence[torch.Tensor],
     ) -> Dict[str, List[torch.Tensor]]:
         residual_maps = []
-        aligned_indices = []
-        aligned_prompt_features = []
-
         for query_level, prompt_level in zip(query_patch_levels, prompt_patch_levels):
-            _, _, dim = query_level.shape
-            prompt_flat = prompt_level.reshape(query_level.size(0), -1, dim)
-
+            batch_size, _, feature_dim = query_level.shape
+            prompt_reshaped = prompt_level.reshape(batch_size, -1, feature_dim)
             query_norm = F.normalize(query_level, dim=-1)
-            prompt_norm = F.normalize(prompt_flat, dim=-1)
+            prompt_norm = F.normalize(prompt_reshaped, dim=-1)
             similarity = torch.einsum("bnc,bmc->bnm", query_norm, prompt_norm)
-            max_cosine, best_indices = similarity.max(dim=-1)
+            max_cosine = similarity.max(dim=-1).values
             residual = 0.5 * (1.0 - max_cosine)
-
-            gather_index = best_indices.unsqueeze(-1).expand(-1, -1, dim)
-            aligned_prompt = torch.gather(prompt_flat, 1, gather_index)
-
             residual_maps.append(residual)
-            aligned_indices.append(best_indices)
-            aligned_prompt_features.append(aligned_prompt)
-
-        return {
-            "residual_maps": residual_maps,
-            "aligned_indices": aligned_indices,
-            "aligned_prompt_features": aligned_prompt_features,
-        }
+        return {"residual_maps": residual_maps}
 
     def _parse_visual_outputs(
         self,
@@ -511,10 +466,31 @@ class InCTRLPQA(nn.Module):
         prompt_images: Optional[torch.Tensor] = None,
         normal_list: Optional[Union[torch.Tensor, Sequence[torch.Tensor]]] = None,
     ) -> torch.Tensor:
+        batch_size = query_image.size(0)
+
+        def _normalize_batched_prompts(prompt_tensor: torch.Tensor, source_name: str) -> torch.Tensor:
+            if prompt_tensor.dim() != 5:
+                raise ValueError(f"{source_name} must be [B, S, C, H, W].")
+            prompt_batch = prompt_tensor.size(0)
+            if prompt_batch == 1:
+                return prompt_tensor.expand(batch_size, -1, -1, -1, -1)
+            if prompt_batch == batch_size:
+                return prompt_tensor
+            raise ValueError(
+                f"{source_name} batch dimension must be 1 or match query batch size {batch_size}; got {prompt_batch}."
+            )
+
+        def _normalize_shared_prompts(prompt_tensor: torch.Tensor, source_name: str) -> torch.Tensor:
+            if prompt_tensor.dim() == 4:
+                return prompt_tensor.unsqueeze(0).expand(batch_size, -1, -1, -1, -1)
+            if prompt_tensor.dim() == 5:
+                return _normalize_batched_prompts(prompt_tensor, source_name)
+            raise ValueError(f"{source_name} must be [S, C, H, W] or [B, S, C, H, W].")
+
         if prompt_images is not None:
             if prompt_images.dim() == 4:
-                prompt_images = prompt_images.unsqueeze(0).expand(query_image.size(0), -1, -1, -1, -1)
-            return prompt_images
+                return _normalize_shared_prompts(prompt_images, "prompt_images")
+            return _normalize_batched_prompts(prompt_images, "prompt_images")
 
         if normal_list is None:
             raise ValueError("Either prompt_images or normal_list must be provided.")
@@ -524,11 +500,7 @@ class InCTRLPQA(nn.Module):
         else:
             prompt_images = normal_list
 
-        if prompt_images.dim() == 4:
-            prompt_images = prompt_images.unsqueeze(0).expand(query_image.size(0), -1, -1, -1, -1)
-        elif prompt_images.dim() != 5:
-            raise ValueError("normal_list must be [S, C, H, W] or [B, S, C, H, W].")
-        return prompt_images
+        return _normalize_shared_prompts(prompt_images, "normal_list")
 
     def _as_query_level_list(self, patch_levels: Union[torch.Tensor, Sequence[torch.Tensor]]) -> List[torch.Tensor]:
         if isinstance(patch_levels, torch.Tensor):
@@ -575,11 +547,150 @@ class InCTRLPQA(nn.Module):
         prompt_global = prompt_global.reshape(batch_size, num_shots, -1)
         return prompt_global, self._as_prompt_level_list(prompt_patch_levels), num_shots
 
+    @staticmethod
+    def _normalize_obj_type(obj_type: object) -> str:
+        return str(obj_type).replace("_", " ").strip().lower()
+
+    @classmethod
+    def _normalize_obj_types(cls, obj_types: Sequence[str]) -> List[str]:
+        return [cls._normalize_obj_type(obj_type) for obj_type in obj_types]
+
+    def _resolve_prompt_cache_category(
+        self,
+        category: Optional[str],
+        obj_types: Optional[Sequence[str]],
+    ) -> Optional[str]:
+        normalized_category = self._normalize_obj_type(category) if category is not None else None
+        if obj_types is None:
+            return normalized_category
+        normalized_obj_types = self._normalize_obj_types(obj_types)
+        unique_obj_types = set(normalized_obj_types)
+        if len(unique_obj_types) != 1:
+            raise ValueError("Prompt feature cache can only be built for one category.")
+        obj_category = normalized_obj_types[0]
+        if normalized_category is not None and normalized_category != obj_category:
+            raise ValueError(
+                f"prompt_feature_cache category '{normalized_category}' does not match obj_types category '{obj_category}'."
+            )
+        return normalized_category or obj_category
+
+    def _prepare_prompt_feature_cache(
+        self,
+        prompt_feature_cache: Dict[str, object],
+        obj_types: Sequence[str],
+        batch_size: int,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> Tuple[torch.Tensor, List[torch.Tensor]]:
+        required_keys = {"prompt_global", "prompt_patch_levels", "num_shots"}
+        missing_keys = required_keys.difference(prompt_feature_cache)
+        if missing_keys:
+            missing = ", ".join(sorted(missing_keys))
+            raise ValueError(f"prompt_feature_cache missing required keys: {missing}.")
+
+        prompt_global = prompt_feature_cache["prompt_global"]
+        if not isinstance(prompt_global, torch.Tensor) or prompt_global.dim() != 2:
+            raise ValueError("prompt_feature_cache['prompt_global'] must have shape [S, D].")
+        num_shots = int(prompt_feature_cache["num_shots"])
+        if prompt_global.shape != (num_shots, self.embed_dim):
+            raise ValueError(
+                "prompt_feature_cache['prompt_global'] shape must be "
+                f"[num_shots={num_shots}, embed_dim={self.embed_dim}], got {tuple(prompt_global.shape)}."
+            )
+
+        prompt_patch_levels = prompt_feature_cache["prompt_patch_levels"]
+        if not isinstance(prompt_patch_levels, (list, tuple)):
+            raise ValueError("prompt_feature_cache['prompt_patch_levels'] must be a list of tensors.")
+        if len(prompt_patch_levels) != len(self.patch_layers):
+            raise ValueError(
+                "prompt_feature_cache prompt_patch_levels layers must match "
+                f"len(self.patch_layers)={len(self.patch_layers)}, got {len(prompt_patch_levels)}."
+            )
+
+        prepared_levels = []
+        for level_idx, level in enumerate(prompt_patch_levels):
+            if not isinstance(level, torch.Tensor) or level.dim() != 3:
+                raise ValueError(
+                    f"prompt_feature_cache['prompt_patch_levels'][{level_idx}] must have shape [S, N, D]."
+                )
+            expected_shape = (num_shots, self.num_patches, self.embed_dim)
+            if tuple(level.shape) != expected_shape:
+                raise ValueError(
+                    "prompt_feature_cache prompt patch level shape must be "
+                    f"{expected_shape}, got {tuple(level.shape)} at level {level_idx}."
+                )
+            prepared_levels.append(
+                level.to(device=device, dtype=dtype)
+                .unsqueeze(0)
+                .expand(batch_size, -1, -1, -1)
+            )
+
+        normalized_obj_types = self._normalize_obj_types(obj_types)
+        unique_obj_types = set(normalized_obj_types)
+        cache_category = prompt_feature_cache.get("category")
+        if cache_category is None:
+            if len(unique_obj_types) > 1:
+                raise ValueError(
+                    "prompt_feature_cache without category metadata cannot be used for mixed-category batches; "
+                    "rebuild one cache per category."
+                )
+        else:
+            normalized_cache_category = self._normalize_obj_type(cache_category)
+            if unique_obj_types != {normalized_cache_category}:
+                raise ValueError(
+                    f"prompt_feature_cache category '{normalized_cache_category}' does not match "
+                    f"batch categories {sorted(unique_obj_types)}."
+                )
+
+        prepared_global = prompt_global.to(device=device, dtype=dtype).unsqueeze(0).expand(batch_size, -1, -1)
+        return prepared_global, prepared_levels
+
+    def _prepare_text_prototype_cache(
+        self,
+        text_prototype_cache: Dict[str, torch.Tensor],
+        batch_size: int,
+        feature_dim: int,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        required_keys = {"normal_proto", "anomaly_proto"}
+        missing_keys = required_keys.difference(text_prototype_cache)
+        if missing_keys:
+            missing = ", ".join(sorted(missing_keys))
+            raise ValueError(f"text_prototype_cache missing required keys: {missing}.")
+
+        normal_proto = text_prototype_cache["normal_proto"]
+        anomaly_proto = text_prototype_cache["anomaly_proto"]
+        if not isinstance(normal_proto, torch.Tensor) or not isinstance(anomaly_proto, torch.Tensor):
+            raise ValueError("text_prototype_cache values must be tensors.")
+        if normal_proto.dim() != 2 or anomaly_proto.dim() != 2 or normal_proto.shape != anomaly_proto.shape:
+            raise ValueError(
+                "text_prototype_cache normal_proto and anomaly_proto shape must match [1, D] or [B, D]."
+            )
+        if normal_proto.size(-1) != feature_dim:
+            raise ValueError(
+                "text_prototype_cache feature dim does not match query_global; "
+                f"expected {feature_dim}, got {normal_proto.size(-1)}."
+            )
+
+        normal_proto = normal_proto.to(device=device, dtype=dtype)
+        anomaly_proto = anomaly_proto.to(device=device, dtype=dtype)
+        if normal_proto.size(0) == 1:
+            return normal_proto.expand(batch_size, -1), anomaly_proto.expand(batch_size, -1)
+        if normal_proto.size(0) != batch_size:
+            raise ValueError(
+                "text_prototype_cache batch dimension must be 1 or match "
+                f"batch_size={batch_size}, got {normal_proto.size(0)}."
+            )
+        return normal_proto, anomaly_proto
+
     @torch.no_grad()
     def build_prompt_feature_cache(
         self,
         prompt_images: Optional[torch.Tensor] = None,
         normal_list: Optional[Union[torch.Tensor, Sequence[torch.Tensor]]] = None,
+        obj_types: Optional[Sequence[str]] = None,
+        category: Optional[str] = None,
     ) -> Dict[str, object]:
         """Pre-encode shared few-shot prompt images for fast evaluation."""
         if prompt_images is None:
@@ -608,8 +719,9 @@ class InCTRLPQA(nn.Module):
         )
         prompt_global = prompt_global.reshape(1, num_shots, -1)
         prompt_patch_level_list = self._as_prompt_level_list(prompt_patch_levels)
+        cache_category = self._resolve_prompt_cache_category(category=category, obj_types=obj_types)
 
-        return {
+        cache: Dict[str, object] = {
             "prompt_global": prompt_global.squeeze(0).detach(),
             "prompt_patch_levels": [
                 level.squeeze(0).detach()
@@ -617,13 +729,20 @@ class InCTRLPQA(nn.Module):
             ],
             "num_shots": num_shots,
         }
+        if cache_category is not None:
+            cache["category"] = cache_category
+        return cache
 
+    @torch.no_grad()
     def _build_static_text_prototypes(
         self,
         obj_types: Sequence[str],
         device: torch.device,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Build the fixed InCTRL / WinCLIP text prior without trainable prompts."""
+        if not hasattr(self, "_static_text_cache"):
+            self._static_text_cache = {}
+
         normal_prototypes = []
         anomaly_prototypes = []
         unique_obj_types = []
@@ -637,9 +756,15 @@ class InCTRLPQA(nn.Module):
             inverse_indices.append(unique_index[obj_key])
 
         for obj_type in unique_obj_types:
-            normal_descriptors, anomaly_descriptors = get_texts(obj_type)
-            normal_prototypes.append(self._encode_text_descriptors(normal_descriptors, device))
-            anomaly_prototypes.append(self._encode_text_descriptors(anomaly_descriptors, device))
+            if obj_type not in self._static_text_cache:
+                normal_descriptors, anomaly_descriptors = get_texts(obj_type)
+                n_proto = self._encode_text_descriptors(normal_descriptors, device)
+                a_proto = self._encode_text_descriptors(anomaly_descriptors, device)
+                self._static_text_cache[obj_type] = (n_proto.cpu(), a_proto.cpu())
+
+            n_proto, a_proto = self._static_text_cache[obj_type]
+            normal_prototypes.append(n_proto.to(device))
+            anomaly_prototypes.append(a_proto.to(device))
 
         normal_stack = torch.stack(normal_prototypes, dim=0)
         anomaly_stack = torch.stack(anomaly_prototypes, dim=0)
@@ -666,13 +791,14 @@ class InCTRLPQA(nn.Module):
             self.patch_projection,
             self.image_head,
             self.holistic_head,
-            self.decision_head,
             self.prompt_query_adapter,
         ]
         parameters: List[nn.Parameter] = []
         for module in modules:
             parameters.extend(list(module.parameters()))
         parameters.append(self.patch_map_fusion_logits)
+        parameters.append(self.final_logit_fusion_logits)
+        parameters.append(self.layer_weights_logits)
         return parameters
 
     def enable_pqa_training(self) -> None:
@@ -689,28 +815,26 @@ class InCTRLPQA(nn.Module):
         obj_types: Optional[Sequence[str]] = None,
         text_prototype_cache: Optional[Dict[str, torch.Tensor]] = None,
         return_aux: bool = False,
-        return_dict: bool = True,
-    ) -> Dict[str, object]:
+        return_dict: Optional[bool] = None,
+    ) -> Union[Dict[str, object], Tuple[torch.Tensor, torch.Tensor]]:
+        batch_size = query_image.size(0)
         if obj_types is None:
-            obj_types = ["object"] * query_image.size(0)
+            obj_types = ["object"] * batch_size
+        if len(obj_types) != batch_size:
+            raise ValueError(f"obj_types length must match batch_size={batch_size}, got {len(obj_types)}.")
 
         query_global, query_patch_tokens = self._encode_visual_features(query_image)
-        batch_size = query_image.size(0)
         query_patch_levels = self._prepare_patch_levels(query_patch_tokens, batch_size=batch_size, num_shots=1)
         query_patch_level_list = self._as_query_level_list(query_patch_levels)
 
         if prompt_feature_cache is not None:
-            prompt_global = prompt_feature_cache["prompt_global"].to(
-                query_image.device,
-                dtype=query_global.dtype,
+            prompt_global, prompt_patch_levels = self._prepare_prompt_feature_cache(
+                prompt_feature_cache=prompt_feature_cache,
+                obj_types=obj_types,
+                batch_size=batch_size,
+                device=query_image.device,
+                dtype=query_patch_level_list[0].dtype,
             )
-            prompt_global = prompt_global.unsqueeze(0).expand(batch_size, -1, -1)
-            prompt_patch_levels = [
-                level.to(query_image.device, dtype=query_patch_levels[0].dtype)
-                .unsqueeze(0)
-                .expand(batch_size, -1, -1, -1)
-                for level in prompt_feature_cache["prompt_patch_levels"]
-            ]
         else:
             prompt_global, prompt_patch_levels, _ = self._encode_prompt_features(
                 query_image=query_image,
@@ -722,14 +846,7 @@ class InCTRLPQA(nn.Module):
             device=query_image.device,
             dtype=query_patch_level_list[0].dtype,
         )
-        raw_residual_outputs = self._compute_patch_residuals(
-            query_patch_levels=query_patch_level_list,
-            prompt_patch_levels=prompt_patch_levels,
-        )
-        raw_base_patch_map = sum(
-            weight * residual
-            for weight, residual in zip(layer_weights, raw_residual_outputs["residual_maps"])
-        )
+        # Insert PQA immediately after visual feature extraction and before the raw residual branch.
         beta_value = torch.tensor(
             self.beta,
             device=query_image.device,
@@ -739,6 +856,11 @@ class InCTRLPQA(nn.Module):
             query_patch_levels=query_patch_level_list,
             prompt_patch_levels=prompt_patch_levels,
             beta=beta_value,
+        )
+        raw_residual_maps = pq_outputs["residual_maps"]
+        raw_base_patch_map = sum(
+            weight * residual
+            for weight, residual in zip(layer_weights, raw_residual_maps)
         )
         pqa_patch_map = sum(
             weight * patch_score
@@ -780,17 +902,13 @@ class InCTRLPQA(nn.Module):
         image_score = torch.sigmoid(image_logit)
 
         if text_prototype_cache is not None:
-            normal_proto = text_prototype_cache["normal_proto"].to(
-                query_image.device,
+            normal_proto, anomaly_proto = self._prepare_text_prototype_cache(
+                text_prototype_cache=text_prototype_cache,
+                batch_size=batch_size,
+                feature_dim=query_global.shape[-1],
+                device=query_image.device,
                 dtype=query_global.dtype,
             )
-            anomaly_proto = text_prototype_cache["anomaly_proto"].to(
-                query_image.device,
-                dtype=query_global.dtype,
-            )
-            if normal_proto.size(0) == 1 and batch_size != 1:
-                normal_proto = normal_proto.expand(batch_size, -1)
-                anomaly_proto = anomaly_proto.expand(batch_size, -1)
         else:
             normal_proto, anomaly_proto = self._build_static_text_prototypes(
                 obj_types=obj_types,
@@ -806,13 +924,12 @@ class InCTRLPQA(nn.Module):
         text_score = torch.softmax(text_logits_2c, dim=-1)[:, 1]
         text_logit = anomaly_logit - normal_logit
 
-        holistic_input = (
+        holistic_map = (
             final_patch_map
             + image_score.unsqueeze(-1)
             + text_score.unsqueeze(-1)
-            + pqa_score.unsqueeze(-1)
         )
-        holistic_logit = self.holistic_head(holistic_input)
+        holistic_logit = self.holistic_head(holistic_map)
         holistic_score = torch.sigmoid(holistic_logit)
         max_base_patch_score = base_patch_map.max(dim=-1).values
         raw_max_patch_score = raw_base_patch_map.max(dim=-1).values
@@ -824,18 +941,12 @@ class InCTRLPQA(nn.Module):
         max_hybrid_patch_logit = self._score_to_logit(max_hybrid_patch_score)
         max_patch_logit = self._score_to_logit(max_patch_score)
 
-        base_logit = 0.5 * (holistic_logit + max_base_patch_logit)
-        decision_input = torch.stack(
-            [
-                holistic_logit,
-                max_patch_logit,
-                pqa_logit,
-                image_logit,
-                text_logit,
-            ],
-            dim=-1,
+        base_logit = 0.5 * (holistic_logit + max_patch_logit)
+        final_logit_fusion_weights = torch.softmax(self.final_logit_fusion_logits, dim=0)
+        final_logit = (
+            final_logit_fusion_weights[0] * base_logit
+            + final_logit_fusion_weights[1] * pqa_logit
         )
-        final_logit = self.decision_head(decision_input)
         final_score = torch.sigmoid(final_logit)
         base_score = torch.sigmoid(base_logit)
 
@@ -850,14 +961,15 @@ class InCTRLPQA(nn.Module):
                 "per_layer_pqa_patch_map": pq_outputs["pqa_patch_maps"],
                 "per_layer_pqa_patch_logit": pq_outputs["patch_logits"],
                 "per_layer_residual": pq_outputs["residual_maps"],
-                "per_layer_raw_residual": raw_residual_outputs["residual_maps"],
+                "per_layer_raw_residual": raw_residual_maps,
                 "aligned_indices": pq_outputs["aligned_indices"],
                 "raw_query_global": query_global,
                 "prompt_global_proto": prompt_global_proto,
                 "image_residual": image_residual,
                 "layer_weights": layer_weights,
                 "patch_map_fusion_weights": patch_map_fusion_weights,
-                "decision_input": decision_input,
+                "pqa_global_pool_weights": pq_outputs["global_pool_weights"],
+                "final_logit_fusion_weights": final_logit_fusion_weights,
                 "text_prototypes": {
                     "normal": normal_proto,
                     "anomaly": anomaly_proto,
@@ -894,17 +1006,63 @@ class InCTRLPQA(nn.Module):
             "max_hybrid_patch_score": max_hybrid_patch_score,
             "max_hybrid_patch_logit": max_hybrid_patch_logit,
             "patch_map_fusion_weights": patch_map_fusion_weights,
+            "pqa_global_pool_weights": pq_outputs["global_pool_weights"],
+            "final_logit_fusion_weights": final_logit_fusion_weights,
             "aux": aux,
         }
-        if return_dict or self.output_dict:
+        use_return_dict = self.output_dict if return_dict is None else return_dict
+        if use_return_dict:
             return result
         return final_score, final_patch_map
 
+    def forward_legacy(
+        self,
+        tokenizer,
+        image: Optional[Union[torch.Tensor, Sequence[torch.Tensor]]] = None,
+        text: Optional[Sequence[str]] = None,
+        normal_list: Optional[Union[torch.Tensor, Sequence[torch.Tensor]]] = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Compatibility shim for the original InCTRL forward signature."""
+        del tokenizer
+        if image is None:
+            raise ValueError("forward_legacy requires image input.")
+
+        prompt_images = None
+        normal_source = normal_list
+        if isinstance(image, (tuple, list)):
+            if not image:
+                raise ValueError("forward_legacy image sequence must not be empty.")
+            query_image = image[0]
+            if normal_source is None:
+                prompt_items = list(image[1:])
+                if not prompt_items:
+                    raise ValueError("forward_legacy requires prompt images or normal_list.")
+                if prompt_items[0].dim() == 4:
+                    prompt_images = torch.stack(prompt_items, dim=1)
+                else:
+                    prompt_images = torch.stack(prompt_items, dim=0)
+        else:
+            query_image = image
+            if normal_source is None:
+                raise ValueError("forward_legacy tensor image input requires normal_list.")
+
+        outputs = self.forward(
+            query_image=query_image,
+            prompt_images=prompt_images,
+            normal_list=normal_source,
+            obj_types=text,
+            return_aux=False,
+            return_dict=True,
+        )
+        if not isinstance(outputs, dict):
+            raise TypeError("forward_legacy expected dict outputs from fused forward.")
+        return outputs["final_score"], outputs["image_score"]
+
 
 __all__ = [
-    "HolisticScoringHead",
     "InCTRLPQA",
     "ImageResidualHead",
+    "MLPAdapter",
     "PQAdapter",
     "PQAGlobalHead",
     "ScalarFusionHead",

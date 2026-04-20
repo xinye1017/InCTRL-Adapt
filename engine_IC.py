@@ -94,6 +94,7 @@ def train_epoch(
         "final_loss": 0.0,
         "pqa_loss": 0.0,
         "pqa_mask_loss": 0.0,
+        "pqa_local_mil_loss": 0.0,
         "image_loss": 0.0,
     }
     loss_fun = BinaryFocalLoss(logits=True)
@@ -102,6 +103,8 @@ def train_epoch(
     pqa_loss_weight = float(getattr(cfg.PQA, "GLOBAL_LOSS_WEIGHT", 1.0))
     mask_loss_weight = float(getattr(cfg.PQA, "MASK_LOSS_WEIGHT", 1.0))
     image_loss_weight = float(getattr(cfg.PQA, "IMAGE_LOSS_WEIGHT", 0.0))
+    local_mil_loss_weight = float(getattr(cfg.PQA, "LOCAL_MIL_LOSS_WEIGHT", 0.0))
+    local_mil_topk_ratio = float(getattr(cfg.PQA, "LOCAL_MIL_TOPK_RATIO", 0.01))
 
     max_steps = int(getattr(cfg, "steps_per_epoch", 0) or 0)
     actual_steps = 0
@@ -135,6 +138,8 @@ def train_epoch(
             pqa_loss_weight=pqa_loss_weight,
             mask_loss_weight=mask_loss_weight,
             image_loss_weight=image_loss_weight,
+            local_mil_loss_weight=local_mil_loss_weight,
+            local_mil_topk_ratio=local_mil_topk_ratio,
         )
 
         # check Nan Loss.
@@ -163,6 +168,7 @@ def train_epoch(
         "train_loss: "
         f"total={all_loss:.4f}, final={loss_avgs['final_loss']:.4f}, "
         f"pqa={loss_avgs['pqa_loss']:.4f}, mask={loss_avgs['pqa_mask_loss']:.4f}, "
+        f"local_mil={loss_avgs['pqa_local_mil_loss']:.4f}, "
         f"image={loss_avgs['image_loss']:.4f}"
     )
     return all_loss

@@ -26,3 +26,4 @@ Thumbs.db
 *.7z
 data/
 results/
+.worktrees/
