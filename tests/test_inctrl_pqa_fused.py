@@ -65,48 +65,30 @@ def test_fused_forward_exposes_new_contract():
     required_keys = {
         "final_score",
         "final_logit",
-        "base_score",
-        "base_logit",
-        "holistic_score",
-        "holistic_logit",
+        "patch_score",
+        "patch_logit",
+        "pqa_score",
+        "pqa_logit",
         "image_score",
         "image_logit",
         "text_score",
         "text_logit",
-        "pqa_score",
-        "pqa_logit",
-        "pqa_patch_score",
-        "pqa_patch_logit",
-        "pqa_local_scores",
+        "fused_patch_map",
         "pqa_local_logits",
-        "patch_map",
-        "raw_base_patch_map",
-        "base_patch_map",
-        "hybrid_patch_map",
-        "max_patch_score",
-        "max_patch_logit",
-        "raw_max_patch_score",
-        "raw_max_patch_logit",
-        "max_base_patch_score",
-        "max_base_patch_logit",
-        "max_hybrid_patch_score",
-        "max_hybrid_patch_logit",
+        "pqa_local_scores",
         "patch_map_fusion_weights",
         "aux",
     }
 
     assert required_keys.issubset(outputs.keys())
     assert outputs["final_logit"].shape == (2,)
+    assert outputs["patch_logit"].shape == (2,)
     assert outputs["pqa_logit"].shape == (2,)
+    assert outputs["image_logit"].shape == (2,)
+    assert outputs["text_logit"].shape == (2,)
     assert outputs["pqa_local_logits"].shape == (2, 2, 32, 32)
     assert outputs["pqa_local_scores"].shape == (2, 2, 32, 32)
-    assert outputs["patch_map"].shape == (2, 4)
-    assert outputs["base_patch_map"].shape == (2, 4)
-    assert outputs["hybrid_patch_map"].shape == (2, 4)
-    assert torch.allclose(outputs["raw_base_patch_map"], outputs["base_patch_map"], atol=1e-6)
-    for key in ["holistic_logit", "max_patch_logit", "pqa_logit", "image_logit", "text_logit"]:
-        assert key in outputs
-        assert outputs[key].shape == (2,)
+    assert outputs["fused_patch_map"].shape == (2, 4)
 
 
 def test_pqadapter_returns_new_patch_payload():
@@ -177,44 +159,36 @@ def test_forward_aux_contains_new_diagnostics():
     aux = outputs["aux"]
 
     expected_aux_keys = {
+        "patch_map_2d",
         "per_layer_pqa_patch_map",
         "per_layer_pqa_patch_logit",
         "per_layer_residual",
-        "per_layer_raw_residual",
         "aligned_indices",
         "raw_query_global",
         "prompt_global_proto",
         "image_residual",
-        "layer_weights",
+        "pqa_layer_weights",
+        "patch_layer_weights",
         "patch_map_fusion_weights",
+        "pqa_global_pool_weights",
         "text_prototypes",
     }
 
     assert expected_aux_keys.issubset(aux.keys())
 
-    assert "patch_map_2d" in aux
-    assert "raw_base_patch_map_2d" in aux
-    assert "base_patch_map_2d" in aux
-    assert "hybrid_patch_map_2d" in aux
-
     patch_side = int(model.num_patches ** 0.5)
     assert aux["patch_map_2d"].shape == (2, patch_side, patch_side)
-    assert aux["raw_base_patch_map_2d"].shape == (2, patch_side, patch_side)
-    assert aux["base_patch_map_2d"].shape == (2, patch_side, patch_side)
-    assert aux["hybrid_patch_map_2d"].shape == (2, patch_side, patch_side)
 
-    layer_weights = aux["layer_weights"]
     num_layers = len(model.patch_layers)
     assert len(aux["per_layer_pqa_patch_map"]) == num_layers
     assert len(aux["per_layer_residual"]) == num_layers
-    assert len(aux["per_layer_raw_residual"]) == num_layers
-    for raw_residual, residual in zip(aux["per_layer_raw_residual"], aux["per_layer_residual"]):
-        assert torch.allclose(raw_residual, residual, atol=1e-6)
 
-    hybrid_from_aux = aux["hybrid_patch_map_2d"].reshape(2, -1)
-    base_from_aux = aux["base_patch_map_2d"].reshape(2, -1)
-    assert torch.allclose(outputs["hybrid_patch_map"], hybrid_from_aux, atol=1e-6)
-    assert torch.allclose(outputs["base_patch_map"], base_from_aux, atol=1e-6)
+    pqa_wts = aux["pqa_layer_weights"]
+    patch_wts = aux["patch_layer_weights"]
+    assert pqa_wts.shape == (num_layers,)
+    assert patch_wts.shape == (num_layers,)
+    assert torch.allclose(pqa_wts.sum(), torch.tensor(1.0), atol=1e-6)
+    assert torch.allclose(patch_wts.sum(), torch.tensor(1.0), atol=1e-6)
 
 
 def test_final_logit_backprop_updates_trainable_path():
@@ -234,7 +208,7 @@ def test_patch_logit_backprop_updates_patch_map_fusion_logits():
     model.train()
 
     outputs = _forward(model)
-    outputs["max_patch_logit"].sum().backward()
+    outputs["patch_logit"].sum().backward()
 
     assert model.patch_map_fusion_logits.grad is not None
 
@@ -300,7 +274,7 @@ def test_return_dict_false_forces_tuple_output():
     assert tuple_outputs[0].shape == (2,)
     assert tuple_outputs[1].shape == (2, 4)
     assert torch.allclose(tuple_outputs[0], dict_outputs["final_score"], atol=1e-6)
-    assert torch.allclose(tuple_outputs[1], dict_outputs["patch_map"], atol=1e-6)
+    assert torch.allclose(tuple_outputs[1], dict_outputs["fused_patch_map"], atol=1e-6)
 
 
 def test_return_dict_none_uses_model_default_output_dict():
@@ -419,7 +393,7 @@ def test_prompt_feature_cache_round_trip_still_works():
     )
 
     assert torch.allclose(cached_outputs["final_logit"], direct_outputs["final_logit"], atol=1e-6)
-    assert torch.allclose(cached_outputs["patch_map"], direct_outputs["patch_map"], atol=1e-6)
+    assert torch.allclose(cached_outputs["fused_patch_map"], direct_outputs["fused_patch_map"], atol=1e-6)
 
 
 def test_prompt_feature_cache_rejects_wrong_layer_count():
@@ -609,3 +583,46 @@ def test_forward_legacy_returns_original_tuple_contract():
 
     assert torch.allclose(legacy_score, direct_outputs["final_score"], atol=1e-6)
     assert legacy_image_score.shape == (2,)
+
+
+def test_get_patch_layer_weights_method_exists():
+    torch.manual_seed(76)
+    model = _build_model()
+    model.eval()
+
+    weights = model._get_patch_layer_weights(
+        device=torch.device("cpu"),
+        dtype=torch.float32,
+    )
+    assert weights.shape == (len(model.patch_layers),)
+    assert torch.allclose(weights.sum(), torch.tensor(1.0), atol=1e-6)
+
+
+def test_reduce_patch_map_to_logit():
+    torch.manual_seed(77)
+    model = _build_model()
+    model.eval()
+
+    patch_map = torch.rand(2, 4)
+    logit = model._reduce_patch_map_to_logit(patch_map, topk=3)
+
+    assert logit.shape == (2,)
+    max_score = patch_map.max(dim=-1).values
+    topk_mean = patch_map.topk(3, dim=-1).values.mean(dim=-1)
+    expected_score = 0.5 * max_score + 0.5 * topk_mean
+    expected_logit = model._score_to_logit(expected_score)
+    assert torch.allclose(logit, expected_logit, atol=1e-6)
+
+
+def test_decision_head_backprop_updates_all_branches():
+    torch.manual_seed(78)
+    model = _build_model()
+    model.train()
+
+    outputs = _forward(model)
+    outputs["final_logit"].sum().backward()
+
+    assert model.decision_head.net[1].weight.grad is not None
+    assert model.patch_map_fusion_logits.grad is not None
+    assert model.layer_weights_logits.grad is not None
+    assert model.patch_layer_weights_logits.grad is not None

@@ -9,6 +9,7 @@ Unknown. Fill in the current best checkpoint, config, metrics, and command after
   - `.codex/config.toml`
   - reusable Codex skills under `.codex/skills/`
   - durable project memory docs under `docs/`
+- Agent onboarding经验文档已补充：`docs/agent_onboarding_inctrl_adaptclip_pqa_fused.md`
 
 ## Current Risks
 - Benchmark performance may not predict real industrial false-positive behavior.

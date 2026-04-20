@@ -1,0 +1,3577 @@
+[
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0001.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0002.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0003.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0005.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0006.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0007.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0008.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0010.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0012.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0013.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0014.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0015.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0016.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0017.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0018.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0019.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0020.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0021.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0022.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0023.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0024.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0025.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0026.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0027.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0028.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0029.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0030.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0031.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0032.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0033.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0034.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0035.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0036.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0037.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0038.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0039.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0040.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0041.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0042.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0043.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0044.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0045.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0046.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0047.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0048.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0049.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0050.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0051.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0052.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0053.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0054.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0055.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0056.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0057.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0059.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0361.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0362.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0363.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0364.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0365.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0366.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0367.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0368.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0370.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0371.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0372.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0373.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0374.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0375.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0376.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0377.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0378.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0379.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0380.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0381.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0382.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0383.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0384.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0385.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0386.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0387.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0388.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0389.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0390.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0391.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0392.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0393.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0394.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0395.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0396.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0398.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0399.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0400.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0401.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0402.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0403.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0404.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0405.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0406.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0407.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0408.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0409.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0411.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0412.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0414.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0415.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0416.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0417.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0418.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0419.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0420.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0421.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0422.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0424.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0426.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0427.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0428.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0429.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0430.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0431.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0432.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0433.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0434.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0435.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0436.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0437.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0438.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0439.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0440.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0441.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0442.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0443.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0444.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0446.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0448.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0450.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0451.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0452.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0453.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0454.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0455.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0457.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0458.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0459.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0460.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0461.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0462.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0463.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0464.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0466.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0467.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0469.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0470.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0471.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0472.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0473.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0474.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0475.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0476.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0477.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0478.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0479.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0481.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0482.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0484.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0485.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0486.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0487.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0488.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0489.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0490.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0491.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0492.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0493.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0494.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0495.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0496.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0497.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0498.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0499.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0501.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0502.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0505.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0506.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0507.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0510.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0511.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0512.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0513.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0514.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0515.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0517.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0520.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0521.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0522.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0523.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0524.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0525.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0527.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0528.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0529.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0530.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0531.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0533.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0534.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0535.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0536.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0537.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0539.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0911.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0912.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0915.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0916.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0936.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0950.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0958.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0976.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0978.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0979.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0994.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0996.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell0998.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1003.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1030.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1032.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1036.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1041.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1042.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1043.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1044.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1045.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1046.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1048.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1049.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1050.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1053.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1054.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1055.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1056.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1059.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1061.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1064.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1065.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1069.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1071.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1073.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1074.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1075.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1079.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1080.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1086.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1087.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1088.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1097.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1098.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1099.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1100.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1101.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1103.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1108.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1109.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1128.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1132.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1142.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1143.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1146.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1147.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1161.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1163.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1169.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1172.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1173.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1174.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1175.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1182.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1220.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1221.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1223.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1267.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1303.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1306.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1308.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1315.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1381.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1389.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1390.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1394.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1396.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1405.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1415.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1417.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1418.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1419.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1420.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1421.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1422.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1423.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1424.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1426.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1427.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1440.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1441.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1454.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1461.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1589.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell1591.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell2183.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell2207.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell2431.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell2437.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell2438.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell2439.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/mono/cell2440.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0068.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0076.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0077.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0078.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0083.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0089.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0091.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0112.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0115.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0124.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0125.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0141.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0146.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0147.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0155.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0160.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0164.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0165.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0167.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0171.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0177.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0181.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0182.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0187.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0188.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0190.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0192.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0193.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0194.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0196.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0197.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0198.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0199.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0200.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0201.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0203.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0206.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0208.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0211.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0212.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0213.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0220.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0221.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0223.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0228.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0229.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0231.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0232.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0233.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0241.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0242.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0243.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0244.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0245.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0246.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0247.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0248.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0249.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0250.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0251.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0252.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0253.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0255.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0256.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0257.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0258.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0261.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0263.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0264.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0265.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0266.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0268.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0271.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0274.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0275.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0277.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0278.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0279.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0280.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0281.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0283.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0284.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0285.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0286.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0287.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0288.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0289.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0290.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0292.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0293.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0294.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0295.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0296.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0297.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0298.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0299.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0301.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0303.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0304.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0305.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0312.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0316.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0317.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0319.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0320.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0321.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0322.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0323.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0324.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0335.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0342.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0346.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0347.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0555.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0557.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0564.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0577.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0578.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0579.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0592.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0593.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0595.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0601.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0602.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0603.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0604.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0605.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0606.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0607.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0608.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0609.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0611.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0612.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0613.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0614.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0615.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0616.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0617.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0618.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0620.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0626.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0631.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0632.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0634.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0636.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0639.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0640.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0641.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0642.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0643.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0644.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0645.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0646.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0652.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0654.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0660.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0661.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0662.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0663.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0666.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0667.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0668.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0671.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0672.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0673.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0674.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0675.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0680.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0682.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0686.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0687.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0691.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0693.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0694.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0695.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0696.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0699.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0700.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0702.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0703.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0707.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0708.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0712.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0713.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0715.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0732.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0738.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0740.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0741.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0742.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0743.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0744.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0748.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0757.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0759.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0762.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0773.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0781.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0782.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0786.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0787.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0788.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0790.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0792.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0793.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0794.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0795.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0796.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0798.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0799.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0800.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0804.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0806.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0812.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0817.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0821.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0834.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0835.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0836.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0837.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0841.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0842.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0843.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0851.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0852.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0853.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0854.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0855.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0856.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0857.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0858.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0859.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0860.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0861.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0862.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0863.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0864.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0865.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0867.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0868.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0869.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0870.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0871.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0873.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0874.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0875.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0876.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0877.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0878.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0879.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0880.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0881.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0882.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0883.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0884.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0885.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0886.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0887.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0888.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0889.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0890.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0891.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0892.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0897.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0898.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0899.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell0900.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1615.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1616.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1618.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1621.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1622.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1623.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1624.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1625.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1626.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1627.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1628.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1629.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1630.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1631.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1632.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1633.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1634.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1635.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1637.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1638.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1639.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1643.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1645.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1646.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1647.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1648.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1649.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1650.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1651.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1652.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1653.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1654.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1655.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1657.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1665.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1666.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1667.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1668.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1669.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1670.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1671.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1672.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1673.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1674.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1728.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1729.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1730.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1732.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1733.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1761.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1820.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1836.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1837.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1838.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1842.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1843.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1844.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1847.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1854.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1890.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1895.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1896.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1897.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1899.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1900.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1901.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1903.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1904.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1954.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1955.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1956.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1957.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1961.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1962.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1964.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1976.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1982.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1989.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1991.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1992.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell1993.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2010.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2014.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2017.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2018.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2036.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2038.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2039.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2042.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2044.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2051.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2052.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2053.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2054.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2055.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2057.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2060.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2061.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2062.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2068.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2070.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2071.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2072.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2074.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2081.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2089.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2289.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2327.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2328.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2329.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2330.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2332.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2333.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2334.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2335.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2336.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2350.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2362.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2392.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2446.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2456.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2509.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2516.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2517.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2525.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2526.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2536.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2538.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2542.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2544.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2546.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2547.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2548.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2554.png",
+    "target": 1,
+    "type": "elpv"
+  },
+  {
+    "image_path": "/root/InCTRL/data/elpv/test/poly/cell2599.png",
+    "target": 1,
+    "type": "elpv"
+  }
+]

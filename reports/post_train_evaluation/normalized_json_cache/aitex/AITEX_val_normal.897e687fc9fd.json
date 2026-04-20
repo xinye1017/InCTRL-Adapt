@@ -1,0 +1,2822 @@
+[
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0001_000_05_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0001_000_05_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0002_000_05_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0002_000_05_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0002_000_05_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0002_000_05_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0002_000_05_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0003_000_05_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0004_000_05_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0004_000_05_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0004_000_05_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0004_000_05_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0004_000_05_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0004_000_05_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0005_000_05_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0005_000_05_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0005_000_05_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0005_000_05_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0005_000_05_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0005_000_05_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0005_000_05_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0006_000_05_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0006_000_05_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0006_000_05_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0007_000_05_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0007_000_05_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0007_000_05_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0007_000_05_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0007_000_05_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0007_000_05_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0008_000_05_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0008_000_05_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0008_000_05_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0008_000_05_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0009_000_05_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0009_000_05_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0009_000_05_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0011_000_05_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0011_000_05_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0011_000_05_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0011_000_05_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0011_000_05_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0012_000_05_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0012_000_05_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0012_000_05_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0012_000_05_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0012_000_05_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0012_000_05_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0013_000_05_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0013_000_05_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0013_000_05_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0013_000_05_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0013_000_05_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0013_000_05_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0014_000_05_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0014_000_05_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0014_000_05_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0014_000_05_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0014_000_05_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0014_000_05_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0015_000_05_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0015_000_05_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0015_000_05_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0015_000_05_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0015_000_05_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0016_000_05_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0016_000_05_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0016_000_05_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0016_000_05_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0017_000_05_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0017_000_05_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0017_000_05_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0018_000_05_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0018_000_05_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0018_000_05_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0019_000_05_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0019_000_05_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0019_000_05_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0019_000_05_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0019_000_05_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0019_000_05_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0019_000_05_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0020_000_05_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0020_000_05_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0020_000_05_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306881-210020u_0020_000_05_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0001_000_02_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0001_000_02_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0001_000_02_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0002_000_02_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0002_000_02_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0002_000_02_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0003_000_02_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0003_000_02_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0003_000_02_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0003_000_02_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0003_000_02_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0003_000_02_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0004_000_02_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0004_000_02_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0004_000_02_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0004_000_02_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0004_000_02_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0005_000_02_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0006_000_02_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0006_000_02_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0006_000_02_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0006_000_02_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0006_000_02_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0006_000_02_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0007_000_02_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0007_000_02_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0007_000_02_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0007_000_02_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0007_000_02_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0007_000_02_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0007_000_02_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0007_000_02_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0008_000_02_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0008_000_02_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0008_000_02_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0008_000_02_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0008_000_02_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0008_000_02_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0009_000_02_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0009_000_02_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0009_000_02_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0009_000_02_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0010_000_02_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0010_000_02_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0010_000_02_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0010_000_02_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0010_000_02_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0011_000_02_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0011_000_02_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0011_000_02_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0011_000_02_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0011_000_02_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0011_000_02_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0012_000_02_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0012_000_02_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0013_000_02_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0013_000_02_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0013_000_02_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0014_000_02_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0014_000_02_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0014_000_02_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0014_000_02_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0014_000_02_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0014_000_02_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0014_000_02_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0015_000_02_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0015_000_02_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0015_000_02_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0015_000_02_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0015_000_02_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0016_000_02_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0016_000_02_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0017_000_02_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0017_000_02_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0017_000_02_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0018_000_02_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0018_000_02_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0018_000_02_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0019_000_02_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0019_000_02_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0019_000_02_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0019_000_02_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0019_000_02_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0019_000_02_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0020_000_02_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0020_000_02_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2306894-210033u_0020_000_02_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0001_000_04_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0001_000_04_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0001_000_04_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0001_000_04_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0001_000_04_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0002_000_04_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0002_000_04_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0003_000_04_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0003_000_04_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0003_000_04_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0003_000_04_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0004_000_04_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0004_000_04_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0004_000_04_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0004_000_04_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0005_000_04_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0005_000_04_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0005_000_04_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0005_000_04_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0006_000_04_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0006_000_04_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0007_000_04_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0007_000_04_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0007_000_04_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0008_000_04_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0008_000_04_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0008_000_04_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0008_000_04_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0008_000_04_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0008_000_04_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0009_000_04_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0009_000_04_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0010_000_04_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0010_000_04_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0010_000_04_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0010_000_04_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0010_000_04_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0011_000_04_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0011_000_04_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0011_000_04_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0011_000_04_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0012_000_04_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0012_000_04_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0012_000_04_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0013_000_04_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0013_000_04_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0013_000_04_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0013_000_04_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0013_000_04_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0014_000_04_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0014_000_04_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0014_000_04_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0015_000_04_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0016_000_04_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0016_000_04_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0016_000_04_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0016_000_04_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0017_000_04_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0017_000_04_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0018_000_04_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0018_000_04_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0019_000_04_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0019_000_04_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0019_000_04_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0019_000_04_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0020_000_04_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0020_000_04_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0020_000_04_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311517-195063u_0020_000_04_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0001_000_03_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0001_000_03_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0001_000_03_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0001_000_03_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0002_000_03_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0002_000_03_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0002_000_03_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0002_000_03_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0002_000_03_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0003_000_03_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0003_000_03_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0003_000_03_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0003_000_03_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0003_000_03_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0004_000_03_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0004_000_03_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0004_000_03_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0004_000_03_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0005_000_03_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0005_000_03_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0005_000_03_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0005_000_03_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0006_000_03_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0006_000_03_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0006_000_03_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0006_000_03_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0006_000_03_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0006_000_03_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0007_000_03_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0007_000_03_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0007_000_03_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0007_000_03_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0008_000_03_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0008_000_03_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0008_000_03_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0009_000_03_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0009_000_03_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0009_000_03_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0009_000_03_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0010_000_03_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0010_000_03_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0010_000_03_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0010_000_03_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0010_000_03_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0011_000_03_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0011_000_03_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0011_000_03_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0011_000_03_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0011_000_03_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0012_000_03_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0012_000_03_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0012_000_03_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0013_000_03_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0013_000_03_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0013_000_03_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0014_000_03_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0014_000_03_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0014_000_03_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0014_000_03_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0014_000_03_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0014_000_03_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0014_000_03_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0015_000_03_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0015_000_03_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0015_000_03_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0015_000_03_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0016_000_03_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0016_000_03_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0016_000_03_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0017_000_03_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0017_000_03_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0017_000_03_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0017_000_03_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0017_000_03_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0018_000_03_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0018_000_03_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0018_000_03_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0018_000_03_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0018_000_03_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0018_000_03_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0019_000_03_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0019_000_03_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0019_000_03_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0020_000_03_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0020_000_03_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0020_000_03_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0020_000_03_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-1930c7u_0020_000_03_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0001_000_00_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0001_000_00_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0001_000_00_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0001_000_00_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0001_000_00_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0001_000_00_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0001_000_00_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0002_000_00_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0002_000_00_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0002_000_00_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0002_000_00_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0003_000_00_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0003_000_00_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0004_000_00_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0004_000_00_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0004_000_00_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0004_000_00_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0004_000_00_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0005_000_00_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0005_000_00_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0005_000_00_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0005_000_00_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0005_000_00_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0005_000_00_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0006_000_00_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0006_000_00_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0006_000_00_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0006_000_00_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0006_000_00_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0007_000_00_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0007_000_00_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0007_000_00_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0007_000_00_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0007_000_00_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0008_000_00_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0008_000_00_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0008_000_00_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0009_000_00_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0009_000_00_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0010_000_00_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0010_000_00_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0010_000_00_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0010_000_00_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0011_000_00_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0011_000_00_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0011_000_00_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0011_000_00_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0012_000_00_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0012_000_00_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0012_000_00_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0013_000_00_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0013_000_00_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0013_000_00_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0014_000_00_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0014_000_00_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0015_000_00_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0015_000_00_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0015_000_00_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0015_000_00_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0016_000_00_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0016_000_00_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0016_000_00_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0016_000_00_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0016_000_00_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0016_000_00_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0017_000_00_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0017_000_00_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0017_000_00_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0017_000_00_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0017_000_00_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0017_000_00_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0018_000_00_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0018_000_00_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0019_000_00_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0019_000_00_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0019_000_00_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0019_000_00_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0020_000_00_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0020_000_00_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0020_000_00_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0020_000_00_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311694-2040n7u_0020_000_00_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0001_000_06_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0001_000_06_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0001_000_06_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0001_000_06_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0002_000_06_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0003_000_06_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0003_000_06_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0003_000_06_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0004_000_06_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0004_000_06_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0004_000_06_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0005_000_06_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0005_000_06_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0005_000_06_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0005_000_06_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0005_000_06_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0005_000_06_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0007_000_06_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0007_000_06_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0007_000_06_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0007_000_06_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0008_000_06_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0008_000_06_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0008_000_06_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0009_000_06_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0009_000_06_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0009_000_06_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0009_000_06_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0009_000_06_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0010_000_06_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0010_000_06_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0010_000_06_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0010_000_06_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0010_000_06_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0010_000_06_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0010_000_06_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0010_000_06_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0011_000_06_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0011_000_06_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0011_000_06_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0012_000_06_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0012_000_06_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0012_000_06_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0013_000_06_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0013_000_06_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0013_000_06_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0014_000_06_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0014_000_06_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0014_000_06_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0014_000_06_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0014_000_06_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0014_000_06_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0014_000_06_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0015_000_06_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0015_000_06_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0015_000_06_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0016_000_06_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0016_000_06_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0017_000_06_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0017_000_06_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0017_000_06_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0017_000_06_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0018_000_06_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0018_000_06_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0018_000_06_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0018_000_06_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0019_000_06_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0019_000_06_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0019_000_06_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0019_000_06_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0020_000_06_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0020_000_06_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2311980-185026u_0020_000_06_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0001_000_01_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0001_000_01_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0001_000_01_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0002_000_01_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0002_000_01_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0002_000_01_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0002_000_01_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0003_000_01_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0003_000_01_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0003_000_01_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0003_000_01_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0004_000_01_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0004_000_01_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0004_000_01_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0004_000_01_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0005_000_01_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0005_000_01_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0005_000_01_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0005_000_01_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0005_000_01_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0006_000_01_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0006_000_01_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0006_000_01_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0007_000_01_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0007_000_01_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0007_000_01_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0007_000_01_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0008_000_01_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0008_000_01_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0008_000_01_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0008_000_01_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0008_000_01_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0008_000_01_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0009_000_01_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0009_000_01_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0009_000_01_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0009_000_01_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0010_000_01_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0011_000_01_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0011_000_01_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0011_000_01_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0011_000_01_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0011_000_01_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0012_000_01_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0012_000_01_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0012_000_01_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0012_000_01_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0013_000_01_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0013_000_01_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0013_000_01_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0013_000_01_7.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0014_000_01_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0014_000_01_12.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0014_000_01_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0014_000_01_2.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0014_000_01_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0015_000_01_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0015_000_01_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0015_000_01_11.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0015_000_01_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0015_000_01_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0015_000_01_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0015_000_01_9.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0016_000_01_4.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0016_000_01_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0017_000_01_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0017_000_01_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0017_000_01_3.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0017_000_01_8.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0018_000_01_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0018_00_01_5.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0019_000_01_0.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0019_000_01_15.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0020_000_01_1.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0020_000_01_10.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0020_000_01_13.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0020_000_01_14.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0020_000_01_6.png",
+    "target": 0,
+    "type": "AITEX"
+  },
+  {
+    "image_path": "/root/InCTRL/data/AITEX/test/good/2608691-202020u_0020_000_01_7.png",
+    "target": 0,
+    "type": "AITEX"
+  }
+]

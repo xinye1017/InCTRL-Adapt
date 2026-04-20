@@ -1,0 +1,502 @@
+[
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/000.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/001.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/002.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/003.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/004.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/005.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/006.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/007.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/008.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/009.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/010.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/011.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/012.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/013.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/014.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/015.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/016.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/017.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/018.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/019.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/020.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/021.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/022.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/023.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/024.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/025.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/026.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/027.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/028.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/029.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/030.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/031.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/032.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/033.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/034.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/035.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/036.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/037.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/038.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/039.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/040.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/041.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/042.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/043.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/044.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/045.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/046.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/047.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/048.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/049.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/050.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/051.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/052.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/053.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/054.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/055.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/056.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/057.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/058.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/059.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/060.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/061.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/062.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/063.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/064.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/065.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/066.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/067.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/068.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/069.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/070.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/071.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/072.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/073.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/074.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/075.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/076.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/077.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/078.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/079.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/080.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/081.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/082.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/083.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/084.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/085.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/086.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/087.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/088.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/089.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/090.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/091.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/092.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/093.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/094.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/095.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/096.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/097.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/098.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  },
+  {
+    "image_path": "/root/InCTRL/data/visa/chewinggum/test/defect/099.JPG",
+    "target": 1,
+    "type": "chewinggum"
+  }
+]

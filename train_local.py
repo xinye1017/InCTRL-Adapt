@@ -357,7 +357,7 @@ def evaluate(
         preds_all.extend(outputs["final_score"].detach().cpu().float().numpy())
         labels_all.extend(labels.cpu().numpy())
         for branch_name, output_key in [
-            ("patch", "max_patch_score"),
+            ("patch", "patch_score"),
             ("text", "text_score"),
             ("pqa", "pqa_score"),
             ("image", "image_score"),

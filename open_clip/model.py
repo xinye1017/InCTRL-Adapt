@@ -6,11 +6,20 @@ from dataclasses import dataclass
 import logging
 import math
 from typing import Optional, Tuple, Union
+from collections import OrderedDict
+import re
+from sklearn.metrics import pairwise
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
+from torch.utils.checkpoint import checkpoint
+from torch import Tensor
+import open_clip.utils.misc as misc
+import argparse
+from functools import partial
+from open_clip.utils.env import checkpoint_pathmgr as pathmgr
 
 from .hf_model import HFTextEncoder
 from .modified_resnet import ModifiedResNet
@@ -24,7 +33,7 @@ from .vp import (
     FixedPatchPrompter
 )
 
-from .visual_adapter import VisualAdapter
+from torch.autograd import Variable, grad
 
 PROMPT_TYPES = {
     "padding": PadPrompter,
@@ -304,6 +313,20 @@ def _build_text_tower(
         )
     return text
 
+class BatchNormPoint(nn.Module):
+    def __init__(self, feat_size):
+        super().__init__()
+        self.feat_size = feat_size
+        self.bn = nn.BatchNorm1d(feat_size)
+
+    def forward(self, x):
+        assert len(x.shape) == 3
+        s1, s2, s3 = x.shape[0], x.shape[1], x.shape[2]
+        assert s3 == self.feat_size
+        x = x.view(s1 * s2, self.feat_size)
+        x = self.bn(x)
+        return x.view(s1, s2, s3)
+
 class CLIP(nn.Module):
     output_dict: torch.jit.Final[bool]
 
@@ -446,20 +469,6 @@ class InCTRL(nn.Module):
         self.diff_head = TransformerBasicHead(225, 1)
         self.diff_head_ref = TransformerBasicHead(640, 1)
 
-        # Visual Adapter for AdaptCLIP-style feature adaptation
-        self.visual_adapter = None
-        vision_cfg_dict = vision_cfg if isinstance(vision_cfg, dict) else vars(vision_cfg)
-        if getattr(args, 'VISUAL_ADAPTER', None) and args.VISUAL_ADAPTER.ENABLE:
-            self.visual_adapter = VisualAdapter(
-                img_size=getattr(args, 'image_size', 240),
-                patch_size=vision_cfg_dict.get('patch_size', 16),
-                global_input_dim=embed_dim,
-                local_input_dim=vision_cfg_dict.get('width', 768),
-                reduction=args.VISUAL_ADAPTER.REDUCTION,
-                zero_init=args.VISUAL_ADAPTER.ZERO_INIT,
-                mode=getattr(args.VISUAL_ADAPTER, "MODE", "global_local"),
-            )
-
         for p in self.visual.parameters():
             p.requires_grad = False
 
@@ -484,28 +493,21 @@ class InCTRL(nn.Module):
         return F.normalize(x, dim=-1) if normalize else x
 
     def forward(self, tokenizer, image: Optional[torch.Tensor] = None, text: Optional[torch.Tensor] = None, normal_list = None):
-        device = next(self.parameters()).device
-        use_non_blocking = device.type == "cuda"
-
-        if normal_list is None:
-            img = image[0].to(device=device, non_blocking=use_non_blocking)
+        if normal_list == None:
+            img = image[0].cuda(non_blocking=True)
             normal_image = image[1:]
             normal_image = torch.stack(normal_image)
             shot, b, _, _, _ = normal_image.shape
-            normal_image = normal_image.reshape(-1, 3, 240, 240).to(
-                device=device, non_blocking=use_non_blocking
-            )
+            normal_image = normal_image.reshape(-1, 3, 240, 240).cuda(non_blocking=True)
         else:
-            img = image[0].to(device=device, non_blocking=use_non_blocking)
+            img = image[0].cuda(non_blocking=True)
             normal_image = normal_list
             normal_image = torch.stack(normal_image)
             normal_image = normal_image.unsqueeze(1)
             b = len(img)
             normal_image = normal_image.repeat(1, b, 1, 1, 1)
             shot, _, _, _, _ = normal_image.shape
-            normal_image = normal_image.reshape(-1, 3, 240, 240).to(
-                device=device, non_blocking=use_non_blocking
-            )
+            normal_image = normal_image.reshape(-1, 3, 240, 240).cuda(non_blocking=True)
 
         token, Fp_list, Fp = self.encode_image(img, normalize=False)
         token_n, Fp_list_n, Fp_n = self.encode_image(normal_image, normalize=False)
@@ -521,95 +523,73 @@ class InCTRL(nn.Module):
 
         token_n = token_n.reshape(b, shot, -1)
 
-        # Apply Visual Adapter if enabled
-        if self.visual_adapter is not None:
-            # Adapt global features
-            token_ad = self.visual_adapter.adapt_global(token)
-            token_n = self.visual_adapter.adapt_global(token_n)
-            token_n = torch.mean(token_n, dim=1)
-            token_ref = token_n - token_ad
-            img_ref_score = self.diff_head_ref(token_ref)
+        token_ad = self.adapter.forward(token)
+        token_n = self.adapter.forward(token_n)
+        token_n = torch.mean(token_n, dim=1)
+        token_ref = token_n - token_ad
 
-            # Adapt local patch features: [b, 3, N, dim] -> list of [b, N, dim] per layer
-            adapted_Fp_list = torch.stack(
-                self.visual_adapter.adapt_local(list(Fp_list.unbind(dim=1))), dim=1
-            )
-            adapted_Fp_list_n = torch.stack(
-                self.visual_adapter.adapt_local(list(Fp_list_n.unbind(dim=1))), dim=1
-            )
-        else:
-            token_ad = self.adapter.forward(token)
-            token_n = self.adapter.forward(token_n)
-            token_n = torch.mean(token_n, dim=1)
-            token_ref = token_n - token_ad
-            img_ref_score = self.diff_head_ref(token_ref)
-            adapted_Fp_list = Fp_list
-            adapted_Fp_list_n = Fp_list_n
+        text_score = []
+        max_diff_score = []
+        patch_ref_map = []
+        for i in range(len(token)):
+            Fp = Fp_list[i, :, :, :]
+            Fp_n = Fp_list_n[i, :, :, :]
 
-        # ========== Patch-level anomaly scoring (vectorized across batch) ==========
-        b = token.shape[0]
-        n_layers = adapted_Fp_list.shape[1]
+            Fp_map = list()
+            for j in range(len(Fp)):
+                tmp_x = Fp[j, :, :]
+                tmp_n = Fp_n[j, :, :]
+                am_fp = list()
+                for k in range(len(tmp_x)):
+                    tmp = tmp_x[k]
+                    tmp = tmp.unsqueeze(0)
+                    tmp_n = tmp_n / tmp_n.norm(dim=-1, keepdim=True)
+                    tmp = tmp / tmp.norm(dim=-1, keepdim=True)
+                    s = (0.5 * (1 - (tmp @ tmp_n.T))).min(dim=1).values
+                    am_fp.append(s)
+                am_fp = torch.stack(am_fp)
+                Fp_map.append(am_fp)
+            Fp_map = torch.stack(Fp_map)
+            Fp_map = torch.mean(Fp_map.squeeze(2), dim=0)
+            patch_ref_map.append(Fp_map)
+            score = Fp_map.max(dim=0).values
+            max_diff_score.append(score)
 
-        Fp_map_per_layer = []
-        for j in range(n_layers):
-            tmp_x = F.normalize(adapted_Fp_list[:, j, :, :], dim=-1)   # [b, 225, dim]
-            tmp_n = F.normalize(adapted_Fp_list_n[:, j, :, :], dim=-1) # [b, 225*shot, dim]
-            sim = 0.5 * (1 - torch.bmm(tmp_x, tmp_n.transpose(-2, -1)))  # [b, 225, 225*shot]
-            Fp_map_per_layer.append(sim.min(dim=-1).values)  # [b, 225]
+            # zero shot
+            image_feature = token[i]
+            image_feature = image_feature.unsqueeze(0)
+            image_feature = image_feature / image_feature.norm(dim=-1, keepdim=True)
 
-        Fp_map = torch.stack(Fp_map_per_layer, dim=0).mean(dim=0)  # [b, 225]
-        max_diff_score = Fp_map.max(dim=1).values  # [b]
+            obj_type = text[i]
+            normal_texts, anomaly_texts = get_texts(obj_type.replace('_', " "))
+            pos_features = tokenizer(normal_texts).cuda()
+            neg_features = tokenizer(anomaly_texts).cuda()
+            pos_features = self.encode_text(pos_features)
+            neg_features = self.encode_text(neg_features)
+            pos_features = pos_features / pos_features.norm(dim=-1, keepdim=True)
+            neg_features = neg_features / neg_features.norm(dim=-1, keepdim=True)
+            pos_features = torch.mean(pos_features, dim=0, keepdim=True)
+            neg_features = torch.mean(neg_features, dim=0, keepdim=True)
+            pos_features = pos_features / pos_features.norm(dim=-1, keepdim=True)
+            neg_features = neg_features / neg_features.norm(dim=-1, keepdim=True)
+            text_features = torch.cat([pos_features, neg_features], dim=0)
+            score = (100 * image_feature @ text_features.T).softmax(dim=-1)
+            tmp = score[0, 1]
+            text_score.append(tmp)
 
-        # ========== Text encoding (full prompt templates, averaged) ==========
-        if isinstance(text, (tuple, list)):
-            unique_type_names = sorted(set(text))
-            text_list = list(text)
+        text_score = torch.stack(text_score).unsqueeze(1)
+        img_ref_score = self.diff_head_ref.forward(token_ref)
+        patch_ref_map = torch.stack(patch_ref_map)
+        holistic_map = text_score + img_ref_score + patch_ref_map
+        hl_score = self.diff_head.forward(holistic_map)
 
-            pos_features_map = {}
-            neg_features_map = {}
-            for type_name in unique_type_names:
-                normal_texts, anomaly_texts = get_texts(type_name.replace('_', " "))
+        hl_score = hl_score.squeeze(1)
+        fg_score = torch.stack(max_diff_score)
+        final_score = (hl_score + fg_score) / 2
 
-                pos_features = self.encode_text(tokenizer(normal_texts).to(token.device))
-                neg_features = self.encode_text(tokenizer(anomaly_texts).to(token.device))
+        img_ref_score = img_ref_score.squeeze(1)
 
-                pos_features = F.normalize(pos_features, dim=-1).mean(dim=0, keepdim=True)
-                neg_features = F.normalize(neg_features, dim=-1).mean(dim=0, keepdim=True)
-                pos_features_map[type_name] = F.normalize(pos_features, dim=-1).squeeze(0)
-                neg_features_map[type_name] = F.normalize(neg_features, dim=-1).squeeze(0)
-        else:
-            unique_type_indices = sorted(set(text.tolist()))
-            text_list = text.tolist()
-
-            pos_feature = F.normalize(
-                self.encode_text(tokenizer(["a photo for anomaly detection"]).to(token.device)),
-                dim=-1,
-            )
-            neg_feature = F.normalize(
-                self.encode_text(tokenizer(["a photo without anomaly for anomaly detection"]).to(token.device)),
-                dim=-1,
-            )
-
-            pos_features_map = {i: pos_feature[0] for i in unique_type_indices}
-            neg_features_map = {i: neg_feature[0] for i in unique_type_indices}
-
-        # Assemble per-sample pos/neg text features -> [b, dim]
-        pos_batch = torch.stack([pos_features_map[t] for t in text_list])  # [b, dim]
-        neg_batch = torch.stack([neg_features_map[t] for t in text_list])  # [b, dim]
-
-        token_norm = F.normalize(token, dim=-1)  # [b, dim]
-        pos_sim = (token_norm * pos_batch).sum(dim=-1)  # [b]
-        neg_sim = (token_norm * neg_batch).sum(dim=-1)  # [b]
-        logits = 100 * torch.stack([pos_sim, neg_sim], dim=-1)  # [b, 2]
-        text_score = logits.softmax(dim=-1)[:, 1].unsqueeze(1)  # [b, 1]
-
-        # img_ref_score: [b, 1], Fp_map: [b, 225], text_score: [b, 1]
-        # broadcast -> holistic_map: [b, 225]
-        holistic_map = text_score + img_ref_score + Fp_map
-        hl_score = self.diff_head.forward(holistic_map).squeeze(1)  # [b]
-        final_score = (hl_score + max_diff_score) / 2  # [b]
-
-        return final_score, img_ref_score.squeeze(1)
+        return final_score, img_ref_score
 
 class CustomTextCLIP(nn.Module):
     output_dict: torch.jit.Final[bool]
@@ -827,3 +807,4 @@ def resize_pos_embed(state_dict, model, interpolation: str = 'bicubic', antialia
     else:
         new_pos_embed = pos_emb_img
     state_dict['visual.positional_embedding'] = new_pos_embed
+

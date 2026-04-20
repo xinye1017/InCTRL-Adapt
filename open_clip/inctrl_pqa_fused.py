@@ -25,6 +25,12 @@ def _as_cfg(cfg_obj, cfg_type):
 class ImageResidualHead(nn.Module):
     def __init__(self, feature_dim: int, hidden_dim: int):
         super().__init__()
+        self.adapter = nn.Sequential(
+            nn.Linear(feature_dim, feature_dim // 4, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Linear(feature_dim // 4, feature_dim, bias=False),
+            nn.ReLU(inplace=True),
+        )
         self.net = nn.Sequential(
             nn.LayerNorm(feature_dim),
             nn.Linear(feature_dim, hidden_dim),
@@ -33,6 +39,7 @@ class ImageResidualHead(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = x + self.adapter(x)
         return self.net(x).squeeze(-1)
 
 
@@ -346,13 +353,13 @@ class InCTRLPQA(nn.Module):
             image_size=self.image_size,
         )
         self.image_head = ImageResidualHead(embed_dim, hidden_dim)
-        self.holistic_head = ScalarFusionHead(
-            input_dim=self.num_patches,
-            hidden_dim=max(hidden_dim // 2, 32),
+        self.decision_head = ScalarFusionHead(
+            input_dim=4,
+            hidden_dim=max(hidden_dim // 2, 16),
         )
         self.patch_map_fusion_logits = nn.Parameter(torch.zeros(2))
-        self.final_logit_fusion_logits = nn.Parameter(torch.zeros(2))
         self.layer_weights_logits = nn.Parameter(torch.zeros(len(self.patch_layers)))
+        self.patch_layer_weights_logits = nn.Parameter(torch.zeros(len(self.patch_layers)))
 
         for parameter in self.visual.parameters():
             parameter.requires_grad = False
@@ -378,6 +385,20 @@ class InCTRLPQA(nn.Module):
         dtype: torch.dtype,
     ) -> torch.Tensor:
         return torch.softmax(self.layer_weights_logits, dim=0).to(device=device, dtype=dtype)
+
+    def _get_patch_layer_weights(
+        self,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> torch.Tensor:
+        return torch.softmax(self.patch_layer_weights_logits, dim=0).to(device=device, dtype=dtype)
+
+    def _reduce_patch_map_to_logit(self, patch_map: torch.Tensor, topk: int = 10) -> torch.Tensor:
+        max_score = patch_map.max(dim=-1).values
+        k = min(topk, patch_map.shape[-1])
+        topk_mean = patch_map.topk(k, dim=-1).values.mean(dim=-1)
+        patch_score = 0.5 * max_score + 0.5 * topk_mean
+        return self._score_to_logit(patch_score)
 
     def encode_text_prompted(
         self,
@@ -790,15 +811,15 @@ class InCTRLPQA(nn.Module):
         modules = [
             self.patch_projection,
             self.image_head,
-            self.holistic_head,
+            self.decision_head,
             self.prompt_query_adapter,
         ]
         parameters: List[nn.Parameter] = []
         for module in modules:
             parameters.extend(list(module.parameters()))
         parameters.append(self.patch_map_fusion_logits)
-        parameters.append(self.final_logit_fusion_logits)
         parameters.append(self.layer_weights_logits)
+        parameters.append(self.patch_layer_weights_logits)
         return parameters
 
     def enable_pqa_training(self) -> None:
@@ -842,58 +863,48 @@ class InCTRLPQA(nn.Module):
                 normal_list=normal_list,
             )
 
-        layer_weights = self._get_layer_weights(
+        feat_dtype = query_patch_level_list[0].dtype
+        pqa_layer_weights = self._get_layer_weights(
             device=query_image.device,
-            dtype=query_patch_level_list[0].dtype,
+            dtype=feat_dtype,
         )
-        # Insert PQA immediately after visual feature extraction and before the raw residual branch.
+        patch_layer_weights = self._get_patch_layer_weights(
+            device=query_image.device,
+            dtype=feat_dtype,
+        )
         beta_value = torch.tensor(
             self.beta,
             device=query_image.device,
-            dtype=query_patch_level_list[0].dtype,
+            dtype=feat_dtype,
         )
         pq_outputs = self.prompt_query_adapter(
             query_patch_levels=query_patch_level_list,
             prompt_patch_levels=prompt_patch_levels,
             beta=beta_value,
         )
-        raw_residual_maps = pq_outputs["residual_maps"]
-        raw_base_patch_map = sum(
-            weight * residual
-            for weight, residual in zip(layer_weights, raw_residual_maps)
+        inctrl_patch_map = sum(
+            w * r for w, r in zip(patch_layer_weights, pq_outputs["residual_maps"])
         )
         pqa_patch_map = sum(
-            weight * patch_score
-            for weight, patch_score in zip(layer_weights, pq_outputs["pqa_patch_maps"])
-        )
-        pqa_patch_logit = sum(
-            weight * patch_logit
-            for weight, patch_logit in zip(layer_weights, pq_outputs["patch_logits"])
-        )
-        pqa_patch_score = sum(
-            weight * patch_score
-            for weight, patch_score in zip(layer_weights, pq_outputs["patch_scores"])
+            w * p for w, p in zip(pqa_layer_weights, pq_outputs["pqa_patch_maps"])
         )
         pqa_logit = sum(
-            weight * global_logit
-            for weight, global_logit in zip(layer_weights, pq_outputs["pqa_global_logits"])
+            w * g for w, g in zip(pqa_layer_weights, pq_outputs["pqa_global_logits"])
         )
         pqa_local_logits = sum(
-            weight * local_logit
-            for weight, local_logit in zip(layer_weights, pq_outputs["pqa_local_logits"])
+            w * l for w, l in zip(pqa_layer_weights, pq_outputs["pqa_local_logits"])
         )
-        base_patch_map = sum(
-            weight * residual
-            for weight, residual in zip(layer_weights, pq_outputs["residual_maps"])
-        )
+
         patch_map_fusion_weights = torch.softmax(self.patch_map_fusion_logits, dim=0)
-        hybrid_patch_map = (
-            patch_map_fusion_weights[0] * base_patch_map
+        fused_patch_map = (
+            patch_map_fusion_weights[0] * inctrl_patch_map
             + patch_map_fusion_weights[1] * pqa_patch_map
         )
+
+        patch_logit = self._reduce_patch_map_to_logit(fused_patch_map)
+        patch_score = torch.sigmoid(patch_logit)
         pqa_score = torch.sigmoid(pqa_logit)
         pqa_local_scores = torch.softmax(pqa_local_logits, dim=1)
-        final_patch_map = hybrid_patch_map
 
         prompt_global_proto = F.normalize(prompt_global.mean(dim=1), dim=-1)
         query_global_norm_for_image = F.normalize(query_global, dim=-1)
@@ -924,52 +935,26 @@ class InCTRLPQA(nn.Module):
         text_score = torch.softmax(text_logits_2c, dim=-1)[:, 1]
         text_logit = anomaly_logit - normal_logit
 
-        holistic_map = (
-            final_patch_map
-            + image_score.unsqueeze(-1)
-            + text_score.unsqueeze(-1)
-        )
-        holistic_logit = self.holistic_head(holistic_map)
-        holistic_score = torch.sigmoid(holistic_logit)
-        max_base_patch_score = base_patch_map.max(dim=-1).values
-        raw_max_patch_score = raw_base_patch_map.max(dim=-1).values
-        max_hybrid_patch_score = hybrid_patch_map.max(dim=-1).values
-        max_patch_score = final_patch_map.max(dim=-1).values
-
-        max_base_patch_logit = self._score_to_logit(max_base_patch_score)
-        raw_max_patch_logit = self._score_to_logit(raw_max_patch_score)
-        max_hybrid_patch_logit = self._score_to_logit(max_hybrid_patch_score)
-        max_patch_logit = self._score_to_logit(max_patch_score)
-
-        base_logit = 0.5 * (holistic_logit + max_patch_logit)
-        final_logit_fusion_weights = torch.softmax(self.final_logit_fusion_logits, dim=0)
-        final_logit = (
-            final_logit_fusion_weights[0] * base_logit
-            + final_logit_fusion_weights[1] * pqa_logit
-        )
+        branch_logits = torch.stack([patch_logit, pqa_logit, image_logit, text_logit], dim=-1)
+        final_logit = self.decision_head(branch_logits)
         final_score = torch.sigmoid(final_logit)
-        base_score = torch.sigmoid(base_logit)
 
         patch_side = int(self.num_patches ** 0.5)
         aux = {}
         if return_aux:
             aux = {
-                "patch_map_2d": final_patch_map.reshape(batch_size, patch_side, patch_side),
-                "raw_base_patch_map_2d": raw_base_patch_map.reshape(batch_size, patch_side, patch_side),
-                "base_patch_map_2d": base_patch_map.reshape(batch_size, patch_side, patch_side),
-                "hybrid_patch_map_2d": hybrid_patch_map.reshape(batch_size, patch_side, patch_side),
+                "patch_map_2d": fused_patch_map.reshape(batch_size, patch_side, patch_side),
                 "per_layer_pqa_patch_map": pq_outputs["pqa_patch_maps"],
                 "per_layer_pqa_patch_logit": pq_outputs["patch_logits"],
                 "per_layer_residual": pq_outputs["residual_maps"],
-                "per_layer_raw_residual": raw_residual_maps,
                 "aligned_indices": pq_outputs["aligned_indices"],
                 "raw_query_global": query_global,
                 "prompt_global_proto": prompt_global_proto,
                 "image_residual": image_residual,
-                "layer_weights": layer_weights,
+                "pqa_layer_weights": pqa_layer_weights,
+                "patch_layer_weights": patch_layer_weights,
                 "patch_map_fusion_weights": patch_map_fusion_weights,
                 "pqa_global_pool_weights": pq_outputs["global_pool_weights"],
-                "final_logit_fusion_weights": final_logit_fusion_weights,
                 "text_prototypes": {
                     "normal": normal_proto,
                     "anomaly": anomaly_proto,
@@ -979,41 +964,24 @@ class InCTRLPQA(nn.Module):
         result = {
             "final_score": final_score,
             "final_logit": final_logit,
-            "base_score": base_score,
-            "base_logit": base_logit,
-            "holistic_score": holistic_score,
-            "holistic_logit": holistic_logit,
+            "patch_score": patch_score,
+            "patch_logit": patch_logit,
+            "pqa_score": pqa_score,
+            "pqa_logit": pqa_logit,
             "image_score": image_score,
             "image_logit": image_logit,
             "text_score": text_score,
             "text_logit": text_logit,
-            "pqa_score": pqa_score,
-            "pqa_logit": pqa_logit,
-            "pqa_patch_score": pqa_patch_score,
-            "pqa_patch_logit": pqa_patch_logit,
-            "pqa_local_scores": pqa_local_scores,
+            "fused_patch_map": fused_patch_map,
             "pqa_local_logits": pqa_local_logits,
-            "patch_map": final_patch_map,
-            "raw_base_patch_map": raw_base_patch_map,
-            "base_patch_map": base_patch_map,
-            "hybrid_patch_map": hybrid_patch_map,
-            "max_patch_score": max_patch_score,
-            "max_patch_logit": max_patch_logit,
-            "raw_max_patch_score": raw_max_patch_score,
-            "raw_max_patch_logit": raw_max_patch_logit,
-            "max_base_patch_score": max_base_patch_score,
-            "max_base_patch_logit": max_base_patch_logit,
-            "max_hybrid_patch_score": max_hybrid_patch_score,
-            "max_hybrid_patch_logit": max_hybrid_patch_logit,
+            "pqa_local_scores": pqa_local_scores,
             "patch_map_fusion_weights": patch_map_fusion_weights,
-            "pqa_global_pool_weights": pq_outputs["global_pool_weights"],
-            "final_logit_fusion_weights": final_logit_fusion_weights,
             "aux": aux,
         }
         use_return_dict = self.output_dict if return_dict is None else return_dict
         if use_return_dict:
             return result
-        return final_score, final_patch_map
+        return final_score, fused_patch_map
 
     def forward_legacy(
         self,
