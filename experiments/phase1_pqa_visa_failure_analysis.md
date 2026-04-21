@@ -1,9 +1,9 @@
-# Phase 1 — PQA Cross-Domain Failure Analysis (VisA / AITEX)
+# Phase 1 — Cross-Domain Regression Analysis: InCTRLPQA vs Original InCTRL
 
-**Date**: 2026-04-21
+**Date**: 2026-04-21 (rev 2)
 **Branch**: `feat/inctrl-pqa-fused-restructure`
-**Scope**: Diagnose why the `InCTRLPQA` fused model trained on MVTec fails to recover the published baseline on VisA and AITEX even after Phase 1 regularization (prior KL loss).
-**Status**: Diagnostic — drives Phase 2 direction. No immediate code fix proposed here; this note is reference material for subsequent phases.
+**Scope**: Diagnose why `InCTRLPQA` loses ~10 AUROC points relative to the original `InCTRL` on MVTec→VisA **cross-domain** evaluation (same protocol). Identify specific architectural regression sources introduced by the PQA refactor.
+**Status**: Diagnostic — drives Phase 2 ablations. Option A (mask_loss=0) is the highest-priority experiment.
 
 ---
 
@@ -16,10 +16,13 @@ All runs use identical data / seed / model class (`InCTRLPQA` in `open_clip/inct
 | Step 1 (40 steps, prior=0) | 0.681 | 0.696 | 0.755 | 0.854 | 0.843 | 0.846 | 0.830 | **0.832** | 0.828 |
 | Step 2 (1000 steps, prior=0) | 0.654 | **0.676** | 0.742 | 0.887 | **0.886** | 0.885 | 0.788 | **0.783** | 0.781 |
 | Step 3 (1000 steps, prior=0.1) | 0.699 | **0.702** | 0.757 | 0.884 | **0.884** | 0.883 | 0.771 | **0.779** | 0.774 |
-| **Baseline (in-domain)** | 0.761 | **0.790** | 0.806 | 0.839 | **0.846** | 0.872 | 0.858 | **0.877** | 0.887 |
-| **Phase 1 exit (4-shot)** | — | **0.73** | — | — | **0.82** | — | — | **0.80** | — |
+| **Original InCTRL (cross-domain)** | 0.761 | **0.790** | 0.806 | 0.839 | **0.846** | 0.872 | 0.858 | **0.877** | 0.887 |
+| **Gap vs original (Step 3)** | -0.062 | **-0.088** | -0.049 | +0.045 | **+0.038** | +0.011 | -0.087 | **-0.098** | -0.113 |
+| **Sanity floor (4-shot)** | — | **0.73** | — | — | **0.82** | — | — | **0.80** | — |
 
-(Baselines sourced from `reports/original_inctrl_baseline.md`.)
+(Baselines sourced from `reports/original_inctrl_baseline.md`. **All baseline numbers are cross-domain**: original InCTRL trained on MVTec, tested on X.)
+
+**Critical reframing**: The gap is NOT a "cross-domain penalty" — original InCTRL achieves these numbers under the exact same protocol. The gap is a **regression introduced by the InCTRLPQA refactor**. The sanity floors (formerly "Phase 1 exit") are minimum thresholds; the true target is matching the original numbers.
 
 ### 1.1 Critical observation — longer training *hurts* AITEX and VisA
 
@@ -50,172 +53,181 @@ The KL anchor pulls `final_logit` toward `text_score` (CLIP zero-shot). This hel
 
 ---
 
-## 2. PQA Failure Mechanisms (Code-Grounded)
+## 2. Why PQA Is Not a Stateless Feature Processor
 
-Three specific mechanisms, in decreasing order of confidence.
+A common intuition: "PQA just processes image features, so adding it can only help." This is true for *stateless* modules (e.g., cosine similarity). It is false for our `PQAAdapter`, which carries **~3.4M trainable parameters** that memorize MVTec statistics:
 
-### 2.1 BatchNorm distribution memorization (highest confidence)
+| State | Location | Cross-domain behaviour |
+| --- | --- | --- |
+| `BatchNorm2d` running mean/var | `inctrl_pqa_fused.py:170-172` | Uses MVTec-learned channel statistics to normalize VisA inputs → wrong normalization |
+| `PQAConvLocalHead` conv filters × 3 | `inctrl_pqa_fused.py:173-175` | Trained to detect MVTec anomaly shapes → fires on wrong patterns in VisA |
+| `PQAGlobalHead.mlp_adapter` × 3 | `inctrl_pqa_fused.py:176-178` | Maps MVTec context-map statistics → anomaly score; wrong on VisA distributions |
+| `decision_head.branch_logits` | `inctrl_pqa_fused.py:135` | Learns "trust PQA, ignore text" on MVTec; applies verbatim to VisA |
+| `patch_map_fusion_logits` | `inctrl_pqa_fused.py` | Learns to over-weight PQA patch map vs robust cosine residual |
 
-`@/Users/xinye/Desktop/InCTRL/open_clip/inctrl_pqa_fused.py:199-214` — `_build_context_map`:
-
-```python
-query_level = F.normalize(query_level, dim=-1)
-aligned_prompt = F.normalize(aligned_prompt, dim=-1)
-context_feat = query_level + beta_value * torch.abs(query_level - aligned_prompt)
-context_map = context_feat.permute(0, 2, 1).reshape(batch_size, feature_dim, grid_side, grid_side)
-return self.sharebn[layer_idx](context_map)
-```
-
-`self.sharebn[layer_idx]` is a `BatchNorm2d` per layer (`:170-172`). After 1000 steps on MVTec the running mean/var converge to MVTec's `context_map` statistics. At inference on VisA:
-
-- VisA's normalized query features have different per-channel statistics than MVTec's
-- BN normalizes with the *wrong* mean/var
-- Downstream `PQAConvLocalHead` and `PQAGlobalHead` see inputs from a different distribution than they were trained on
-- Predictions degrade
-
-**Why this is the primary suspect**: BN affects *all* downstream learnable heads at *every* forward pass, and it is completely unreachable by the `prior_loss` KL anchor (which only touches `final_logit`). This matches the observed pattern where VisA degrades *regardless* of prior strength.
-
-### 2.2 Cosine nearest-neighbor signal collapse on heterogeneous textures (medium confidence)
-
-`@/Users/xinye/Desktop/InCTRL/open_clip/inctrl_pqa_fused.py:184-197` — `_match_prompt_patches`:
-
-```python
-similarity = torch.einsum("bnc,bmc->bnm", query_norm, prompt_norm)
-max_cosine, best_indices = similarity.max(dim=-1)
-...
-residual = 0.5 * (1.0 - max_cosine)
-```
-
-The residual signal assumes that *for a normal query patch there exists a highly-similar prompt patch* (so `max_cosine → 1, residual → 0`) and *for an anomalous query patch no prompt patch matches well* (so `max_cosine → 0, residual → 0.5`).
-
-This assumption holds on MVTec textures (carpet / leather / tile), which are quasi-stationary — most normal patches look alike, and anomalies are clear outliers.
-
-It breaks on VisA:
-- PCB / capsule / candle categories are *highly heterogeneous*: normal patches vary substantially across the image (different components, regions, colors)
-- For any query patch there exists some "coincidentally similar" prompt patch somewhere in the prompt set (because the prompt-patch pool is large: `num_prompts × num_patches_per_prompt`, e.g. 4 × 256 = 1024 candidates)
-- `max_cosine` stays high for *both* normal and anomalous queries → residual signal drowns in noise
-
-This is an *algorithmic* limitation, not a training artifact. No amount of regularization fixes it.
-
-### 2.3 Over-capacity learnable heads specialize to MVTec anomaly morphology (medium confidence)
-
-`@/Users/xinye/Desktop/InCTRL/open_clip/inctrl_pqa_fused.py:173-178` — PQAdapter has 3 layers × 2 heads (`PQAConvLocalHead` + `PQAGlobalHead`). Rough parameter count:
-
-- Each `PQAConvLocalHead`: Conv(768→128) + Conv(128→64) + Conv(64→2) ≈ 1M params
-- Each `PQAGlobalHead.mlp_adapter`: Linear(768→128) + LN + Linear(128→2) ≈ 100K params
-- × 3 layers → **~3.3M trainable params in PQA alone**
-
-MVTec anomalies are mostly small blobs, scratches, holes, discoloration — stereotyped visual primitives. 3M convolutional parameters trained on MVTec converge to filters tuned for these primitives.
-
-VisA anomalies are different: bent pins, missing components, wrong color, misaligned parts, missing text. These don't match MVTec's anomaly filter bank. The conv heads produce noise instead of signal.
-
-**Evidence for this hypothesis**: if it were *only* the BN issue, we would expect roughly uniform degradation across tasks. We see instead that ELPV (whose anomalies — solar panel cracks, dark bands — are visually closer to MVTec scratch/discoloration) *improves* with longer training (+0.04), while VisA regresses. This correlation between "visual similarity to MVTec anomalies" and "longer training helps" is consistent with conv-filter specialization.
+Even when the *prompt data* at inference is VisA, the *processing pipeline* was shaped by MVTec. The module gives **confident wrong predictions**, not "neutral extra information." In the decision head's convex combination, a confident wrong logit (e.g., `pqa_logit = +3.0`) overwhelms a correct small-magnitude text logit (e.g., `text_logit = -0.5`), producing a worse final answer than text alone.
 
 ---
 
-## 3. Why AdaptCLIP Outperforms (Code Contrast)
+## 3. Architectural Regression Sources (Code Diff: Original InCTRL vs InCTRLPQA)
 
-AdaptCLIP (`@/Users/xinye/Desktop/InCTRL/open_clip/adaptclip.py:715-800`) uses a structurally similar `PQAdapter` — same cosine alignment, same `abs(query - aligned_prompt)` context, same per-layer BN + conv. The algorithm is not the differentiator. Three system-level differences matter.
+The original `InCTRL` class lives in `open_clip/model.py:443-592`. The current `InCTRLPQA` is in `open_clip/inctrl_pqa_fused.py:310+`. Direct comparison reveals six regression sources, ranked by expected contribution to the VisA drop.
 
-### 3.1 Learnable textual adapter for cross-domain text alignment
+### 3.0 Parameter Count Explosion (1000×)
 
-`@/Users/xinye/Desktop/InCTRL/open_clip/adaptclip.py:846` — `TextualAdapter` introduces learnable context tokens (`n_ctx_pos`, `n_ctx_neg`) that adapt text prompts across domains during training.
+| Module | Original InCTRL | InCTRLPQA |
+| --- | ---: | ---: |
+| Global-feature `Adapter(640, 4)` | ~2.5K | — |
+| `ImageResidualHead` | — | ~100K |
+| `diff_head: Linear(225, 1)` | ~225 | — |
+| `diff_head_ref: Linear(640, 1)` | ~640 | — |
+| `PQAConvLocalHead` × 3 | — | **~3M** |
+| `PQAGlobalHead` × 3 | — | ~300K |
+| `BatchNorm2d` × 3 | — | ~6K |
+| `ScalarFusionHead` | — | 5 |
+| Layer/fusion weights | — | ~8 |
+| **Total trainable** | **~3.5K** | **~3.4M** |
 
-Our `InCTRLPQA` text path (`@/Users/xinye/Desktop/InCTRL/open_clip/inctrl_pqa_fused.py:949-974`) uses static hard-coded templates only. The text branch *cannot learn*. Result: when visual heads drift toward MVTec during training, nothing drifts correspondingly on the text side to stabilize the fused decision. The text prior is frozen at CLIP's zero-shot capability.
+Same training data, same training steps, 1000× more parameters → overfitting to the single training source is inevitable. The original's minimal parameter budget is a strong implicit regularizer.
 
-### 3.2 Alignment score used as direct, parameter-free output
+### 3.1 H1 — Pixel-level Mask Loss (highest confidence, likely primary cause)
 
-AdaptCLIP exposes the raw cosine residual (`align_scores`) as a final anomaly-map component:
+Original `InCTRL.forward` returns only two scalars: `final_score, img_ref_score` (`model.py:592`). **There is no pixel-level output. The original training therefore cannot apply dense mask supervision.**
+
+Our `InCTRLPQA` exposes `pqa_local_logits` (pixel-level 2-class map) and applies (`inctrl_pqa_losses.py:46-55`):
 
 ```python
-align_score, min_idx = torch.min(1.0 - torch.bmm(query, prompt.T), dim=-1)
-align_score = F.interpolate(align_score, size=(img_size, img_size))
-align_scores.append(align_score)  # → directly part of final output
+target_mask = F.interpolate(masks, size=logits.shape[-2:], mode="nearest").clamp(0.0, 1.0)
+target_labels = target_mask.squeeze(1).long()
+focal_loss = multiclass_focal_loss(logits, target_labels)
+anomaly_dice = binary_dice_loss(probabilities[:, 1], target_mask.squeeze(1))
+normal_dice = binary_dice_loss(probabilities[:, 0], 1.0 - target_mask.squeeze(1))
 ```
 
-We retain this as `inctrl_patch_map` in `fused_patch_map` (`@/Users/xinye/Desktop/InCTRL/open_clip/inctrl_pqa_fused.py:919-936`) with a learnable softmax mixing weight:
+With `mask_loss_weight = 1.0` (the global maximum in our loss schedule), this is the strongest gradient signal in training. It drives conv filters to **precisely match MVTec anomaly masks** — category-specific defect morphologies that don't transfer to VisA.
+
+> **This is a wholly new inductive bias we introduced that the original InCTRL does not have.** Removing it is the cheapest test of the regression hypothesis.
+
+### 3.2 H2 — Decision Head: Fixed Averaging → Learnable Convex Combination (high)
+
+Original (`model.py:583-588`):
 
 ```python
-fused_patch_map = (
-    patch_map_fusion_weights[0] * inctrl_patch_map
-    + patch_map_fusion_weights[1] * pqa_patch_map
-)
+holistic_map = text_score + img_ref_score + patch_ref_map   # three paths added 1:1:1
+hl_score = self.diff_head.forward(holistic_map)              # Linear(225, 1) fixed
+final_score = (hl_score + fg_score) / 2                       # fixed 50:50 with parameter-free fg
 ```
 
-During MVTec training, the learnable `patch_map_fusion_logits` drift toward favoring `pqa_patch_map` (which fits MVTec) over the parameter-free `inctrl_patch_map` (which generalizes better). The very mechanism that should let the robust signal dominate gets trained away.
+- Three signals (text, image residual, patch residual) add with **fixed unit weights**
+- `fg_score = Fp_map.max(dim=0).values` is a **parameter-free patch-max** worth 50% of the final score
 
-### 3.3 Multi-domain training (not architectural)
+Our `InCTRLPQA` (`inctrl_pqa_fused.py:976-978`):
 
-AdaptCLIP paper results use multi-source training (MVTec + VisA + others in various experiments). Our Step 1-3 runs are single-source MVTec training. This is a setup difference, not an algorithm difference — but it is *the* reason VisA fails: there is no VisA signal in the training set to counteract MVTec-specific drift.
+```python
+branch_logits = torch.stack([patch_logit, pqa_logit, image_logit, text_logit], dim=-1)
+final_logit = self.decision_head(branch_logits)  # softmax-weighted, learnable
+```
 
-**Implication**: We should not expect to match AdaptCLIP's cross-domain numbers under strict single-source training. Our realistic ceiling is something like "close to zero-shot on VisA, meaningful lift on MVTec-like domains (ELPV)."
+The original **cannot** "learn to silence the text branch on MVTec" — the weights are frozen at 1:1:1. Ours learns this bias, then misapplies it on VisA.
+
+### 3.3 H3 — Layer Fusion: Uniform Mean → Learnable Softmax (high)
+
+Original (`model.py:553`):
+
+```python
+Fp_map = torch.mean(Fp_map.squeeze(2), dim=0)  # 3 layers, plain mean
+```
+
+Ours (`inctrl_pqa_fused.py:919-924`):
+
+```python
+inctrl_patch_map = sum(w * r for w, r in zip(patch_layer_weights, pq_outputs["residual_maps"]))
+pqa_patch_map    = sum(w * p for w, p in zip(pqa_layer_weights,   pq_outputs["pqa_patch_maps"]))
+```
+
+Both `patch_layer_weights` and `pqa_layer_weights` are learnable softmax. Training drifts them toward "the layer that fits MVTec best," losing the multi-layer ensemble robustness.
+
+### 3.4 H4 — Added Conv Local Heads (high — enables H1)
+
+Original has NO conv-based local heads. Patch signal is pure cosine distance (`model.py:546-548`):
+
+```python
+s = (0.5 * (1 - (tmp @ tmp_n.T))).min(dim=1).values
+```
+
+This is **parameter-free** → trivially cross-domain stable. Our 3 × `PQAConvLocalHead` (~1M conv params each) replaces this stable path with a learned filter bank, and the mask loss (H1) pushes those filters to specialize on MVTec shapes.
+
+### 3.5 H5 — `fg_score` (parameter-free patch-max) Removed (medium)
+
+Original: `fg_score = Fp_map.max(dim=0).values` is an independent 50% contributor to the final score, entirely parameter-free.
+
+Ours: the residual map is merged into `fused_patch_map` via learnable `patch_map_fusion_logits`, then reduced to a single `patch_logit` that competes with other branches inside the learnable decision head. The parameter-free channel is gone.
+
+### 3.6 H6 — BatchNorm Introduction (medium, downstream of H4)
+
+Original has no `BatchNorm2d` in the residual/patch path — no conv means no BN. We added BN for the conv heads; its running statistics memorize MVTec distribution, compounding H4. Removing H4 removes H6 automatically.
 
 ---
 
-## 4. Phase 2 Options (Ranked)
+## 3A. AdaptCLIP Contrast (Secondary Reference)
 
-Ordered by expected-benefit / implementation-cost ratio. Each is a hypothesis with an expected failure mode.
+AdaptCLIP (`open_clip/adaptclip.py:715-800`) uses a structurally similar `PQAdapter`. Three system-level differences:
 
-### Option A — Replace BN with LN in `PQAdapter.sharebn` (1 line)
+1. **Learnable textual adapter** (`TextualAdapter` with `n_ctx_pos`, `n_ctx_neg`) adapts text prompts across domains; our text branch is static
+2. **Alignment score as direct, parameter-free output** — raw cosine residual goes directly to final output; ours mixes it with PQA via learnable `patch_map_fusion_logits`
+3. **Multi-domain training** — AdaptCLIP paper uses multi-source training; our protocol is single-source
 
-Change `@/Users/xinye/Desktop/InCTRL/open_clip/inctrl_pqa_fused.py:170-172`:
+Note: comparing with AdaptCLIP is a secondary concern. The primary gap to close is vs **original InCTRL** which uses the same single-source cross-domain protocol and achieves 0.877 on VisA.
 
-```python
-# from:
-self.sharebn = nn.ModuleList(nn.BatchNorm2d(feature_dim) for _ in range(num_layers))
-# to:
-self.sharebn = nn.ModuleList(
-    nn.GroupNorm(1, feature_dim) for _ in range(num_layers)  # GN(1) == LN over (C,H,W)
-)
+---
+
+## 4. Phase 2 Options (Ranked as Regression Ablations)
+
+Ordered by diagnostic signal per training run. Each option tests a specific hypothesis from §3.
+
+### Option A — Zero out `mask_loss_weight` (tests H1 — no code change)
+
+```bash
+python train_local.py --train-datasets mvtec --train-shot 4 \
+  --epochs 10 --steps-per-epoch 100 --num-workers 8 \
+  --mask-loss-weight 0.0 --prior-loss-weight 0.3
 ```
 
-LayerNorm-like normalization computes per-sample statistics → immune to the MVTec→VisA running-stat shift described in §2.1.
+- **Tests**: H1 (mask loss is the primary regression source)
+- **Predicted VisA 4-shot**: 0.83+ (rise from 0.779)
+- **Risk**: loses pixel-level localization on MVTec (irrelevant for cross-domain AUROC protocol)
+- **Cost**: zero code change, one training run
 
-- **Predicted VisA 4-shot uplift**: +0.02 ~ +0.05
-- **Risk**: MVTec in-distribution accuracy may drop 0.005–0.01 because BN's population statistics can be slightly more informative than per-sample normalization on a homogeneous source
-- **Testing cost**: 1 line change + 1 unit test + one training run
+### Option B — Replace layer fusion with uniform mean (tests H3 — small code change)
 
-### Option B — Freeze learnable `local_heads` + `global_heads`, keep only BN + fusion weights + `decision_head` trainable
+Force `_get_layer_weights` to return `torch.ones(N) / N` and disable gradient. ~5 lines.
 
-Modify `@/Users/xinye/Desktop/InCTRL/open_clip/inctrl_pqa_fused.py:845-860` `get_trainable_parameters()`:
+- **Tests**: H3 (learnable layer weights drift toward MVTec-optimal layer)
+- **Predicted VisA 4-shot uplift**: +0.01 ~ +0.03 on top of A
+- **Cost**: trivial code change + test
 
-```python
-# exclude:
-# - self.prompt_query_adapter.local_heads
-# - self.prompt_query_adapter.global_heads
-# - self.image_head
-# include only:
-# - self.prompt_query_adapter.sharebn (re-trains BN stats, but no conv specialization)
-# - patch_map_fusion_logits
-# - pqa_layer_weights / patch_layer_weights
-# - decision_head.branch_logits + bias
-```
+### Option C — Replace `ScalarFusionHead` with fixed equal weighting (tests H2 — small code change)
 
-This reduces trainable count from ~3M to ~20, preventing MVTec anomaly-morphology specialization (§2.3). The architecture effectively becomes "frozen CLIP + frozen heads + tiny learnable mixer."
+Return `torch.mean(branch_logits, dim=-1)` instead of softmax-weighted sum. ~10 lines.
 
+- **Tests**: H2 (decision head learns "trust PQA, ignore text" on MVTec)
+- **Predicted VisA 4-shot uplift**: +0.01 ~ +0.03 on top of A
+- **Cost**: small code change + test
+
+### Option D — Freeze conv local heads + global heads (tests H4 — moderate)
+
+Exclude `local_heads` and `global_heads` from optimizer via `get_trainable_parameters()`. Add `--freeze-pqa-heads` flag.
+
+- **Tests**: H4 (3M conv params specialize on MVTec morphology)
 - **Predicted VisA 4-shot uplift**: +0.03 ~ +0.08
-- **Risk**: severe drop on in-domain metrics if we ever train on a target domain — but we don't, our protocol is strict cross-domain only
-- **Testing cost**: 10 lines in `get_trainable_parameters` + `--freeze-pqa-heads` CLI flag + test
+- **Cost**: modify `get_trainable_parameters` + flag + test. Only run if A+B+C insufficient.
 
-### Option C — A + B combined
+### Option E — Full revert to original InCTRL + re-apply Phase 1 surgical fixes (last resort)
 
-LN + frozen heads = "closest thing we can cheaply do to match AdaptCLIP's frozen-backbone-thin-adapter spirit while keeping our decision-head infrastructure intact."
+If A–D cannot close the gap, the original `InCTRL` class (`model.py:443-592`) is the known-good baseline. Apply our decision-head / text-logit-scale / prior-loss improvements there instead.
 
-- **Predicted VisA 4-shot uplift**: +0.05 ~ +0.10
-- **Risk**: low — both changes are batch-independent / reduce overfitting
-- **Testing cost**: two flags, one run
-
-### Option D — Learnable textual prompt tokens (high effort)
-
-Add ~100 LOC mirroring AdaptCLIP's `TextualAdapter`. Requires new loss terms to prevent collapse (e.g., orthogonality between normal/anomaly context tokens). Only worth pursuing if A+B+C fails and we need to close the gap to paper numbers.
-
-- **Predicted VisA 4-shot uplift**: +0.02 ~ +0.05 *on top of A+B*
-- **Risk**: high — loss design is non-trivial; easy to make it worse
-- **Testing cost**: 1-2 days of engineering + multiple ablation runs
-
-### Option E — Abandon single-source protocol (out of scope)
-
-Train on MVTec + VisA jointly. This would trivially fix VisA but violates the leave-one-out cross-domain protocol that the rest of the experimental setup (`TEST_DATASETS_BY_TRAIN`) enforces. Not a viable option under current constraints.
+- **Cost**: substantial rework of train_local / loss / model export
+- **Only if** all above options fail to approach original InCTRL numbers
 
 ---
 
@@ -223,33 +235,36 @@ Train on MVTec + VisA jointly. This would trivially fix VisA but violates the le
 
 | When | Decision | Rationale |
 | --- | --- | --- |
-| 2026-04-21 | Run Step 4 (prior=0.3) *before* any Phase 2 code change | Low cost (one CLI flag), rules out the "prior strength insufficient" hypothesis cleanly |
-| If Step 4 passes VisA ≥ 0.80 | Close Phase 1, document numbers | Exit criteria met, no more work needed for Phase 1 |
-| If Step 4 fails VisA | Implement Option A (BN→LN) first | Cheapest fix targeting the highest-confidence failure mode |
-| If A alone fails | Implement Option C (A+B combined) | Second-cheapest, addresses two failure modes simultaneously |
-| If C fails | Re-evaluate — possibly Option D or accept "zero-shot ceiling on VisA" | Algorithmic limits may be reached |
+| 2026-04-21 rev 2 | **Run Option A (`--mask-loss-weight 0.0`) as top priority** | Zero code change; tests H1 (highest-confidence regression source); original InCTRL has no mask loss at all |
+| If Option A lifts VisA ≥ 0.85 | Commit to "H1 is primary," stack B+C for remaining gap | High-confidence evidence |
+| If Option A alone reaches ≥ 0.88 | Close Phase 2, original parity achieved | Exit condition |
+| If Option A lifts VisA but doesn't close gap | Stack Option B + C (fixed fusion weights) | Gradually restore original structure |
+| If Option A does NOT move VisA | Reconsider — move to Option D (freeze heads) then E (revert) | H1 falsified |
 
 ---
 
-## 6. Open Questions for Future Investigation
+## 6. Open Questions
 
-1. **Is BN the primary culprit, or is conv-head specialization equally important?**
-   Diagnostic: run Option A alone vs Option B alone, compare VisA deltas. If A >> B, BN wins. If similar, both mechanisms contribute.
-
-2. **Does `patch_map_fusion_logits` actually drift toward PQA during training?**
-   Check `aux["patch_map_fusion_weights"]` across a training run. If it stays close to `[0.5, 0.5]`, §3.2 hypothesis is wrong. If it drifts hard toward PQA (e.g., `[0.1, 0.9]`), this confirms the "fusion head trains away the robust signal" claim.
-
-3. **What fraction of the PQA failure on VisA is algorithmic (§2.2) vs trainable (§2.1, 2.3)?**
-   Diagnostic: compare `max_cosine` distributions on normal vs anomalous VisA patches at Step 0 (pre-training). If distributions already overlap heavily, §2.2 is the bottleneck and no amount of training tricks will help.
-
-These questions are worth tooling up *if* Option C fails to clear VisA. Otherwise they are noise.
+1. **How much of the VisA gap does H1 (mask loss) account for?** Option A answers this directly. If VisA rises from 0.779 to 0.85+, H1 explains most of it. If it only rises to 0.81, other hypotheses (H2–H4) share the blame.
+2. **Does `patch_map_fusion_logits` actually drift toward PQA during training?** Check `aux["patch_map_fusion_weights"]` across a training run. If `[0.5, 0.5]`, H5 is wrong. If `[0.1, 0.9]`, confirmed.
+3. **Does ELPV drop when mask loss is removed?** If yes, mask loss helps MVTec-like domains at VisA's expense — a trade-off. If no, mask loss was unambiguously harmful.
+4. **Is there any cross-domain scenario where PQA dense supervision helps?** Possibly not under single-source training. Confirmed if Option A + D matches or exceeds original InCTRL.
 
 ---
 
 ## 7. References
 
-- `@/Users/xinye/Desktop/InCTRL/open_clip/inctrl_pqa_fused.py` — current `InCTRLPQA` model
-- `@/Users/xinye/Desktop/InCTRL/open_clip/adaptclip.py` — AdaptCLIP reference implementation
-- `@/Users/xinye/Desktop/InCTRL/reports/original_inctrl_baseline.md` — baseline AUROC numbers
-- `@/Users/xinye/Desktop/InCTRL/train_local.py` — `_PUBLISHED_BASELINE_AUROC`, `_PHASE1_EXIT_THRESHOLDS_4SHOT`
-- Step 3 summary JSON: `/Users/xinye/Downloads/cross_shot_train_shot_4_summary (3).json` (archived in this session)
+- `open_clip/model.py:443-592` — original `InCTRL` class (the cross-domain baseline that achieves 0.877 on VisA)
+- `open_clip/inctrl_pqa_fused.py:310+` — current `InCTRLPQA` class
+- `open_clip/inctrl_pqa_losses.py:23-55` — `compute_pqa_mask_loss` (H1 regression source)
+- `open_clip/adaptclip.py:715-800` — AdaptCLIP reference
+- `reports/original_inctrl_baseline.md` — cross-domain baseline AUROC numbers
+- `train_local.py:955` — `--mask-loss-weight` CLI flag (Option A)
+- Step 1-3 summary JSONs archived in download history
+
+---
+
+## 8. Changelog
+
+- **2026-04-21 rev 2** — Corrected baseline interpretation: all published numbers are **cross-domain** (MVTec→X), not in-domain. Reframed the entire analysis as a regression investigation. Added §2 (PQA as stateful module), §3 (6 architectural regression sources from code diff), reordered Phase 2 options with Option A (mask_loss=0) as top priority. Removed speculation about "inherent single-source gap" — original InCTRL proves the gap is closeable.
+- **2026-04-21 rev 1** — Initial diagnosis (BatchNorm memorization, cosine collapse, conv head specialization). Partially correct mechanisms but wrong framing (assumed in-domain baseline).
