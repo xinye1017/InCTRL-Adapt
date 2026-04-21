@@ -99,6 +99,26 @@ FEW_SHOT_DATASET_ALIASES = {
     "aitex": "AITEX",
 }
 
+# Published InCTRL in-domain baselines (AUROC). Source:
+# ``reports/original_inctrl_baseline.md``. Used only for automatic delta reporting
+# in the cross-shot summary analytics block — NOT for any training decision.
+# Missing entries simply disable delta reporting for that (dataset, shot) pair.
+_PUBLISHED_BASELINE_AUROC = {
+    "aitex": {0: 0.733, 2: 0.761, 4: 0.790, 8: 0.806},
+    "elpv":  {0: 0.733, 2: 0.839, 4: 0.846, 8: 0.872},
+    "visa":  {0: 0.781, 2: 0.858, 4: 0.877, 8: 0.887},
+    "mvtec": {0: 0.912, 2: 0.940, 4: 0.945, 8: 0.953},
+}
+# Phase 1 (2026-04-21) cross-domain 4-shot exit thresholds for MVTec-trained runs.
+# Derived from reports/original_inctrl_baseline.md and the Phase 1 plan: each
+# target dataset should at minimum recover its published 0-shot number (or a
+# modest discount) after MVTec-only cross-domain training.
+_PHASE1_EXIT_THRESHOLDS_4SHOT = {
+    "aitex": 0.73,
+    "elpv":  0.82,
+    "visa":  0.80,
+}
+
 # ============================================================================
 # 工具函数
 # ============================================================================
@@ -716,6 +736,81 @@ def run_experiment(
     }
 
 
+def _build_summary_analytics(summary_rows, train_datasets):
+    """Aggregate raw summary_rows into analyst-friendly views.
+
+    Non-breaking: returns a dict that sits alongside the existing ``summary_rows``.
+    Every value is plain JSON (no tensors) so the block is safe to serialize.
+
+    Returned keys:
+      - ``aggregated``: ``{pair: {"auroc": {shot: v}, "aupr": {shot: v}}}``
+        One row per (train, test) pair, pivoted on shot. Removes the
+        "scan 9 rows to build a table" friction.
+      - ``baseline_deltas``: list of per-(pair, shot) rows containing ours,
+        published in-domain baseline, delta vs in-domain, delta vs zero-shot.
+      - ``phase1_exit``: only populated for MVTec-trained runs. Per-pair
+        go/no-go status at shot=4 plus a ``_summary`` section describing
+        whether *all* thresholds pass and which pairs fail.
+
+    Missing published baselines degrade gracefully (delta becomes ``None``).
+    """
+    aggregated = {}
+    for row in summary_rows:
+        pair = f"{row['train_dataset']}->{row['test_dataset']}"
+        entry = aggregated.setdefault(pair, {"auroc": {}, "aupr": {}})
+        shot = int(row["eval_shot"])
+        entry["auroc"][shot] = row["auroc"]
+        entry["aupr"][shot] = row["aupr"]
+
+    baseline_deltas = []
+    for row in summary_rows:
+        test_ds = row["test_dataset"]
+        shot = int(row["eval_shot"])
+        ref_in_domain = _PUBLISHED_BASELINE_AUROC.get(test_ds, {}).get(shot)
+        ref_zero_shot = _PUBLISHED_BASELINE_AUROC.get(test_ds, {}).get(0)
+        baseline_deltas.append({
+            "pair": f"{row['train_dataset']}->{test_ds}",
+            "shot": shot,
+            "ours_auroc": row["auroc"],
+            "published_in_domain_auroc": ref_in_domain,
+            "delta_vs_in_domain": (
+                round(row["auroc"] - ref_in_domain, 4) if ref_in_domain is not None else None
+            ),
+            "published_zero_shot_auroc": ref_zero_shot,
+            "delta_vs_zero_shot": (
+                round(row["auroc"] - ref_zero_shot, 4) if ref_zero_shot is not None else None
+            ),
+        })
+
+    phase1_exit = {}
+    if "mvtec" in train_datasets:
+        for row in summary_rows:
+            if row["train_dataset"] != "mvtec" or int(row["eval_shot"]) != 4:
+                continue
+            test_ds = row["test_dataset"]
+            threshold = _PHASE1_EXIT_THRESHOLDS_4SHOT.get(test_ds)
+            if threshold is None:
+                continue
+            phase1_exit[f"mvtec->{test_ds}"] = {
+                "ours_4shot_auroc": row["auroc"],
+                "exit_threshold": threshold,
+                "margin": round(row["auroc"] - threshold, 4),
+                "passes": row["auroc"] >= threshold,
+            }
+        per_pair = {k: v for k, v in phase1_exit.items() if k != "_summary"}
+        if per_pair:
+            phase1_exit["_summary"] = {
+                "all_pass": all(v["passes"] for v in per_pair.values()),
+                "failing_pairs": sorted(k for k, v in per_pair.items() if not v["passes"]),
+            }
+
+    return {
+        "aggregated": aggregated,
+        "baseline_deltas": baseline_deltas,
+        "phase1_exit": phase1_exit,
+    }
+
+
 def run_all_experiments(
     train_datasets,
     train_shot=TRAIN_SHOT,
@@ -787,6 +882,8 @@ def run_all_experiments(
                     "results_json_path": str(run_output["results_json_path"].resolve()),
                 })
 
+    analytics = _build_summary_analytics(summary_rows, train_datasets)
+
     summary_path = RESULTS_DIR / f"cross_shot_train_shot_{train_shot}_summary.json"
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     with open(summary_path, "w", encoding="utf-8") as f:
@@ -803,6 +900,7 @@ def run_all_experiments(
                 "prior_loss_weight": prior_loss_weight,
                 "text_logit_scale": text_logit_scale,
                 "protocol": "strict_cross_domain_only",
+                "analytics": analytics,
                 "summary_rows": summary_rows,
             },
             f,
@@ -810,7 +908,18 @@ def run_all_experiments(
             ensure_ascii=False,
         )
     print(f"\n[INFO] 跨 shot 汇总已保存: {summary_path}")
-    return {"runs": run_outputs, "summary_rows": summary_rows, "summary_path": summary_path}
+    phase1_exit = analytics.get("phase1_exit", {}).get("_summary")
+    if phase1_exit:
+        status = "PASS" if phase1_exit["all_pass"] else "FAIL"
+        print(f"[INFO] Phase 1 退出状态: {status}")
+        if not phase1_exit["all_pass"]:
+            print(f"[INFO]   未达标对: {phase1_exit['failing_pairs']}")
+    return {
+        "runs": run_outputs,
+        "summary_rows": summary_rows,
+        "analytics": analytics,
+        "summary_path": summary_path,
+    }
 
 
 # ============================================================================
