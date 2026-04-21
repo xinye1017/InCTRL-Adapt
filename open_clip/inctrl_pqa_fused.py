@@ -120,20 +120,37 @@ class PQAGlobalHead(nn.Module):
 
 
 class ScalarFusionHead(nn.Module):
-    """Fuse multiple scalar anomaly cues into one final logit."""
+    """Fuse multiple scalar anomaly cues into one final logit via a convex combination.
 
-    def __init__(self, input_dim: int, hidden_dim: int):
+    Simpler and more OOD-robust than a LayerNorm+MLP stack: removes per-sample
+    normalization that was shrinking the well-calibrated CLIP-text cue, and bounds
+    branch weights with a softmax so no single branch can dominate during training.
+    The ``hidden_dim`` argument is retained for API compatibility and ignored.
+    """
+
+    def __init__(self, input_dim: int, hidden_dim: int = 0):
         super().__init__()
-        hidden_dim = max(hidden_dim, 16)
-        self.net = nn.Sequential(
-            nn.LayerNorm(input_dim),
-            nn.Linear(input_dim, hidden_dim),
-            nn.GELU(),
-            nn.Linear(hidden_dim, 1),
-        )
+        del hidden_dim  # retained only for backward-compatible constructor signature
+        # Zero init -> softmax gives uniform 1/N weighting across branches at start.
+        self.branch_logits = nn.Parameter(torch.zeros(input_dim))
+        self.bias = nn.Parameter(torch.zeros(()))
+
+    def get_branch_weights(
+        self,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
+    ) -> torch.Tensor:
+        weights = torch.softmax(self.branch_logits, dim=0)
+        if device is not None or dtype is not None:
+            weights = weights.to(
+                device=device if device is not None else weights.device,
+                dtype=dtype or weights.dtype,
+            )
+        return weights
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.net(x).squeeze(-1)
+        weights = self.get_branch_weights(device=x.device, dtype=x.dtype)
+        return (x * weights).sum(dim=-1) + self.bias
 
 
 class PQAdapter(nn.Module):
@@ -307,6 +324,7 @@ class InCTRLPQA(nn.Module):
         hidden_dim: int = 256,
         patch_has_cls_token: bool = True,
         feature_is_projected: bool = False,
+        text_logit_scale: Optional[float] = None,
     ):
         super().__init__()
         self.output_dict = output_dict
@@ -319,6 +337,22 @@ class InCTRLPQA(nn.Module):
         self.text_cfg = _as_cfg(text_cfg, CLIPTextCfg)
         self.image_size = getattr(args, "image_size", self.vision_cfg.image_size)
         self.beta = float(beta)
+        # Text logit scale for scalar fusion. CLIP-style 100x is kept for the
+        # diagnostic ``text_score`` softmax, while this smaller default keeps
+        # ``text_logit`` on the same O(1) order as the other branch logits so
+        # the convex combination in ``decision_head`` does not collapse the
+        # zero-shot prior. Resolves via (explicit arg > args.text_logit_scale >
+        # args.PQA.TEXT_LOGIT_SCALE > 10.0).
+        resolved_text_scale = text_logit_scale
+        if resolved_text_scale is None:
+            resolved_text_scale = getattr(args, "text_logit_scale", None)
+        if resolved_text_scale is None:
+            pqa_cfg = getattr(args, "PQA", None)
+            if pqa_cfg is not None:
+                resolved_text_scale = getattr(pqa_cfg, "TEXT_LOGIT_SCALE", None)
+        if resolved_text_scale is None:
+            resolved_text_scale = 10.0
+        self.text_logit_scale = float(resolved_text_scale)
 
         self.visual = _build_vision_tower_Mul(embed_dim, self.vision_cfg, quick_gelu, cast_dtype)
 
@@ -929,11 +963,15 @@ class InCTRLPQA(nn.Module):
         query_global_norm = F.normalize(query_global, dim=-1)
         normal_proto = F.normalize(normal_proto, dim=-1)
         anomaly_proto = F.normalize(anomaly_proto, dim=-1)
-        normal_logit = 100.0 * torch.sum(query_global_norm * normal_proto, dim=-1)
-        anomaly_logit = 100.0 * torch.sum(query_global_norm * anomaly_proto, dim=-1)
-        text_logits_2c = torch.stack([normal_logit, anomaly_logit], dim=-1)
+        normal_cos = torch.sum(query_global_norm * normal_proto, dim=-1)
+        anomaly_cos = torch.sum(query_global_norm * anomaly_proto, dim=-1)
+        # text_score keeps the CLIP-standard 100x softmax scale so it remains a
+        # faithful zero-shot probability for monitoring / prior anchoring.
+        text_logits_2c = torch.stack([100.0 * normal_cos, 100.0 * anomaly_cos], dim=-1)
         text_score = torch.softmax(text_logits_2c, dim=-1)[:, 1]
-        text_logit = anomaly_logit - normal_logit
+        # text_logit uses the configurable scale so scalar fusion sees all four
+        # branches at comparable magnitude.
+        text_logit = self.text_logit_scale * (anomaly_cos - normal_cos)
 
         branch_logits = torch.stack([patch_logit, pqa_logit, image_logit, text_logit], dim=-1)
         final_logit = self.decision_head(branch_logits)
@@ -942,6 +980,10 @@ class InCTRLPQA(nn.Module):
         patch_side = int(self.num_patches ** 0.5)
         aux = {}
         if return_aux:
+            decision_branch_weights = self.decision_head.get_branch_weights(
+                device=branch_logits.device,
+                dtype=branch_logits.dtype,
+            )
             aux = {
                 "patch_map_2d": fused_patch_map.reshape(batch_size, patch_side, patch_side),
                 "per_layer_pqa_patch_map": pq_outputs["pqa_patch_maps"],
@@ -955,6 +997,7 @@ class InCTRLPQA(nn.Module):
                 "patch_layer_weights": patch_layer_weights,
                 "patch_map_fusion_weights": patch_map_fusion_weights,
                 "pqa_global_pool_weights": pq_outputs["global_pool_weights"],
+                "decision_branch_weights": decision_branch_weights,
                 "text_prototypes": {
                     "normal": normal_proto,
                     "anomaly": anomaly_proto,

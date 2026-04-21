@@ -81,6 +81,41 @@ def compute_pqa_local_mil_loss(
     return torch.stack(losses).mean()
 
 
+def compute_text_prior_loss(
+    outputs: Dict[str, object],
+    eps: float = 1e-6,
+) -> torch.Tensor:
+    """Symmetric KL anchor that prevents ``final_score`` from drifting far from the
+    CLIP zero-shot ``text_score``.
+
+    Rationale: a well-trained head that ignores text collapses OOD performance
+    below the pure zero-shot baseline (observed on AITEX/VisA after MVTec-only
+    training). Treating ``text_score`` as a teacher prior keeps the robust
+    component alive during cross-domain generalization.
+
+    ``text_score`` is detached so it acts as a fixed soft target; no gradient
+    leaks into the text tower (which is frozen anyway).
+    """
+    final_logit = outputs.get("final_logit")
+    text_score = outputs.get("text_score")
+    if not isinstance(final_logit, torch.Tensor):
+        raise KeyError("outputs['final_logit'] is required for text prior loss")
+    if not isinstance(text_score, torch.Tensor):
+        return final_logit.new_zeros(())
+
+    final_prob = torch.sigmoid(final_logit).clamp(eps, 1.0 - eps)
+    prior = text_score.detach().clamp(eps, 1.0 - eps)
+
+    # Symmetric Bernoulli KL so the anchor works in both directions.
+    forward = prior * (torch.log(prior) - torch.log(final_prob)) + (
+        1.0 - prior
+    ) * (torch.log(1.0 - prior) - torch.log(1.0 - final_prob))
+    backward = final_prob * (torch.log(final_prob) - torch.log(prior)) + (
+        1.0 - final_prob
+    ) * (torch.log(1.0 - final_prob) - torch.log(1.0 - prior))
+    return 0.5 * (forward.mean() + backward.mean())
+
+
 def compute_training_loss(
     outputs: Dict[str, object],
     labels: torch.Tensor,
@@ -92,6 +127,7 @@ def compute_training_loss(
     image_loss_weight: float = 1.0,
     local_mil_loss_weight: float = 0.0,
     local_mil_topk_ratio: float = 0.01,
+    prior_loss_weight: float = 0.0,
 ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
     """Compute fused training loss using only final/image/PQA logits and optional PQA masks."""
     del phase
@@ -120,6 +156,7 @@ def compute_training_loss(
         if masks is None and local_mil_loss_weight > 0
         else zero
     )
+    prior_loss = compute_text_prior_loss(outputs) if prior_loss_weight > 0 else zero
 
     total_loss = (
         final_loss
@@ -127,6 +164,7 @@ def compute_training_loss(
         + image_loss_weight * image_loss
         + mask_loss_weight * pqa_mask_loss
         + local_mil_loss_weight * pqa_local_mil_loss
+        + prior_loss_weight * prior_loss
     )
 
     metrics = {
@@ -135,6 +173,7 @@ def compute_training_loss(
         "pqa_loss": pqa_loss.detach(),
         "pqa_mask_loss": pqa_mask_loss.detach(),
         "pqa_local_mil_loss": pqa_local_mil_loss.detach(),
+        "prior_loss": prior_loss.detach(),
         "total_loss": total_loss.detach(),
     }
     return total_loss, metrics

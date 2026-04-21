@@ -3,6 +3,7 @@ import torch
 from open_clip.inctrl_pqa_losses import (
     compute_pqa_local_mil_loss,
     compute_pqa_mask_loss,
+    compute_text_prior_loss,
     compute_training_loss,
 )
 
@@ -50,6 +51,7 @@ def test_compute_training_loss_uses_simplified_logits_only():
         "pqa_loss",
         "pqa_mask_loss",
         "pqa_local_mil_loss",
+        "prior_loss",
         "total_loss",
     }
     assert total_loss.requires_grad
@@ -59,6 +61,7 @@ def test_compute_training_loss_uses_simplified_logits_only():
     assert torch.allclose(metrics["image_loss"], expected_image_loss.detach(), atol=1e-6)
     assert torch.allclose(metrics["pqa_mask_loss"], expected_mask_loss.detach(), atol=1e-6)
     assert torch.equal(metrics["pqa_local_mil_loss"], outputs["final_logit"].new_zeros(()))
+    assert torch.equal(metrics["prior_loss"], outputs["final_logit"].new_zeros(()))
     assert torch.allclose(metrics["total_loss"], expected_total_loss.detach(), atol=1e-6)
 
     total_loss.backward()
@@ -179,3 +182,69 @@ def test_compute_training_loss_keeps_local_mil_off_by_default_without_masks():
 
     assert metrics["pqa_local_mil_loss"].item() == 0.0
     assert outputs["pqa_local_logits"].grad is None
+
+
+def test_compute_text_prior_loss_returns_zero_when_text_score_missing():
+    """Phase 1-D (2026-04-21): missing text_score -> graceful zero loss, not raise."""
+    outputs = {"final_logit": torch.tensor([0.0, 0.0])}
+    loss = compute_text_prior_loss(outputs)
+    assert torch.equal(loss, outputs["final_logit"].new_zeros(()))
+
+
+def test_compute_text_prior_loss_is_zero_when_final_matches_text_score():
+    """The KL anchor must vanish when the final decision already matches the prior."""
+    text_score = torch.tensor([0.2, 0.8])
+    # Inverse-sigmoid of 0.2 / 0.8 gives the final_logit that produces identical probs.
+    final_logit = torch.log(text_score / (1.0 - text_score))
+    outputs = {"final_logit": final_logit, "text_score": text_score}
+    loss = compute_text_prior_loss(outputs)
+    assert float(loss) < 1e-5
+
+
+def test_compute_text_prior_loss_grows_when_final_disagrees_with_prior():
+    """Regression guard: disagreement must produce strictly positive loss."""
+    text_score = torch.tensor([0.9, 0.9])
+    outputs = {
+        "final_logit": torch.tensor([-5.0, -5.0], requires_grad=True),
+        "text_score": text_score,
+    }
+    loss = compute_text_prior_loss(outputs)
+    assert loss > 0.1
+    loss.backward()
+    # Gradient should flow into final_logit but not into text_score (detached).
+    assert outputs["final_logit"].grad is not None
+
+
+def test_compute_training_loss_adds_prior_when_weighted():
+    """Phase 1-D (2026-04-21): prior_loss_weight > 0 injects the KL anchor into total_loss."""
+    loss_fn = torch.nn.MSELoss()
+    labels = torch.tensor([0.0, 1.0])
+    outputs = {
+        "final_logit": torch.tensor([0.2, 0.7], requires_grad=True),
+        "image_logit": torch.tensor([0.1, 0.8], requires_grad=True),
+        "pqa_logit": torch.tensor([0.4, 0.9], requires_grad=True),
+        "pqa_local_logits": torch.randn(2, 2, 8, 8, requires_grad=True),
+        "text_score": torch.tensor([0.1, 0.9]),
+    }
+
+    total_loss, metrics = compute_training_loss(
+        outputs=outputs,
+        labels=labels,
+        loss_fn=loss_fn,
+        masks=None,
+        prior_loss_weight=0.5,
+    )
+
+    expected_prior = compute_text_prior_loss(outputs)
+    expected_total = (
+        loss_fn(outputs["final_logit"], labels)
+        + loss_fn(outputs["image_logit"], labels)
+        + loss_fn(outputs["pqa_logit"], labels)
+        + 0.5 * expected_prior
+    )
+
+    assert torch.allclose(total_loss, expected_total, atol=1e-6)
+    assert torch.allclose(metrics["prior_loss"], expected_prior.detach(), atol=1e-6)
+
+    total_loss.backward()
+    assert outputs["final_logit"].grad is not None

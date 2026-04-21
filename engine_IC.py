@@ -100,11 +100,12 @@ def train_epoch(
     loss_fun = BinaryFocalLoss(logits=True)
     if cfg.NUM_GPUS:
         loss_fun = loss_fun.cuda()
-    pqa_loss_weight = float(getattr(cfg.PQA, "GLOBAL_LOSS_WEIGHT", 1.0))
+    pqa_loss_weight = float(getattr(cfg.PQA, "GLOBAL_LOSS_WEIGHT", 0.5))
     mask_loss_weight = float(getattr(cfg.PQA, "MASK_LOSS_WEIGHT", 1.0))
     image_loss_weight = float(getattr(cfg.PQA, "IMAGE_LOSS_WEIGHT", 0.0))
     local_mil_loss_weight = float(getattr(cfg.PQA, "LOCAL_MIL_LOSS_WEIGHT", 0.0))
     local_mil_topk_ratio = float(getattr(cfg.PQA, "LOCAL_MIL_TOPK_RATIO", 0.01))
+    prior_loss_weight = float(getattr(cfg.PQA, "PRIOR_LOSS_WEIGHT", 0.0))
 
     max_steps = int(getattr(cfg, "steps_per_epoch", 0) or 0)
     actual_steps = 0
@@ -140,6 +141,7 @@ def train_epoch(
             image_loss_weight=image_loss_weight,
             local_mil_loss_weight=local_mil_loss_weight,
             local_mil_topk_ratio=local_mil_topk_ratio,
+            prior_loss_weight=prior_loss_weight,
         )
 
         # check Nan Loss.

@@ -56,11 +56,14 @@ WEIGHT_DECAY = 0.0
 TRAIN_SHOT = 4
 EVAL_SHOTS = [2, 4, 8]
 DEFAULT_TRAIN_DATASETS = ["mvtec", "visa"]
-IMAGE_LOSS_WEIGHT = 1.0
-PQA_LOSS_WEIGHT = 1.0
+# Phase 1 defaults (2026-04-21): see open_clip/config/defaults.py::_C.PQA.*
+IMAGE_LOSS_WEIGHT = 0.0
+PQA_LOSS_WEIGHT = 0.5
 MASK_LOSS_WEIGHT = 1.0
 LOCAL_MIL_LOSS_WEIGHT = 0.0
 LOCAL_MIL_TOPK_RATIO = 0.01
+PRIOR_LOSS_WEIGHT = 0.0
+TEXT_LOGIT_SCALE = 10.0
 
 
 def get_default_num_workers():
@@ -75,11 +78,21 @@ def get_default_num_workers():
 
 DEFAULT_NUM_WORKERS = get_default_num_workers()
 
-# 跨域测试映射
+# 跨域测试映射。严格留一法:训练集域绝不出现在该集合对应的评估列表中,
+# 从根上阻断同域泄漏。任何新增条目必须遵守 train_dataset not in value。
 TEST_DATASETS_BY_TRAIN = {
     "mvtec": ["aitex", "elpv", "visa"],
     "visa": ["mvtec"],
 }
+# Static guard: catches accidental same-domain entries at import time.
+for _train_ds, _test_dss in TEST_DATASETS_BY_TRAIN.items():
+    if _train_ds in _test_dss:
+        raise AssertionError(
+            f"Same-domain evaluation leak detected for train={_train_ds}: "
+            f"test list {_test_dss} contains the training dataset. "
+            "Cross-domain protocol (InCTRL paper) forbids same-domain eval."
+        )
+del _train_ds, _test_dss
 
 FEW_SHOT_DATASET_ALIASES = {
     "mvtec": "mvtecad",
@@ -194,13 +207,14 @@ def prepare_dataset_registry(train_datasets):
 # 模型
 # ============================================================================
 
-def build_model(device):
+def build_model(device, text_logit_scale=TEXT_LOGIT_SCALE):
     """构建 InCTRL 模型"""
     model_config_path = PROJECT_ROOT / "open_clip" / "model_configs" / "ViT-B-16-plus-240.json"
     with open(model_config_path, encoding="utf-8") as f:
         model_config = json.load(f)
 
     cfg = get_cfg()
+    cfg.PQA.TEXT_LOGIT_SCALE = float(text_logit_scale)
     model = InCTRLPQA(
         cfg,
         model_config["embed_dim"],
@@ -405,12 +419,21 @@ def run_experiment(
     mask_loss_weight=MASK_LOSS_WEIGHT,
     local_mil_loss_weight=LOCAL_MIL_LOSS_WEIGHT,
     local_mil_topk_ratio=LOCAL_MIL_TOPK_RATIO,
+    prior_loss_weight=PRIOR_LOSS_WEIGHT,
+    text_logit_scale=TEXT_LOGIT_SCALE,
     resume_checkpoint=None,
     start_epoch=0,
 ):
     """运行一个训练域的 4-shot 模型，并用 cross-shots 评估。"""
     eval_shots = eval_shots or EVAL_SHOTS
     label = label or f"trained_on_{train_dataset}_shot_{train_shot}"
+    # Runtime guard against accidental same-domain eval (defense in depth).
+    if train_dataset in test_datasets:
+        raise ValueError(
+            f"Refusing to evaluate on same domain as training: "
+            f"train_dataset={train_dataset!r} appears in test_datasets={test_datasets}. "
+            "This would reintroduce in-domain leakage; use TEST_DATASETS_BY_TRAIN."
+        )
     print(f"========== 实验 [{label}] ==========")
     print(
         f"配置: train_dataset={train_dataset}, test_datasets={test_datasets}, "
@@ -418,12 +441,13 @@ def run_experiment(
         f"lr={lr}, batch_size={batch_size}, num_workers={num_workers}, "
         f"weight_decay={weight_decay}, image_loss_weight={image_loss_weight}, "
         f"pqa_loss_weight={pqa_loss_weight}, mask_loss_weight={mask_loss_weight}, "
-        f"local_mil_loss_weight={local_mil_loss_weight}, local_mil_topk_ratio={local_mil_topk_ratio}"
+        f"local_mil_loss_weight={local_mil_loss_weight}, local_mil_topk_ratio={local_mil_topk_ratio}, "
+        f"prior_loss_weight={prior_loss_weight}, text_logit_scale={text_logit_scale}"
     )
     print(f"设备: {DEVICE}")
 
     # 构建模型
-    model = build_model(DEVICE)
+    model = build_model(DEVICE, text_logit_scale=text_logit_scale)
 
     # 配置
     cfg = get_cfg()
@@ -442,6 +466,8 @@ def run_experiment(
     cfg.PQA.IMAGE_LOSS_WEIGHT = image_loss_weight
     cfg.PQA.LOCAL_MIL_LOSS_WEIGHT = local_mil_loss_weight
     cfg.PQA.LOCAL_MIL_TOPK_RATIO = local_mil_topk_ratio
+    cfg.PQA.PRIOR_LOSS_WEIGHT = prior_loss_weight
+    cfg.PQA.TEXT_LOGIT_SCALE = text_logit_scale
     cfg.DATA_LOADER.NUM_WORKERS = num_workers
     cfg.DATA_LOADER.PIN_MEMORY = DEVICE == "cuda"
 
@@ -544,6 +570,7 @@ def run_experiment(
                 mask_loss_weight=mask_loss_weight,
                 local_mil_loss_weight=local_mil_loss_weight,
                 local_mil_topk_ratio=local_mil_topk_ratio,
+                prior_loss_weight=prior_loss_weight,
             )
 
             optimizer.zero_grad()
@@ -561,6 +588,7 @@ def run_experiment(
                 "pqa": f"{loss_parts['pqa_loss'].item():.4f}",
                 "mask": f"{loss_parts['pqa_mask_loss'].item():.4f}",
                 "local_mil": f"{loss_parts['pqa_local_mil_loss'].item():.4f}",
+                "prior": f"{loss_parts['prior_loss'].item():.4f}",
             })
 
         batch_pbar.close()
@@ -588,9 +616,12 @@ def run_experiment(
         "mask_loss_weight": mask_loss_weight,
         "local_mil_loss_weight": local_mil_loss_weight,
         "local_mil_topk_ratio": local_mil_topk_ratio,
+        "prior_loss_weight": prior_loss_weight,
+        "text_logit_scale": text_logit_scale,
         "model_architecture": {
             "mode": "pqa_fused_loss_closure",
             "pqa_global_pooling": "learnable_gap_gmp",
+            "decision_head": "softmax_convex_fusion",
         },
         "label": label,
     }
@@ -702,6 +733,8 @@ def run_all_experiments(
     mask_loss_weight=MASK_LOSS_WEIGHT,
     local_mil_loss_weight=LOCAL_MIL_LOSS_WEIGHT,
     local_mil_topk_ratio=LOCAL_MIL_TOPK_RATIO,
+    prior_loss_weight=PRIOR_LOSS_WEIGHT,
+    text_logit_scale=TEXT_LOGIT_SCALE,
     resume_checkpoint=None,
     start_epoch=0,
 ):
@@ -732,12 +765,17 @@ def run_all_experiments(
             mask_loss_weight=mask_loss_weight,
             local_mil_loss_weight=local_mil_loss_weight,
             local_mil_topk_ratio=local_mil_topk_ratio,
+            prior_loss_weight=prior_loss_weight,
+            text_logit_scale=text_logit_scale,
             resume_checkpoint=resume_checkpoint,
             start_epoch=start_epoch,
         )
         run_outputs.append(run_output)
         for shot, shot_results in run_output["results"].items():
             for test_dataset, metrics in shot_results.items():
+                if test_dataset == train_dataset:
+                    # Defense in depth: never let a same-domain row slip into summary.
+                    continue
                 summary_rows.append({
                     "train_dataset": train_dataset,
                     "train_shot": train_shot,
@@ -762,6 +800,9 @@ def run_all_experiments(
                 "mask_loss_weight": mask_loss_weight,
                 "local_mil_loss_weight": local_mil_loss_weight,
                 "local_mil_topk_ratio": local_mil_topk_ratio,
+                "prior_loss_weight": prior_loss_weight,
+                "text_logit_scale": text_logit_scale,
+                "protocol": "strict_cross_domain_only",
                 "summary_rows": summary_rows,
             },
             f,
@@ -799,15 +840,19 @@ if __name__ == "__main__":
     parser.add_argument("--num-workers", type=int, default=DEFAULT_NUM_WORKERS,
                         help=f"DataLoader worker 数，默认 {DEFAULT_NUM_WORKERS}；可按机器情况覆盖")
     parser.add_argument("--image-loss-weight", type=float, default=IMAGE_LOSS_WEIGHT,
-                        help="图像级残差 LIRL 损失权重，默认 1.0")
+                        help=f"图像级残差 LIRL 损失权重，默认 {IMAGE_LOSS_WEIGHT}")
     parser.add_argument("--pqa-loss-weight", type=float, default=PQA_LOSS_WEIGHT,
-                        help="PQA 全局比较分支损失权重，默认 1.0")
+                        help=f"PQA 全局比较分支损失权重，默认 {PQA_LOSS_WEIGHT}")
     parser.add_argument("--mask-loss-weight", type=float, default=MASK_LOSS_WEIGHT,
-                        help="PQA 局部 mask focal/dice 损失权重，默认 1.0")
+                        help=f"PQA 局部 mask focal/dice 损失权重，默认 {MASK_LOSS_WEIGHT}")
     parser.add_argument("--local-mil-loss-weight", type=float, default=LOCAL_MIL_LOSS_WEIGHT,
                         help="无 mask 时 PQA 局部 MIL 弱监督权重，默认 0.0（关闭）")
     parser.add_argument("--local-mil-topk-ratio", type=float, default=LOCAL_MIL_TOPK_RATIO,
                         help="无 mask 局部 MIL top-k 比例，默认 0.01")
+    parser.add_argument("--prior-loss-weight", type=float, default=PRIOR_LOSS_WEIGHT,
+                        help="CLIP 文本零样本先验锚 KL 损失权重，默认 0.0（关闭）；跨域训练建议 0.1")
+    parser.add_argument("--text-logit-scale", type=float, default=TEXT_LOGIT_SCALE,
+                        help="scalar 融合中 text_logit 的温度，默认 10.0（text_score 仍用 100x 保持 CLIP 零样本概率）")
     parser.add_argument("--max-test-categories", type=int, default=None,
                         help="仅用于快速验证：限制每个测试域评估的类别数，默认评估全部类别")
     args = parser.parse_args()
@@ -834,6 +879,8 @@ if __name__ == "__main__":
     print(f"MASK_LOSS_WEIGHT = {args.mask_loss_weight}")
     print(f"LOCAL_MIL_LOSS_WEIGHT = {args.local_mil_loss_weight}")
     print(f"LOCAL_MIL_TOPK_RATIO = {args.local_mil_topk_ratio}")
+    print(f"PRIOR_LOSS_WEIGHT = {args.prior_loss_weight}")
+    print(f"TEXT_LOGIT_SCALE = {args.text_logit_scale}")
     print(f"MAX_TEST_CATEGORIES = {args.max_test_categories}")
     print(f"LR = {LR}")
     print(f"N_EPOCHS = {args.epochs}")
@@ -859,6 +906,8 @@ if __name__ == "__main__":
         mask_loss_weight=args.mask_loss_weight,
         local_mil_loss_weight=args.local_mil_loss_weight,
         local_mil_topk_ratio=args.local_mil_topk_ratio,
+        prior_loss_weight=args.prior_loss_weight,
+        text_logit_scale=args.text_logit_scale,
         resume_checkpoint=args.resume,
         start_epoch=args.start_epoch,
     )

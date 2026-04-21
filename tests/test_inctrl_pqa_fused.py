@@ -622,7 +622,77 @@ def test_decision_head_backprop_updates_all_branches():
     outputs = _forward(model)
     outputs["final_logit"].sum().backward()
 
-    assert model.decision_head.net[1].weight.grad is not None
+    # Phase 1 (2026-04-21): decision head is now a softmax-weighted convex
+    # combination over the 4 scalar branches (no LN, no MLP). Gradient must
+    # flow into the branch_logits + bias plus the upstream softmax routers.
+    assert model.decision_head.branch_logits.grad is not None
+    assert model.decision_head.bias.grad is not None
     assert model.patch_map_fusion_logits.grad is not None
     assert model.layer_weights_logits.grad is not None
     assert model.patch_layer_weights_logits.grad is not None
+
+
+def test_decision_head_uniform_init_produces_equal_branch_weights():
+    """Phase 1 (2026-04-21): zero-init branch_logits -> uniform 1/N weights."""
+    model = _build_model()
+    weights = model.decision_head.get_branch_weights()
+    assert weights.shape == (4,)
+    assert torch.allclose(weights, torch.full((4,), 0.25), atol=1e-6)
+    assert torch.allclose(weights.sum(), torch.tensor(1.0), atol=1e-6)
+
+
+def test_decision_head_has_no_layernorm_or_mlp_attributes():
+    """Regression guard: the fragile LN+MLP over 4 scalars must stay removed."""
+    model = _build_model()
+    head = model.decision_head
+    assert not hasattr(head, "net")
+    assert not any(isinstance(module, torch.nn.LayerNorm) for module in head.modules())
+
+
+def test_text_logit_scale_is_configurable():
+    """Phase 1 (2026-04-21): text_logit scale should scale with the arg, while
+    the CLIP-standard text_score (100x softmax) stays intact."""
+    torch.manual_seed(79)
+    args = _build_args()
+    vision_cfg = {
+        "image_size": 32,
+        "layers": 12,
+        "width": 64,
+        "patch_size": 16,
+        "head_width": 32,
+        "mlp_ratio": 4.0,
+        "output_tokens": True,
+    }
+    text_cfg = {
+        "context_length": 77,
+        "vocab_size": 49408,
+        "width": 32,
+        "heads": 4,
+        "layers": 2,
+    }
+    model_a = InCTRLPQA(
+        args, embed_dim=32, vision_cfg=vision_cfg, text_cfg=text_cfg,
+        patch_layers=(7, 9, 11), hidden_dim=16, feature_is_projected=False,
+        text_logit_scale=10.0,
+    )
+    model_b = InCTRLPQA(
+        args, embed_dim=32, vision_cfg=vision_cfg, text_cfg=text_cfg,
+        patch_layers=(7, 9, 11), hidden_dim=16, feature_is_projected=False,
+        text_logit_scale=50.0,
+    )
+    model_b.load_state_dict(model_a.state_dict(), strict=True)
+    model_a.eval()
+    model_b.eval()
+
+    query_image = torch.randn(2, 3, 32, 32)
+    prompt_images = torch.randn(2, 2, 3, 32, 32)
+
+    out_a = model_a(query_image=query_image, prompt_images=prompt_images,
+                    obj_types=["candle", "candle"], return_aux=False, return_dict=True)
+    out_b = model_b(query_image=query_image, prompt_images=prompt_images,
+                    obj_types=["candle", "candle"], return_aux=False, return_dict=True)
+
+    # text_logit scales linearly with text_logit_scale
+    assert torch.allclose(out_b["text_logit"], 5.0 * out_a["text_logit"], atol=1e-5)
+    # text_score is independent of text_logit_scale (uses CLIP-standard 100x)
+    assert torch.allclose(out_a["text_score"], out_b["text_score"], atol=1e-6)
