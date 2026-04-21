@@ -90,7 +90,7 @@ The original `InCTRL` class lives in `open_clip/model.py:443-592`. The current `
 
 Same training data, same training steps, 1000× more parameters → overfitting to the single training source is inevitable. The original's minimal parameter budget is a strong implicit regularizer.
 
-### 3.1 H1 — Pixel-level Mask Loss (highest confidence, likely primary cause)
+### 3.1 H1 — Pixel-level Mask Loss as Overfitting Amplifier (high confidence)
 
 Original `InCTRL.forward` returns only two scalars: `final_score, img_ref_score` (`model.py:592`). **There is no pixel-level output. The original training therefore cannot apply dense mask supervision.**
 
@@ -104,9 +104,19 @@ anomaly_dice = binary_dice_loss(probabilities[:, 1], target_mask.squeeze(1))
 normal_dice = binary_dice_loss(probabilities[:, 0], 1.0 - target_mask.squeeze(1))
 ```
 
-With `mask_loss_weight = 1.0` (the global maximum in our loss schedule), this is the strongest gradient signal in training. It drives conv filters to **precisely match MVTec anomaly masks** — category-specific defect morphologies that don't transfer to VisA.
+With `mask_loss_weight = 1.0` (the global maximum in our loss schedule), this is the strongest gradient signal in training. It drives conv filters toward MVTec-specific defect morphologies.
 
-> **This is a wholly new inductive bias we introduced that the original InCTRL does not have.** Removing it is the cheapest test of the regression hypothesis.
+**Important nuance**: AdaptCLIP (`AdaptCLIP/train.py:171-174`) uses the **same** mask loss (FocalLoss + BinaryDiceLoss) on its PQAdapter AND applies it independently to Visual and Textual adapters — yet still achieves good cross-domain results. So mask loss is not inherently toxic. The difference:
+
+| Factor | AdaptCLIP | Our InCTRLPQA |
+| --- | --- | --- |
+| Mask loss applied to | 3 independent pathways (PQ + Visual + Textual) | 1 pathway (PQA only) |
+| Learnable text adapter | ✅ co-adapts with visual heads | ❌ static CLIP prompts |
+| Parameter-free output channel | `align_scores` directly in final output | Mixed into `fused_patch_map` via learnable weights |
+
+**Corrected framing**: Mask loss is an **amplifier** of single-pathway overfitting, not the root cause. In the absence of AdaptCLIP's compensating mechanisms (multi-pathway diversity, learnable text, parameter-free output), mask loss concentrates the strongest gradient into our only heavy pathway (PQA conv heads), accelerating MVTec specialization.
+
+> Removing mask loss is still the cheapest ablation because it removes the strongest MVTec-specific gradient. But the root cause is more likely H4 (over-parameterization) combined with H2 (learnable decision head).
 
 ### 3.2 H2 — Decision Head: Fixed Averaging → Learnable Convex Combination (high)
 
@@ -193,10 +203,23 @@ python train_local.py --train-datasets mvtec --train-shot 4 \
   --mask-loss-weight 0.0 --prior-loss-weight 0.3
 ```
 
-- **Tests**: H1 (mask loss is the primary regression source)
-- **Predicted VisA 4-shot**: 0.83+ (rise from 0.779)
+- **Tests**: H1 (mask loss amplifies single-pathway overfitting)
+- **Predicted VisA 4-shot**: 0.80~0.83 (modest rise from 0.779; may be smaller than initially expected since mask loss is amplifier, not root cause)
 - **Risk**: loses pixel-level localization on MVTec (irrelevant for cross-domain AUROC protocol)
 - **Cost**: zero code change, one training run
+
+### Option A+ — Zero out `mask_loss_weight` AND `pqa_loss_weight` (tests H4 — no code change)
+
+```bash
+python train_local.py --train-datasets mvtec --train-shot 4 \
+  --epochs 10 --steps-per-epoch 100 --num-workers 8 \
+  --mask-loss-weight 0.0 --pqa-loss-weight 0.0 --prior-loss-weight 0.3
+```
+
+- **Tests**: H4 (the entire PQA pathway is harmful under single-source training without compensating mechanisms)
+- **Predicted VisA 4-shot**: if A+ >> A, confirms PQA conv heads overfit even without mask supervision; root cause is H4 (over-parameterization), not H1 alone
+- **Risk**: PQA branch becomes untrained noise → decision head may still be harmed by it
+- **Cost**: zero code change, one training run. **Can run in parallel with Option A.**
 
 ### Option B — Replace layer fusion with uniform mean (tests H3 — small code change)
 
