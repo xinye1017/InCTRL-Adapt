@@ -440,6 +440,21 @@ class Adapter(nn.Module):
         return x
 
 
+class PatchTextAdapter(nn.Module):
+    """Project patch tokens (vision width) into text-aligned space (embed_dim)."""
+    def __init__(self, patch_dim, text_dim, reduction=4):
+        super().__init__()
+        hidden = patch_dim // reduction
+        self.net = nn.Sequential(
+            nn.Linear(patch_dim, hidden, bias=False),
+            nn.GELU(),
+            nn.Linear(hidden, text_dim, bias=False),
+        )
+
+    def forward(self, x):
+        return F.normalize(self.net(x), dim=-1)
+
+
 class InCTRL(nn.Module):
     def __init__(
             self,
@@ -590,6 +605,344 @@ class InCTRL(nn.Module):
         img_ref_score = img_ref_score.squeeze(1)
 
         return final_score, img_ref_score
+
+class InCTRLv2(nn.Module):
+    """
+    InCTRL v2 with DASL + OASL dual semantic branches.
+    Paper-faithful reimplementation based on InCTRLv2 description.
+    Not official code.
+
+    Branches:
+      - InCTRL residual branch  (image-level sI + patch-level Mx)
+      - DASL  (semantic discriminative, phi1, uses normal+abnormal data)
+      - OASL  (one-class normality,    phi2, uses normal-only data)
+    """
+
+    def __init__(
+            self,
+            args,
+            embed_dim: int,
+            vision_cfg: CLIPVisionCfg,
+            text_cfg: CLIPTextCfg,
+            quick_gelu: bool = False,
+            cast_dtype: Optional[torch.dtype] = None,
+    ):
+        super().__init__()
+
+        # ---------- frozen CLIP backbone ----------
+        self.visual = _build_vision_tower_Mul(embed_dim, vision_cfg, quick_gelu, cast_dtype)
+        text = _build_text_tower(embed_dim, text_cfg, quick_gelu, cast_dtype)
+        self.transformer = text.transformer
+        self.context_length = text.context_length
+        self.vocab_size = text.vocab_size
+        self.token_embedding = text.token_embedding
+        self.positional_embedding = text.positional_embedding
+        self.ln_final = text.ln_final
+        self.text_projection = text.text_projection
+        self.register_buffer('attn_mask', text.attn_mask, persistent=False)
+
+        for p in self.visual.parameters():
+            p.requires_grad = False
+        for p in text.parameters():
+            p.requires_grad = False
+
+        # ---------- dimensions ----------
+        if isinstance(vision_cfg, dict):
+            vision_cfg = CLIPVisionCfg(**vision_cfg)
+        self.patch_dim = vision_cfg.width          # 896 for ViT-B-16-plus
+        self.text_dim = embed_dim                  # 640
+        self.image_size = vision_cfg.image_size    # 240
+        self.patch_size = vision_cfg.patch_size    # 16
+        self.grid_h = self.image_size // self.patch_size  # 15
+        self.num_patches = self.grid_h ** 2               # 225
+        self.out_layers = getattr(args, 'patch_layers', [7, 9, 11])
+        self.num_layers = len(self.out_layers)
+
+        # ---------- hyperparams ----------
+        self.alpha = getattr(args, 'alpha', 0.5)
+        self.beta = getattr(args, 'beta', 0.75)
+        self.residual_scale = getattr(args, 'residual_scale', 'half')
+
+        # ---------- InCTRL residual branch (trainable) ----------
+        self.adapter = Adapter(self.text_dim, 4)                   # psi: image-level adapter
+        self.diff_head_ref = TransformerBasicHead(self.text_dim, 1) # eta: residual score head
+
+        # ---------- DASL branch ----------
+        self.phi1 = PatchTextAdapter(self.patch_dim, self.text_dim)
+
+        # ---------- OASL branch ----------
+        self.phi2 = PatchTextAdapter(self.patch_dim, self.text_dim)
+
+        # ---------- text feature cache ----------
+        self._text_cache = {}
+
+    # ------------------------------------------------------------------ #
+    #  frozen encoders                                                     #
+    # ------------------------------------------------------------------ #
+    def encode_image(self, image, normalize=False):
+        features = self.visual.forward(image, self.out_layers)
+        return F.normalize(features, dim=-1) if normalize else features
+
+    def encode_text(self, text, normalize=False):
+        cast_dtype = self.transformer.get_cast_dtype()
+        x = self.token_embedding(text).to(cast_dtype)
+        x = x + self.positional_embedding.to(cast_dtype)
+        x = x.permute(1, 0, 2)
+        x = self.transformer(x, attn_mask=self.attn_mask)
+        x = x.permute(1, 0, 2)
+        x = self.ln_final(x)
+        x = x[torch.arange(x.shape[0]), text.argmax(dim=-1)] @ self.text_projection
+        return F.normalize(x, dim=-1) if normalize else x
+
+    # ------------------------------------------------------------------ #
+    #  text prototype builder (cached)                                     #
+    # ------------------------------------------------------------------ #
+    @torch.no_grad()
+    def _build_text_prototypes(self, tokenizer, class_names):
+        """
+        Returns:
+            Fn: [B, D]  normal text prototype
+            Fa: [B, D]  abnormal text prototype
+        """
+        Fn_list, Fa_list = [], []
+        for name in class_names:
+            key = name.replace('_', ' ')
+            if key not in self._text_cache:
+                normal_texts, anomaly_texts = get_texts(key)
+                tok_n = tokenizer(normal_texts).cuda()
+                tok_a = tokenizer(anomaly_texts).cuda()
+                feat_n = self.encode_text(tok_n)
+                feat_a = self.encode_text(tok_a)
+                feat_n = F.normalize(feat_n.mean(dim=0), dim=-1)
+                feat_a = F.normalize(feat_a.mean(dim=0), dim=-1)
+                self._text_cache[key] = (feat_n, feat_a)
+            fn, fa = self._text_cache[key]
+            Fn_list.append(fn)
+            Fa_list.append(fa)
+        Fn = torch.stack(Fn_list)  # [B, D]
+        Fa = torch.stack(Fa_list)  # [B, D]
+        return Fn, Fa
+
+    # ------------------------------------------------------------------ #
+    #  input preparation                                                   #
+    # ------------------------------------------------------------------ #
+    def _prepare_inputs(self, image, normal_list):
+        """Parse legacy input format into (query [B,3,H,W], prompts [K,B,3,H,W])."""
+        if normal_list is None:
+            query = image[0].cuda(non_blocking=True)
+            prompts = torch.stack(image[1:]).cuda(non_blocking=True)  # [K, B, 3, H, W]
+        else:
+            query = image[0].cuda(non_blocking=True)
+            prompts = torch.stack(normal_list).unsqueeze(1)           # [K, 1, 3, H, W]
+            B = query.shape[0]
+            prompts = prompts.expand(-1, B, -1, -1, -1).cuda(non_blocking=True)
+        return query, prompts
+
+    # ------------------------------------------------------------------ #
+    #  image-level residual  (InCTRL core)                                 #
+    # ------------------------------------------------------------------ #
+    def _compute_image_residual(self, q_cls, p_cls_per_shot):
+        """
+        Args:
+            q_cls:            [B, D]  query class token (projected)
+            p_cls_per_shot:   [B, K, D]  prompt class tokens
+        Returns:
+            sI:  [B]   image-level residual score
+            Fx:  [B, D] residual vector
+        """
+        q_ad = self.adapter(q_cls)                            # [B, D]
+        p_ad = self.adapter(p_cls_per_shot)                   # [B, K, D]
+        p_proto = p_ad.mean(dim=1)                            # [B, D]
+        Fx = p_proto - q_ad                                   # residual (v1 direction)
+        sI = self.diff_head_ref(Fx).squeeze(-1)               # [B]
+        return sI, Fx
+
+    # ------------------------------------------------------------------ #
+    #  patch-level residual  (vectorised)                                  #
+    # ------------------------------------------------------------------ #
+    def _compute_patch_residual(self, q_patches, p_patches):
+        """
+        Args:
+            q_patches: list of L tensors, each [B, N, D_patch]
+            p_patches: list of L tensors, each [B, K*N, D_patch]
+        Returns:
+            Mx:      [B, N]   multi-layer averaged residual map (flat)
+            sp:      [B]      max-patch residual score
+            layer_maps: list of [B, N]
+        """
+        layer_maps = []
+        for q_l, p_l in zip(q_patches, p_patches):
+            q_norm = F.normalize(q_l, dim=-1)      # [B, N, D]
+            p_norm = F.normalize(p_l, dim=-1)       # [B, KN, D]
+            sim = torch.bmm(q_norm, p_norm.transpose(1, 2))  # [B, N, KN]
+            max_sim = sim.max(dim=-1).values        # [B, N]
+            if self.residual_scale == 'half':
+                res = 0.5 * (1.0 - max_sim)
+            else:
+                res = 1.0 - max_sim
+            layer_maps.append(res)
+        Mx = torch.stack(layer_maps, dim=0).mean(dim=0)      # [B, N]
+        sp = Mx.max(dim=-1).values                            # [B]
+        return Mx, sp, layer_maps
+
+    # ------------------------------------------------------------------ #
+    #  semantic image score  (DASL s_q)                                    #
+    # ------------------------------------------------------------------ #
+    def _compute_semantic_image_score(self, q_cls, Fn, Fa):
+        """
+        Args:
+            q_cls: [B, D]   raw class token (before adapter)
+            Fn:    [B, D]   normal text prototype
+            Fa:    [B, D]   abnormal text prototype
+        Returns:
+            sq: [B]   P(abnormal) from CLIP semantic space
+        """
+        q = F.normalize(q_cls, dim=-1)                        # [B, D]
+        logit_n = (q * Fn).sum(dim=-1)                        # [B]
+        logit_a = (q * Fa).sum(dim=-1)                        # [B]
+        logits = torch.stack([logit_n, logit_a], dim=-1)      # [B, 2]
+        sq = logits.softmax(dim=-1)[:, 1]                     # [B]
+        return sq
+
+    # ------------------------------------------------------------------ #
+    #  semantic patch maps  (shared logic for DASL / OASL)                 #
+    # ------------------------------------------------------------------ #
+    def _compute_semantic_maps(self, q_patches, Fn, Fa, adapter):
+        """
+        Args:
+            q_patches: list of L tensors, each [B, N, D_patch]
+            Fn:        [B, D_text]
+            Fa:        [B, D_text]
+            adapter:   PatchTextAdapter (phi1 or phi2)
+        Returns:
+            Sn: [B, N]  normality-oriented map   (multi-layer avg)
+            Sa: [B, N]  abnormality-oriented map  (multi-layer avg)
+        """
+        Sn_layers, Sa_layers = [], []
+        for q_l in q_patches:
+            z = adapter(q_l)                                  # [B, N, D_text]
+            logit_n = torch.einsum('bnd,bd->bn', z, Fn)       # [B, N]
+            logit_a = torch.einsum('bnd,bd->bn', z, Fa)       # [B, N]
+            logits = torch.stack([logit_n, logit_a], dim=-1)  # [B, N, 2]
+            probs = logits.softmax(dim=-1)
+            Sn_layers.append(probs[..., 0])                   # [B, N]
+            Sa_layers.append(probs[..., 1])                   # [B, N]
+        Sn = torch.stack(Sn_layers, dim=0).mean(dim=0)        # [B, N]
+        Sa = torch.stack(Sa_layers, dim=0).mean(dim=0)        # [B, N]
+        return Sn, Sa
+
+    # ------------------------------------------------------------------ #
+    #  upsample flat map → [B, 1, H, W]                                   #
+    # ------------------------------------------------------------------ #
+    def _upsample_map(self, flat_map, target_h=None, target_w=None):
+        """flat_map: [B, N] → [B, 1, H, W]"""
+        B, N = flat_map.shape
+        gh = int(N ** 0.5)
+        m = flat_map.view(B, 1, gh, gh)
+        h = target_h or self.image_size
+        w = target_w or self.image_size
+        return F.interpolate(m, size=(h, w), mode='bilinear', align_corners=False)
+
+    # ------------------------------------------------------------------ #
+    #  main forward                                                        #
+    # ------------------------------------------------------------------ #
+    def forward(
+        self,
+        tokenizer,
+        image=None,
+        text=None,
+        normal_list=None,
+        masks=None,
+        mode='train',
+    ):
+        """
+        Args:
+            tokenizer:    CLIP tokenizer
+            image:        legacy format [query_batch, *prompt_batches] or just query
+            text:         list of class name strings, length B
+            normal_list:  alternative prompt images (for test-time few-shot)
+            masks:        [B, H, W] pixel GT masks (optional, for loss outside)
+            mode:         'train' | 'eval'
+
+        Returns:  dict with all intermediate scores and maps
+        """
+        # ---- 1. parse inputs ----
+        query, prompts = self._prepare_inputs(image, normal_list)
+        B = query.shape[0]
+        K = prompts.shape[0]
+
+        # ---- 2. encode images ----
+        q_cls, q_patch_list, _ = self.encode_image(query)
+        flat_prompts = prompts.reshape(-1, *prompts.shape[2:])     # [K*B, 3, H, W]
+        p_cls, p_patch_list, _ = self.encode_image(flat_prompts)
+
+        # reshape prompt features
+        p_cls = p_cls.reshape(K, B, -1).permute(1, 0, 2)          # [B, K, D]
+
+        # patch tokens: strip class token, reshape
+        q_patches = []
+        p_patches = []
+        for l_idx in range(self.num_layers):
+            ql = q_patch_list[l_idx][:, 1:, :]                    # [B, N, D_patch]
+            pl = p_patch_list[l_idx][:, 1:, :]                    # [K*B, N, D_patch]
+            pl = pl.reshape(K, B, -1, self.patch_dim).permute(1, 0, 2, 3)  # [B, K, N, D_patch]
+            pl = pl.reshape(B, K * self.num_patches, self.patch_dim)        # [B, K*N, D_patch]
+            q_patches.append(ql)
+            p_patches.append(pl)
+
+        # ---- 3. text prototypes (cached) ----
+        Fn, Fa = self._build_text_prototypes(tokenizer, text)
+
+        # ---- 4. InCTRL residual branch ----
+        sI, Fx = self._compute_image_residual(q_cls, p_cls)
+        Mx, sp, _ = self._compute_patch_residual(q_patches, p_patches)
+
+        # ---- 5. DASL branch ----
+        sq = self._compute_semantic_image_score(q_cls, Fn, Fa)
+        Sn, Sa = self._compute_semantic_maps(q_patches, Fn, Fa, self.phi1)
+        Mp = 0.5 * (Mx + Sa)
+
+        # ---- 6. OASL branch (uses phi2, same query in eval; normal-only in train) ----
+        Shat_n, Shat_a = self._compute_semantic_maps(q_patches, Fn, Fa, self.phi2)
+        Mn = 0.5 * (Mx + Shat_a)
+
+        # ---- 7. image-level final score ----
+        score = (1.0 - self.alpha) * (sI + sq) / 2.0 + self.alpha * sp
+
+        # ---- 8. pixel-level final map ----
+        Mp_up = self._upsample_map(Mp)       # [B, 1, H, W]
+        Mn_up = self._upsample_map(Mn)       # [B, 1, H, W]
+        M_final = (1.0 - self.beta) * Mp_up + self.beta * Mn_up  # [B, 1, H, W]
+
+        return {
+            # image-level
+            'score': score,       # [B]
+            'sI': sI,             # [B]
+            'sq': sq,             # [B]
+            'sp': sp,             # [B]
+            # patch-level flat
+            'Mx': Mx,             # [B, N]
+            'Sn': Sn,             # [B, N]  DASL normality
+            'Sa': Sa,             # [B, N]  DASL abnormality
+            'Mp': Mp,             # [B, N]  DASL fused
+            'Shat_n': Shat_n,     # [B, N]  OASL normality
+            'Shat_a': Shat_a,     # [B, N]  OASL abnormality
+            'Mn': Mn,             # [B, N]  OASL fused
+            # upsampled maps
+            'map': M_final,       # [B, 1, H, W]
+            'Mp_up': Mp_up,       # [B, 1, H, W]
+            'Mn_up': Mn_up,       # [B, 1, H, W]
+        }
+
+    # ------------------------------------------------------------------ #
+    #  legacy interface for backward-compatible testing                     #
+    # ------------------------------------------------------------------ #
+    def forward_legacy(self, tokenizer, image=None, text=None, normal_list=None):
+        """Drop-in replacement for original InCTRL forward signature.
+        Returns (final_score, img_ref_score) like v1."""
+        out = self.forward(tokenizer, image, text, normal_list, mode='eval')
+        return out['score'], out['sI']
+
 
 class CustomTextCLIP(nn.Module):
     output_dict: torch.jit.Final[bool]
