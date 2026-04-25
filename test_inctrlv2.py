@@ -17,11 +17,13 @@ from datasets.inctrlv2_dataset import InCTRLv2DirectoryDataset, resolve_dataset_
 from models.inctrlv2 import build_inctrlv2_model
 from models.inctrlv2.metrics import compute_image_metrics, compute_pixel_metrics
 
+SUPPORTED_DATASETS = ["mvtec", "visa", "aitex", "elpv", "sdd"]
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Evaluate InCTRLv2.")
     parser.add_argument("--checkpoint", type=str, required=True)
-    parser.add_argument("--test_dataset", type=str, required=True, choices=["mvtec", "visa"])
+    parser.add_argument("--test_dataset", type=str, required=True, choices=SUPPORTED_DATASETS)
     parser.add_argument("--data_root", type=str, required=True)
     parser.add_argument("--shot", type=int, required=True)
     parser.add_argument("--seed", type=int, default=0)

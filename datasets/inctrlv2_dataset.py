@@ -19,6 +19,9 @@ IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".npy"}
 DATASET_ALIASES = {
     "mvtec": ("mvtec", "mvtecad", "MVTec", "MVTecAD", "mvtec_anomaly_detection"),
     "visa": ("visa", "VisA", "visa_anomaly_detection"),
+    "aitex": ("AITEX", "aitex", "AITEX_anomaly_detection"),
+    "elpv": ("elpv", "ELPV", "elpv_anomaly_detection"),
+    "sdd": ("sdd", "SDD", "SDD_anomaly_detection"),
 }
 
 
