@@ -21,11 +21,13 @@ from datasets.inctrlv2_dataset import (
 from models.inctrlv2 import build_inctrlv2_model
 from models.inctrlv2.losses import compute_inctrlv2_loss
 
+SUPPORTED_DATASETS = ["mvtec", "visa", "aitex", "elpv", "sdd"]
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train InCTRLv2 with DASL and OASL.")
-    parser.add_argument("--train_dataset", type=str, required=True, choices=["mvtec", "visa"])
-    parser.add_argument("--test_datasets", type=str, nargs="*", default=[])
+    parser.add_argument("--train_dataset", type=str, required=True, choices=SUPPORTED_DATASETS)
+    parser.add_argument("--test_datasets", type=str, nargs="*", default=[], choices=SUPPORTED_DATASETS)
     parser.add_argument("--data_root", type=str, required=True)
     parser.add_argument("--output_dir", type=str, default="results/inctrlv2")
     parser.add_argument("--shots", type=int, nargs="+", default=[1, 2, 4])

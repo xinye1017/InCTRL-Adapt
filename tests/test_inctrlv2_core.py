@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from PIL import Image
 
-from datasets.inctrlv2_dataset import InCTRLv2DirectoryDataset
+from datasets.inctrlv2_dataset import InCTRLv2DirectoryDataset, resolve_dataset_root
 from models.inctrlv2.dasl import DASLBranch
 from models.inctrlv2.fusion import fuse_image_score, fuse_pixel_maps
 from models.inctrlv2.losses import DiceLoss
@@ -84,3 +84,11 @@ def test_pixel_pro_returns_one_for_perfect_prediction():
     pro = compute_pixel_pro(pred, mask, max_fpr=0.3, num_thresholds=20)
 
     assert pro == 1.0
+
+
+def test_dataset_root_resolution_supports_uppercase_auxiliary_dataset_dirs(tmp_path):
+    (tmp_path / "AITEX").mkdir()
+    (tmp_path / "elpv").mkdir()
+
+    assert resolve_dataset_root(tmp_path, "aitex") == tmp_path / "AITEX"
+    assert resolve_dataset_root(tmp_path, "elpv") == tmp_path / "elpv"
