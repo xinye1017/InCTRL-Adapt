@@ -185,7 +185,7 @@ def parse_args():
     parser.add_argument("--no_progress", action="store_true", help="Disable tqdm training progress bars.")
     parser.add_argument("--show_warnings", action="store_true", help="Show Python warnings during training.")
     parser.add_argument("--test_dataset", default=None,
-                        help="Dataset name for per-category evaluation after training (visa, mvtec, aitex, elpv)")
+                        help="Dataset(s) for val + per-category eval. Single name or slash-separated (e.g. visa or visa/aitex/elpv)")
     parser.add_argument("opts", nargs=argparse.REMAINDER)
     return parser.parse_args()
 
@@ -216,9 +216,11 @@ def main():
         cfg.outlier_json_path = _as_cfg_path_list(args.outlier_json_path)
 
     if args.test_dataset:
-        val_normals, val_outliers = _expand_dataset_jsons(args.test_dataset, split="val")
-        cfg.val_normal_json_path = val_normals
-        cfg.val_outlier_json_path = val_outliers
+        test_datasets = [d.strip() for d in args.test_dataset.split("/")]
+        # First dataset used for val during training
+        first_val_normals, first_val_outliers = _expand_dataset_jsons(test_datasets[0], split="val")
+        cfg.val_normal_json_path = first_val_normals
+        cfg.val_outlier_json_path = first_val_outliers
     else:
         if not args.val_normal_json_path or not args.val_outlier_json_path:
             raise ValueError("Must provide --test_dataset or --val_normal_json_path + --val_outlier_json_path")
@@ -242,8 +244,10 @@ def main():
     test(cfg)
 
     if args.test_dataset:
+        test_datasets = [d.strip() for d in args.test_dataset.split("/")]
         from engine_IC import eval_per_category
-        eval_per_category(model, tokenizer, transform, cfg, args.test_dataset)
+        for ds in test_datasets:
+            eval_per_category(model, tokenizer, transform, cfg, ds)
 
 
 if __name__ == "__main__":
