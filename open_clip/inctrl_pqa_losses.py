@@ -27,6 +27,7 @@ def compute_inctrl_pqa_loss(
     final_logit = outputs["final_logit"]
     labels = labels.to(device=final_logit.device, dtype=torch.float32)
     pqa_enabled = bool(getattr(cfg.PQA, "ENABLE", True)) if hasattr(cfg, "PQA") else True
+    seg_head_enabled = bool(getattr(cfg.PQA, "ENABLE_SEG_HEAD", True)) if hasattr(cfg, "PQA") else True
     text_enabled = bool(getattr(cfg.TEXT_BRANCH, "ENABLE", True)) if hasattr(cfg, "TEXT_BRANCH") else True
 
     final = F.binary_cross_entropy_with_logits(final_logit, labels)
@@ -41,7 +42,7 @@ def compute_inctrl_pqa_loss(
         if text_enabled
         else final_logit.sum() * 0.0
     )
-    if masks is None or not pqa_enabled:
+    if masks is None or not pqa_enabled or not seg_head_enabled:
         mask = final_logit.sum() * 0.0
     else:
         seg_logits = outputs["pqa_seg_logits"]

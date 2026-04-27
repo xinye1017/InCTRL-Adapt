@@ -38,6 +38,7 @@ def test_pqa_lite_config_defaults_are_available():
     ]
     assert cfg.TEXT_BRANCH.LOGIT_SCALE == 100.0
     assert cfg.PQA.ENABLE is True
+    assert cfg.PQA.ENABLE_SEG_HEAD is True
     assert cfg.PQA.PATCH_LAYERS == [7, 9, 11]
     assert cfg.PQA.CONTEXT_BETA == 1.0
     assert cfg.PQA.HIDDEN_DIM == 128

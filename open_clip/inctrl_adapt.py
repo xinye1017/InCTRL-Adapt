@@ -87,6 +87,7 @@ class InCTRLAdapt(nn.Module):
         self.use_visual_adapter = bool(getattr(args.VISUAL_ADAPTER, "ENABLE", True))
         self.use_text_branch = bool(getattr(args.TEXT_BRANCH, "ENABLE", True))
         self.use_pqa = bool(getattr(args.PQA, "ENABLE", True))
+        self.use_seg_head = bool(getattr(args.PQA, "ENABLE_SEG_HEAD", True))
         hidden_dim = int(getattr(args.PQA, "HIDDEN_DIM", 128))
         patch_dim = _get_vision_width(vision_cfg, fallback=embed_dim)
 
@@ -121,6 +122,7 @@ class InCTRLAdapt(nn.Module):
             image_size=self.image_size,
             topk=int(getattr(args.PQA, "GLOBAL_TOPK", 10)),
             beta=float(getattr(args.PQA, "CONTEXT_BETA", 1.0)),
+            enable_seg_head=self.use_seg_head,
         )
         self.patch_text_projection = (
             nn.Identity() if patch_dim == embed_dim else nn.Linear(patch_dim, embed_dim)

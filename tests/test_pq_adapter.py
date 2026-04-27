@@ -38,6 +38,25 @@ def test_pq_adapter_output_shapes_and_range():
     assert 0 <= out["pqa_score"].min() <= out["pqa_score"].max() <= 1
 
 
+def test_pq_adapter_without_seg_head_returns_alignment_residual_and_zero_logits():
+    torch.manual_seed(7)
+    adapter = PQAdapter(dim=16, hidden_dim=32, image_size=64, topk=5, beta=0.5, enable_seg_head=False)
+
+    batch, patches, dim = 2, 16, 16
+    query_tokens = torch.randn(batch, patches, dim)
+    prompt_tokens = torch.randn(batch, patches * 3, dim)
+
+    out = adapter(query_tokens, prompt_tokens)
+
+    # Seg logits and logit should be zero
+    assert torch.equal(out["pqa_seg_logits"], torch.zeros(batch, 1, 64, 64))
+    assert torch.equal(out["pqa_logit"], torch.zeros(batch))
+    assert torch.allclose(out["pqa_score"], torch.full((batch,), 0.5))
+    # pqa_patch_map should fall back to alignment residual
+    assert out["pqa_patch_map"].shape == (batch, patches)
+    assert out["pqa_patch_map"].min() >= 0 and out["pqa_patch_map"].max() <= 1
+
+
 def test_pq_adapter_beta_controls_context_blending():
     torch.manual_seed(11)
     adapter_low_beta = PQAdapter(dim=8, hidden_dim=16, image_size=32, beta=0.1)
@@ -46,9 +65,7 @@ def test_pq_adapter_beta_controls_context_blending():
     query = torch.randn(1, 4, 8)
     prompt = torch.randn(1, 12, 8)
 
-    # Just verify they run without error and produce different outputs
     out_low = adapter_low_beta(query, prompt)
     out_high = adapter_high_beta(query, prompt)
 
-    # High beta should emphasize residual more, producing different results
     assert not torch.allclose(out_low["pqa_score"], out_high["pqa_score"])

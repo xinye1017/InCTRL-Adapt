@@ -7,7 +7,7 @@ from open_clip.inctrl_pqa_losses import compute_inctrl_pqa_loss, dice_loss
 
 def _cfg():
     return SimpleNamespace(
-        PQA=SimpleNamespace(ENABLE=True),
+        PQA=SimpleNamespace(ENABLE=True, ENABLE_SEG_HEAD=True),
         TEXT_BRANCH=SimpleNamespace(ENABLE=True),
         LOSS=SimpleNamespace(
             IMAGE_WEIGHT=1.0,
@@ -79,5 +79,26 @@ def test_compute_inctrl_pqa_loss_skips_pqa_and_mask_terms_when_pqa_disabled():
     loss, parts = compute_inctrl_pqa_loss(outputs, labels, masks, cfg)
 
     assert parts["pqa"] == 0.0
+    assert parts["mask"] == 0.0
+    assert parts["total"] == loss.item()
+
+
+def test_compute_inctrl_pqa_loss_skips_mask_term_when_seg_head_disabled():
+    cfg = _cfg()
+    cfg.PQA.ENABLE_SEG_HEAD = False
+    outputs = {
+        "final_logit": torch.tensor([0.0, 1.0]),
+        "image_logit": torch.tensor([0.0, 1.0]),
+        "pqa_logit": torch.tensor([0.0, 1.0]),
+        "text_logit": torch.tensor([0.0, 1.0]),
+        "pqa_seg_logits": torch.randn(2, 1, 8, 8),
+    }
+    labels = torch.tensor([0, 1])
+    masks = torch.ones(2, 1, 8, 8)
+
+    loss, parts = compute_inctrl_pqa_loss(outputs, labels, masks, cfg)
+
+    # PQA logit loss still computed (alignment-only), but mask loss is zero
+    assert parts["pqa"] > 0.0
     assert parts["mask"] == 0.0
     assert parts["total"] == loss.item()
