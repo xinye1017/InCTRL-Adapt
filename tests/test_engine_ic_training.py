@@ -5,6 +5,7 @@ import torch
 
 from engine_IC import (
     _build_active_model,
+    eval_epoch,
     _iter_with_progress,
     _is_adapt_model,
     _progress_enabled,
@@ -144,6 +145,60 @@ def test_iter_with_progress_wraps_iterable_when_enabled(monkeypatch):
             "unit": "batch",
             "dynamic_ncols": True,
             "leave": False,
+        }
+    ]
+
+
+def test_eval_epoch_uses_progress_wrapper(monkeypatch):
+    cfg = get_cfg()
+    cfg.NUM_GPUS = 0
+    cfg.TRAIN.SHOW_PROGRESS = True
+    wrapped_calls = []
+
+    def fake_iter_with_progress(iterable, cfg_arg, total=None, desc=None, unit="batch"):
+        wrapped_calls.append({
+            "cfg": cfg_arg,
+            "total": total,
+            "desc": desc,
+            "unit": unit,
+        })
+        return iterable
+
+    class FakeModel:
+        def __init__(self):
+            self.scores = iter([torch.tensor([0.1]), torch.tensor([0.9])])
+
+        def eval(self):
+            return self
+
+        def __call__(self, **kwargs):
+            return {"final_score": next(self.scores)}
+
+    def make_batch(label):
+        inputs = [
+            torch.zeros(1, 3, 8, 8),
+            torch.zeros(1, 3, 8, 8),
+        ]
+        return inputs, ["AITEX"], torch.tensor([label])
+
+    monkeypatch.setattr("engine_IC._iter_with_progress", fake_iter_with_progress)
+
+    auroc, aupr = eval_epoch(
+        [make_batch(0), make_batch(1)],
+        FakeModel(),
+        cfg,
+        tokenizer=None,
+        mode="test/AITEX",
+    )
+
+    assert auroc == 1.0
+    assert aupr == 1.0
+    assert wrapped_calls == [
+        {
+            "cfg": cfg,
+            "total": 2,
+            "desc": "eval test/AITEX",
+            "unit": "batch",
         }
     ]
 

@@ -256,7 +256,13 @@ def eval_epoch(val_loader, model, cfg, tokenizer, mode=None):
     total_pred = torch.Tensor([]).to(metric_device)
 
     device = metric_device if cfg.NUM_GPUS else None
-    for cur_iter, batch in enumerate(val_loader):
+    eval_iter = _iter_with_progress(
+        enumerate(val_loader),
+        cfg,
+        total=len(val_loader),
+        desc=f"eval {mode}" if mode else "eval",
+    )
+    for cur_iter, batch in eval_iter:
         query_image, prompt_images, types, labels, _ = _split_batch_with_optional_masks(batch, device=device)
 
         if _is_adapt_model(cfg):
