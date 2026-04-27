@@ -23,6 +23,10 @@ from open_clip.model import get_cast_dtype
 from open_clip.inctrl_adapt import InCTRLAdapt
 from open_clip.inctrl_pqa_losses import compute_inctrl_pqa_loss
 from open_clip.utils.env import checkpoint_pathmgr as pathmgr
+try:
+    from tqdm.auto import tqdm
+except ImportError:
+    tqdm = None
 
 logger = logging.get_logger(__name__)
 
@@ -116,6 +120,29 @@ def _build_alternating_optimizers(model, lr=1e-3):
 
     return visual_optimizer, text_optimizer
 
+
+def _progress_enabled(cfg):
+    return bool(getattr(cfg.TRAIN, "SHOW_PROGRESS", False)) and tqdm is not None
+
+
+def _iter_with_progress(iterable, cfg, total=None, desc=None, unit="batch"):
+    if not _progress_enabled(cfg):
+        return iterable
+    return tqdm(
+        iterable,
+        total=total,
+        desc=desc,
+        unit=unit,
+        dynamic_ncols=True,
+        leave=False,
+    )
+
+
+def _train_progress_desc(phase, cur_epoch=None, max_epoch=None):
+    if cur_epoch is None or max_epoch is None:
+        return f"train {phase}"
+    return f"train {phase} epoch {cur_epoch + 1}/{max_epoch}"
+
 def train_epoch(
     train_loader,
     model,
@@ -124,6 +151,8 @@ def train_epoch(
     tokenizer,
     cfg,
     phase,
+    cur_epoch=None,
+    max_epoch=None,
 ):
     """
     Perform the training for one epoch.
@@ -147,7 +176,13 @@ def train_epoch(
 
     all_loss = 0.0
     device = torch.device("cuda", torch.cuda.current_device()) if cfg.NUM_GPUS else None
-    for cur_iter, batch in enumerate(train_loader):
+    train_iter = _iter_with_progress(
+        enumerate(train_loader),
+        cfg,
+        total=len(train_loader),
+        desc=_train_progress_desc(phase, cur_epoch, max_epoch),
+    )
+    for cur_iter, batch in train_iter:
         query_image, prompt_images, types, labels, masks = _split_batch_with_optional_masks(batch, device=device)
 
         if _is_adapt_model(cfg):
@@ -183,6 +218,8 @@ def train_epoch(
         # dist.all_reduce(loss)
         loss_value = loss.item()
         all_loss = all_loss + loss_value
+        if hasattr(train_iter, "set_postfix"):
+            train_iter.set_postfix(loss=f"{loss_value:.4f}")
 
     all_loss = all_loss / (cur_iter + 1)
     print("train_loss: ", all_loss)
@@ -238,7 +275,7 @@ def eval_epoch(val_loader, model, cfg, tokenizer, mode=None):
     print("Predict " + mode + " set: ")
     total_roc, total_pr = aucPerformance(total_pred, total_label)
 
-    return total_roc
+    return total_roc, total_pr
 
 def aucPerformance(mse, labels, prt=True):
     roc_auc = roc_auc_score(labels, mse)
@@ -320,7 +357,8 @@ def train(cfg):
     epoch_losses = []
 
     epoch_timer = EpochTimer()
-    for cur_epoch in range(start_epoch, _resolve_max_epochs(cfg)):
+    max_epoch = _resolve_max_epochs(cfg)
+    for cur_epoch in range(start_epoch, max_epoch):
         print("Epoch: ", cur_epoch)
         phase = "visual" if cur_epoch % 2 == 0 else "text"
         print("Train phase: ", phase)
@@ -334,6 +372,8 @@ def train(cfg):
             tokenizer,
             cfg,
             phase,
+            cur_epoch=cur_epoch,
+            max_epoch=max_epoch,
         )
         epoch_losses.append(epoch_loss)
         epoch_timer.epoch_toc()
@@ -355,8 +395,10 @@ def train(cfg):
         path = os.path.join(checkpoint_dir, "checkpoint_" + str(cur_epoch + 1) + ".pyth")
         torch.save(model.state_dict(), path)
 
-        total_roc = eval_epoch(train_loader, model, cfg, tokenizer, "train")
-        test_roc = eval_epoch(test_loader, model, cfg, tokenizer, "test")
+        total_roc, _ = eval_epoch(train_loader, model, cfg, tokenizer, "train")
+        test_roc, _ = eval_epoch(test_loader, model, cfg, tokenizer, "test")
+
+    return model, tokenizer, transform
 
 
 def drawing(cfg, data, xlabel, ylabel, dir):
@@ -367,6 +409,39 @@ def drawing(cfg, data, xlabel, ylabel, dir):
     plt.xlabel(xlabel)
     plt.legend()
     plt.savefig(os.path.join(cfg.OUTPUT_DIR, dir))
+
+
+def eval_per_category(model, tokenizer, transform, cfg, dataset_name):
+    """Evaluate model per-category on a dataset, return per-cat and mean metrics."""
+    from train_local import DATASET_CATEGORIES
+
+    categories = DATASET_CATEGORIES.get(dataset_name.lower(), [dataset_name])
+    json_dir = os.path.join("data", "AD_json", dataset_name.lower())
+
+    results = []
+    for cat in categories:
+        cat_cfg = cfg.clone()
+        cat_cfg.val_normal_json_path = [os.path.join(json_dir, f"{cat}_val_normal.json")]
+        cat_cfg.val_outlier_json_path = [os.path.join(json_dir, f"{cat}_val_outlier.json")]
+        test_loader = loader.construct_loader(cat_cfg, "test", transform)
+        auroc, aupr = eval_epoch(test_loader, model, cat_cfg, tokenizer, f"test/{cat}")
+        results.append({"category": cat, "auroc": auroc, "aupr": aupr})
+
+    mean_auroc = np.mean([r["auroc"] for r in results])
+    mean_aupr = np.mean([r["aupr"] for r in results])
+
+    print(f"\n{'='*50}")
+    print(f" Per-category results on {dataset_name}")
+    print(f"{'='*50}")
+    print(f" {'Category':<15} {'AUROC':>10} {'AUPR':>10}")
+    print(f" {'-'*35}")
+    for r in results:
+        print(f" {r['category']:<15} {r['auroc']:>10.4f} {r['aupr']:>10.4f}")
+    print(f" {'-'*35}")
+    print(f" {'MEAN':<15} {mean_auroc:>10.4f} {mean_aupr:>10.4f}")
+    print(f"{'='*50}")
+
+    return results, mean_auroc, mean_aupr
 
 
 def test(cfg, load=None, mode = None):
@@ -414,6 +489,6 @@ def test(cfg, load=None, mode = None):
         mode = "test"
 
     # Create meters.
-    total_roc = eval_epoch(load, model, cfg, tokenizer, mode)
+    total_roc, total_pr = eval_epoch(load, model, cfg, tokenizer, mode)
 
-    return total_roc
+    return total_roc, total_pr

@@ -1,7 +1,8 @@
 import argparse
+import logging as py_logging
+import warnings
 from collections import defaultdict
 
-from engine_IC import test, train
 from open_clip.config.defaults import assert_and_infer_cfg, get_cfg
 
 
@@ -158,8 +159,21 @@ def parse_args():
     parser.add_argument("--max_epoch", type=int, default=1)
     parser.add_argument("--steps_per_epoch", type=int, default=100)
     parser.add_argument("--output_dir", default="./tmp/inctrl_pqa_lite_smoke")
+    parser.add_argument("--no_progress", action="store_true", help="Disable tqdm training progress bars.")
+    parser.add_argument("--show_warnings", action="store_true", help="Show Python warnings during training.")
+    parser.add_argument("--test_dataset", default=None,
+                        help="Dataset name for per-category evaluation after training (visa, mvtec, aitex, elpv)")
     parser.add_argument("opts", nargs=argparse.REMAINDER)
     return parser.parse_args()
+
+
+def configure_train_local_output(cfg):
+    if not getattr(cfg.TRAIN, "SUPPRESS_WARNINGS", False):
+        return
+
+    warnings.filterwarnings("ignore")
+    py_logging.captureWarnings(True)
+    py_logging.getLogger("py.warnings").setLevel(py_logging.ERROR)
 
 
 def main():
@@ -176,12 +190,21 @@ def main():
     cfg.steps_per_epoch = args.steps_per_epoch
     cfg.OUTPUT_DIR = args.output_dir
     cfg.SOLVER.MAX_EPOCH = args.max_epoch
+    cfg.TRAIN.SHOW_PROGRESS = not args.no_progress
+    cfg.TRAIN.SUPPRESS_WARNINGS = not args.show_warnings
     cfg.NUM_GPUS = 1
     cfg.NUM_SHARDS = 1
     cfg.SHARD_ID = 0
     cfg = assert_and_infer_cfg(cfg)
-    train(cfg)
+    configure_train_local_output(cfg)
+    from engine_IC import test, train
+
+    model, tokenizer, transform = train(cfg)
     test(cfg)
+
+    if args.test_dataset:
+        from engine_IC import eval_per_category
+        eval_per_category(model, tokenizer, transform, cfg, args.test_dataset)
 
 
 if __name__ == "__main__":

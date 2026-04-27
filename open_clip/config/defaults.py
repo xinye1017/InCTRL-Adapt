@@ -40,6 +40,12 @@ _C.TRAIN.CHECKPOINT_EPOCH_RESET = True
 # If True, use FP16 for activations
 _C.TRAIN.MIXED_PRECISION = False
 
+# If True, show a tqdm progress bar for local/single-process training.
+_C.TRAIN.SHOW_PROGRESS = True
+
+# If True, suppress Python warnings during local training runs.
+_C.TRAIN.SUPPRESS_WARNINGS = True
+
 # ---------------------------------------------------------------------------- #
 # Augmentation options.
 # ---------------------------------------------------------------------------- #
