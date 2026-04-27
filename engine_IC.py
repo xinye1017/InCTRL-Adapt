@@ -346,6 +346,12 @@ def train(cfg):
 
     visual_optimizer, text_optimizer = _build_alternating_optimizers(model, lr=1e-3)
 
+    # Detect alternating training eligibility
+    base_model = _get_base_model(model)
+    has_visual = hasattr(base_model, "get_visual_parameters") and len(base_model.get_visual_parameters()) > 0
+    has_text = hasattr(base_model, "get_text_parameters") and len(base_model.get_text_parameters()) > 0
+    use_alternating = has_visual and has_text
+
     # Create the train and val loaders.
     train_loader = loader.construct_loader(cfg, "train", transform)
     test_loader = loader.construct_loader(cfg, "test", transform)
@@ -354,13 +360,21 @@ def train(cfg):
 
     # Perform the training loop.
     logger.info("Start epoch: {}".format(start_epoch + 1))
+    if use_alternating:
+        logger.info("Alternating training: VA/TA phase switching enabled")
+    else:
+        phase_label = "visual" if has_visual else "text"
+        logger.info(f"Single-phase training: {phase_label} only (alternating disabled)")
     epoch_losses = []
 
     epoch_timer = EpochTimer()
     max_epoch = _resolve_max_epochs(cfg)
     for cur_epoch in range(start_epoch, max_epoch):
         print("Epoch: ", cur_epoch)
-        phase = "visual" if cur_epoch % 2 == 0 else "text"
+        if use_alternating:
+            phase = "visual" if cur_epoch % 2 == 0 else "text"
+        else:
+            phase = "visual" if has_visual else "text"
         print("Train phase: ", phase)
         # Train for one epoch.
         epoch_timer.epoch_tic()

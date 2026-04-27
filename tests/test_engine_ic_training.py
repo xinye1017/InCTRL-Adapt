@@ -5,12 +5,14 @@ import torch
 
 from engine_IC import (
     _build_active_model,
+    _iter_with_progress,
     _is_adapt_model,
+    _progress_enabled,
     _resolve_max_epochs,
     _split_batch_with_optional_masks,
 )
 from open_clip.config.defaults import get_cfg
-from train_local import _as_cfg_path_list
+from train_local import _as_cfg_path_list, configure_train_local_output
 
 
 def test_resolve_max_epochs_uses_explicit_cfg_value():
@@ -110,6 +112,51 @@ def test_active_model_switch_identifies_legacy_model_path():
 
     cfg.MODEL.ACTIVE_MODEL = "InCTRL"
     assert _is_adapt_model(cfg) is False
+
+
+def test_progress_enabled_respects_train_config_flag():
+    cfg = get_cfg()
+
+    cfg.TRAIN.SHOW_PROGRESS = True
+    assert _progress_enabled(cfg) is True
+
+    cfg.TRAIN.SHOW_PROGRESS = False
+    assert _progress_enabled(cfg) is False
+
+
+def test_iter_with_progress_wraps_iterable_when_enabled(monkeypatch):
+    cfg = get_cfg()
+    cfg.TRAIN.SHOW_PROGRESS = True
+    wrapped_calls = []
+
+    def fake_tqdm(iterable, **kwargs):
+        wrapped_calls.append(kwargs)
+        return iterable
+
+    monkeypatch.setattr("engine_IC.tqdm", fake_tqdm)
+
+    iterable = [1, 2, 3]
+    assert list(_iter_with_progress(iterable, cfg, total=3, desc="train")) == iterable
+    assert wrapped_calls == [
+        {
+            "total": 3,
+            "desc": "train",
+            "unit": "batch",
+            "dynamic_ncols": True,
+            "leave": False,
+        }
+    ]
+
+
+def test_configure_train_local_output_suppresses_warnings():
+    cfg = get_cfg()
+    cfg.TRAIN.SUPPRESS_WARNINGS = True
+
+    with warnings.catch_warnings(record=True) as caught:
+        configure_train_local_output(cfg)
+        warnings.warn("noisy training warning", UserWarning)
+
+    assert caught == []
 
 
 def test_train_local_wraps_single_json_path_for_dataset_constructor():
