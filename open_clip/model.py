@@ -27,19 +27,7 @@ from .timm_model import TimmModel
 from .transformer import LayerNormFp32, LayerNorm, QuickGELU, Attention, VisionTransformer, TextTransformer, VisionTransformer_Mul
 from .new_utils import to_2tuple
 
-from .vp import (
-    PadPrompter,
-    RandomPatchPrompter,
-    FixedPatchPrompter
-)
-
 from torch.autograd import Variable, grad
-
-PROMPT_TYPES = {
-    "padding": PadPrompter,
-    "random_patch": RandomPatchPrompter,
-    "fixed_patch": FixedPatchPrompter
-}
 
 
 @dataclass
