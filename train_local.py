@@ -1,4 +1,5 @@
 import argparse
+import csv
 import logging as py_logging
 import os
 import warnings
@@ -169,6 +170,31 @@ def _expand_dataset_jsons(dataset_name, split="train"):
     return normals, outliers
 
 
+def _experiment_name_from_cfg(cfg):
+    if getattr(cfg.MODEL, "ACTIVE_MODEL", "InCTRL") == "InCTRL":
+        return "inctrl"
+    parts = []
+    if bool(getattr(cfg.VISUAL_ADAPTER, "ENABLE", False)):
+        parts.append("va")
+    if bool(getattr(cfg.TEXT_BRANCH, "ENABLE", False)):
+        parts.append("ta")
+    if bool(getattr(cfg.PQA, "ENABLE", False)):
+        parts.append("pqa")
+    return "_".join(parts) if parts else "baseline"
+
+
+def _default_output_dir(cfg):
+    return os.path.join("results", _experiment_name_from_cfg(cfg), str(int(cfg.shot)))
+
+
+def _write_csv(path, rows, fieldnames):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Single-process InCTRL PQA Lite smoke runner.")
     parser.add_argument("--train_dataset", default=None,
@@ -181,7 +207,7 @@ def parse_args():
     parser.add_argument("--image_size", type=int, default=240)
     parser.add_argument("--max_epoch", type=int, default=1)
     parser.add_argument("--steps_per_epoch", type=int, default=100)
-    parser.add_argument("--output_dir", default="./tmp/inctrl_pqa_lite_smoke")
+    parser.add_argument("--output_dir", default=None)
     parser.add_argument("--no_progress", action="store_true", help="Disable tqdm training progress bars.")
     parser.add_argument("--show_warnings", action="store_true", help="Show Python warnings during training.")
     parser.add_argument("--test_dataset", default=None,
@@ -229,7 +255,7 @@ def main():
     cfg.shot = args.shot
     cfg.image_size = args.image_size
     cfg.steps_per_epoch = args.steps_per_epoch
-    cfg.OUTPUT_DIR = args.output_dir
+    cfg.OUTPUT_DIR = args.output_dir or _default_output_dir(cfg)
     cfg.SOLVER.MAX_EPOCH = args.max_epoch
     cfg.TRAIN.SHOW_PROGRESS = not args.no_progress
     cfg.TRAIN.SUPPRESS_WARNINGS = not args.show_warnings
@@ -246,8 +272,44 @@ def main():
     if args.test_dataset:
         test_datasets = [d.strip() for d in args.test_dataset.split("/")]
         from engine_IC import eval_per_category
+        result_rows = []
         for ds in test_datasets:
-            eval_per_category(model, tokenizer, transform, cfg, ds)
+            category_results, mean_auroc, mean_aupr = eval_per_category(model, tokenizer, transform, cfg, ds)
+            for row in category_results:
+                result_rows.append({
+                    "train_dataset": args.train_dataset or "custom",
+                    "test_dataset": ds,
+                    "shot": args.shot,
+                    "row_type": "category",
+                    "category": row["category"],
+                    "auroc": row["auroc"],
+                    "aupr": row["aupr"],
+                    "active_model": cfg.MODEL.ACTIVE_MODEL,
+                    "visual_adapter": cfg.VISUAL_ADAPTER.ENABLE,
+                    "text_branch": cfg.TEXT_BRANCH.ENABLE,
+                    "pqa": cfg.PQA.ENABLE,
+                })
+            result_rows.append({
+                "train_dataset": args.train_dataset or "custom",
+                "test_dataset": ds,
+                "shot": args.shot,
+                "row_type": "mean",
+                "category": "MEAN",
+                "auroc": mean_auroc,
+                "aupr": mean_aupr,
+                "active_model": cfg.MODEL.ACTIVE_MODEL,
+                "visual_adapter": cfg.VISUAL_ADAPTER.ENABLE,
+                "text_branch": cfg.TEXT_BRANCH.ENABLE,
+                "pqa": cfg.PQA.ENABLE,
+            })
+        _write_csv(
+            os.path.join(cfg.OUTPUT_DIR, "test_results.csv"),
+            result_rows,
+            [
+                "train_dataset", "test_dataset", "shot", "row_type", "category",
+                "auroc", "aupr", "active_model", "visual_adapter", "text_branch", "pqa",
+            ],
+        )
 
 
 if __name__ == "__main__":

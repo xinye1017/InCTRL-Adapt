@@ -4,6 +4,7 @@
 import os
 import random
 import json
+import csv
 import open_clip
 from open_clip import create_model_and_transforms, trace_model, get_tokenizer, create_loss
 import open_clip.utils.checkpoint as cu
@@ -29,6 +30,14 @@ except ImportError:
     tqdm = None
 
 logger = logging.get_logger(__name__)
+
+
+def _write_csv(path, rows, fieldnames):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
 
 def _convert_to_rgb(image):
     return image.convert('RGB')
@@ -292,6 +301,7 @@ def train(cfg):
     """
     # Set up environment.
     du.init_distributed_training(cfg)
+    os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
     # Set random seed from configs.
     np.random.seed(cfg.RNG_SEED)
     torch.manual_seed(cfg.RNG_SEED)
@@ -369,6 +379,7 @@ def train(cfg):
 
     epoch_timer = EpochTimer()
     max_epoch = _resolve_max_epochs(cfg)
+    history_rows = []
     for cur_epoch in range(start_epoch, max_epoch):
         print("Epoch: ", cur_epoch)
         if use_alternating:
@@ -404,13 +415,30 @@ def train(cfg):
             f"{epoch_timer.avg_epoch_time()/len(train_loader):.2f}s in average."
         )
 
-        checkpoint_dir = os.path.join(cfg.OUTPUT_DIR, "checkpoints")
-        os.makedirs(checkpoint_dir, exist_ok=True)
-        path = os.path.join(checkpoint_dir, "checkpoint_" + str(cur_epoch + 1) + ".pyth")
-        torch.save(model.state_dict(), path)
+        train_roc, train_pr = eval_epoch(train_loader, model, cfg, tokenizer, "train")
+        test_roc, test_pr = eval_epoch(test_loader, model, cfg, tokenizer, "test")
+        history_rows.append({
+            "epoch": cur_epoch + 1,
+            "phase": phase,
+            "train_loss": epoch_loss,
+            "train_auroc": train_roc,
+            "train_aupr": train_pr,
+            "val_auroc": test_roc,
+            "val_aupr": test_pr,
+        })
 
-        total_roc, _ = eval_epoch(train_loader, model, cfg, tokenizer, "train")
-        test_roc, _ = eval_epoch(test_loader, model, cfg, tokenizer, "test")
+    _write_csv(
+        os.path.join(cfg.OUTPUT_DIR, "train_history.csv"),
+        history_rows,
+        ["epoch", "phase", "train_loss", "train_auroc", "train_aupr", "val_auroc", "val_aupr"],
+    )
+    checkpoint_path = os.path.join(cfg.OUTPUT_DIR, "checkpoint.pyth")
+    torch.save({
+        "epoch": max_epoch,
+        "model_state": model.state_dict(),
+        "cfg": cfg.dump(),
+    }, checkpoint_path)
+    cfg.TEST.CHECKPOINT_FILE_PATH = checkpoint_path
 
     return model, tokenizer, transform
 
