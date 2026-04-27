@@ -1,13 +1,13 @@
-model = "gpt-5.4"
+model = "gpt-5.5"
 approval_policy = "on-request"
 project_root_markers = [".git"]
 
 [profiles.deep-research]
-model = "gpt-5.4"
+model = "gpt-5.5"
 model_reasoning_effort = "high"
 approval_policy = "on-request"
 
 [profiles.fast-edit]
-model = "gpt-5.4"
+model = "gpt-5.5"
 model_reasoning_effort = "medium"
 approval_policy = "on-request"

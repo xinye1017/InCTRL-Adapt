@@ -371,41 +371,6 @@ _C.image_size = 240
 
 _C.few_shot_dir = "./visa"
 
-# ---------------------------------------------------------------------------- #
-# Visual Adapter options (for AdaptCLIP-style visual feature adaptation)
-# ---------------------------------------------------------------------------- #
-_C.VISUAL_ADAPTER = CfgNode()
-_C.VISUAL_ADAPTER.ENABLE = False
-_C.VISUAL_ADAPTER.REDUCTION = 4
-_C.VISUAL_ADAPTER.ZERO_INIT = True
-_C.VISUAL_ADAPTER.MODE = "global_local"
-
-
-# ---------------------------------------------------------------------------- #
-# PQA architecture options
-# ---------------------------------------------------------------------------- #
-_C.PQA = CfgNode()
-
-# Legacy compatibility knob; fused PQA global head uses learnable GAP/GMP pooling.
-_C.PQA.GLOBAL_TOPK = 10
-
-# Fused PQA training objective weights.
-# Phase 1 defaults (2026-04-21): IMAGE_LOSS_WEIGHT down to 0.0 and GLOBAL_LOSS_WEIGHT
-# down to 0.5 to prevent single-source (MVTec-only) over-constraint that collapses
-# cross-domain AITEX / VisA generalization; can be overridden via CLI / cfg.
-_C.PQA.GLOBAL_LOSS_WEIGHT = 0.5
-_C.PQA.MASK_LOSS_WEIGHT = 1.0
-_C.PQA.IMAGE_LOSS_WEIGHT = 0.0
-_C.PQA.LOCAL_MIL_LOSS_WEIGHT = 0.0
-_C.PQA.LOCAL_MIL_TOPK_RATIO = 0.01
-# KL anchor that keeps final_score close to CLIP zero-shot text_score. Default off,
-# recommended 0.1 for cross-domain training stability.
-_C.PQA.PRIOR_LOSS_WEIGHT = 0.0
-# Scalar fusion temperature for text branch (vs CLIP-standard 100x used by text_score).
-# ~10x keeps text_logit on the same O(1) order as the focal-loss-trained cues so the
-# convex combination in ScalarFusionHead does not compress the zero-shot prior.
-_C.PQA.TEXT_LOGIT_SCALE = 10.0
-
 
 # ---------------------------------------------------------------------------- #
 # Common train/test data loader options
