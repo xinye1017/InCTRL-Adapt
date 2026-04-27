@@ -109,6 +109,13 @@ class AdaptCLIPTextualAdapter(nn.Module):
             init_std=init_std,
             dtype=dtype,
         )
+        self._cached_text_features: Optional[torch.Tensor] = None
+
+    def train(self, mode: bool = True):
+        super().train(mode)
+        if mode:
+            self._cached_text_features = None
+        return self
 
     def build_text_features(self, encode_text_prompted, token_embedding, tokenizer, batch_size: int, device: torch.device):
         prompts, tokenized_prompts = self.prompt_learner(
@@ -121,9 +128,19 @@ class AdaptCLIPTextualAdapter(nn.Module):
         normal_feat, abnormal_feat = torch.chunk(text_features, chunks=2, dim=0)
         return torch.stack([normal_feat, abnormal_feat], dim=1)
 
+    def _get_text_features(self, encode_text_prompted, token_embedding, tokenizer, batch_size: int, device: torch.device):
+        if not self.training and self._cached_text_features is not None:
+            return self._cached_text_features.to(device)
+        text_features = self.build_text_features(
+            encode_text_prompted, token_embedding, tokenizer, batch_size=1, device=device,
+        )
+        if not self.training:
+            self._cached_text_features = text_features.detach()
+        return text_features.to(device).expand(batch_size, -1, -1)
+
     def forward(self, encode_text_prompted, token_embedding, tokenizer, global_feat: torch.Tensor, patch_feat: torch.Tensor):
         batch, patches, _ = patch_feat.shape
-        text_features = self.build_text_features(
+        text_features = self._get_text_features(
             encode_text_prompted,
             token_embedding,
             tokenizer,

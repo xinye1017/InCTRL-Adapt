@@ -256,7 +256,13 @@ def eval_epoch(val_loader, model, cfg, tokenizer, mode=None):
     total_pred = torch.Tensor([]).to(metric_device)
 
     device = metric_device if cfg.NUM_GPUS else None
-    for cur_iter, batch in enumerate(val_loader):
+    eval_iter = _iter_with_progress(
+        enumerate(val_loader),
+        cfg,
+        total=len(val_loader),
+        desc=f"eval {mode}" if mode else "eval",
+    )
+    for cur_iter, batch in eval_iter:
         query_image, prompt_images, types, labels, _ = _split_batch_with_optional_masks(batch, device=device)
 
         if _is_adapt_model(cfg):
@@ -415,14 +421,17 @@ def train(cfg):
             f"{epoch_timer.avg_epoch_time()/len(train_loader):.2f}s in average."
         )
 
-        train_roc, train_pr = eval_epoch(train_loader, model, cfg, tokenizer, "train")
-        test_roc, test_pr = eval_epoch(test_loader, model, cfg, tokenizer, "test")
+        eval_period = max(1, max_epoch // 5)  # eval ~5 times total
+        if cur_epoch == 0 or (cur_epoch + 1) % eval_period == 0 or cur_epoch == max_epoch - 1:
+            test_roc, test_pr = eval_epoch(test_loader, model, cfg, tokenizer, "test")
+        else:
+            test_roc, test_pr = 0.0, 0.0
         history_rows.append({
             "epoch": cur_epoch + 1,
             "phase": phase,
             "train_loss": epoch_loss,
-            "train_auroc": train_roc,
-            "train_aupr": train_pr,
+            "train_auroc": 0.0,
+            "train_aupr": 0.0,
             "val_auroc": test_roc,
             "val_aupr": test_pr,
         })
