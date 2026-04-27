@@ -89,16 +89,31 @@ def _build_alternating_optimizers(model, lr=1e-3):
             betas=(0.9, 0.999),
         )
         return optimizer, optimizer
-    visual_optimizer = torch.optim.AdamW(
-        base_model.get_visual_parameters(),
-        lr=lr,
-        betas=(0.9, 0.999),
-    )
-    text_optimizer = torch.optim.AdamW(
-        base_model.get_text_parameters(),
-        lr=lr,
-        betas=(0.9, 0.999),
-    )
+
+    visual_params = base_model.get_visual_parameters()
+    text_params = base_model.get_text_parameters()
+
+    if visual_params:
+        visual_optimizer = torch.optim.AdamW(visual_params, lr=lr, betas=(0.9, 0.999))
+    else:
+        visual_optimizer = None
+
+    if text_params:
+        text_optimizer = torch.optim.AdamW(text_params, lr=lr, betas=(0.9, 0.999))
+    else:
+        text_optimizer = None
+
+    # If one side is empty, both phases use the available optimizer
+    if visual_optimizer is None and text_optimizer is None:
+        optimizer = torch.optim.AdamW(
+            _trainable_parameters(base_model), lr=lr, betas=(0.9, 0.999),
+        )
+        return optimizer, optimizer
+    if visual_optimizer is None:
+        return text_optimizer, text_optimizer
+    if text_optimizer is None:
+        return visual_optimizer, visual_optimizer
+
     return visual_optimizer, text_optimizer
 
 def train_epoch(
