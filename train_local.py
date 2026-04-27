@@ -1,5 +1,6 @@
 import argparse
 import logging as py_logging
+import os
 import warnings
 from collections import defaultdict
 
@@ -148,12 +149,34 @@ def _as_cfg_path_list(path_value):
     return path_value if isinstance(path_value, list) else [path_value]
 
 
+def _expand_dataset_jsons(dataset_name, split="train"):
+    """Expand a dataset name to per-category JSON paths.
+
+    split='train' → {cat}_normal.json / {cat}_outlier.json
+    split='val'    → {cat}_val_normal.json / {cat}_val_outlier.json
+    """
+    dataset_name = dataset_name.lower()
+    categories = DATASET_CATEGORIES.get(dataset_name)
+    if categories is None:
+        raise ValueError(f"Unknown dataset '{dataset_name}'. Choose from: {list(DATASET_CATEGORIES.keys())}")
+    json_dir = os.path.join("data", "AD_json", dataset_name)
+    if split == "train":
+        normals = [os.path.join(json_dir, f"{cat}_normal.json") for cat in categories]
+        outliers = [os.path.join(json_dir, f"{cat}_outlier.json") for cat in categories]
+    else:
+        normals = [os.path.join(json_dir, f"{cat}_val_normal.json") for cat in categories]
+        outliers = [os.path.join(json_dir, f"{cat}_val_outlier.json") for cat in categories]
+    return normals, outliers
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Single-process InCTRL PQA Lite smoke runner.")
-    parser.add_argument("--normal_json_path", required=True)
-    parser.add_argument("--outlier_json_path", required=True)
-    parser.add_argument("--val_normal_json_path", required=True)
-    parser.add_argument("--val_outlier_json_path", required=True)
+    parser.add_argument("--train_dataset", default=None,
+                        help="Dataset name for full-category training (mvtec, visa, aitex, elpv). Overrides --normal/outlier_json_path.")
+    parser.add_argument("--normal_json_path", default=None)
+    parser.add_argument("--outlier_json_path", default=None)
+    parser.add_argument("--val_normal_json_path", default=None)
+    parser.add_argument("--val_outlier_json_path", default=None)
     parser.add_argument("--shot", type=int, default=2)
     parser.add_argument("--image_size", type=int, default=240)
     parser.add_argument("--max_epoch", type=int, default=1)
@@ -181,10 +204,26 @@ def main():
     cfg = get_cfg()
     if args.opts:
         cfg.merge_from_list(args.opts)
-    cfg.normal_json_path = _as_cfg_path_list(args.normal_json_path)
-    cfg.outlier_json_path = _as_cfg_path_list(args.outlier_json_path)
-    cfg.val_normal_json_path = _as_cfg_path_list(args.val_normal_json_path)
-    cfg.val_outlier_json_path = _as_cfg_path_list(args.val_outlier_json_path)
+
+    if args.train_dataset:
+        train_normals, train_outliers = _expand_dataset_jsons(args.train_dataset, split="train")
+        cfg.normal_json_path = train_normals
+        cfg.outlier_json_path = train_outliers
+    else:
+        if not args.normal_json_path or not args.outlier_json_path:
+            raise ValueError("Must provide --train_dataset or --normal_json_path + --outlier_json_path")
+        cfg.normal_json_path = _as_cfg_path_list(args.normal_json_path)
+        cfg.outlier_json_path = _as_cfg_path_list(args.outlier_json_path)
+
+    if args.test_dataset:
+        val_normals, val_outliers = _expand_dataset_jsons(args.test_dataset, split="val")
+        cfg.val_normal_json_path = val_normals
+        cfg.val_outlier_json_path = val_outliers
+    else:
+        if not args.val_normal_json_path or not args.val_outlier_json_path:
+            raise ValueError("Must provide --test_dataset or --val_normal_json_path + --val_outlier_json_path")
+        cfg.val_normal_json_path = _as_cfg_path_list(args.val_normal_json_path)
+        cfg.val_outlier_json_path = _as_cfg_path_list(args.val_outlier_json_path)
     cfg.shot = args.shot
     cfg.image_size = args.image_size
     cfg.steps_per_epoch = args.steps_per_epoch
