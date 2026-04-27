@@ -156,6 +156,7 @@ def parse_args():
     parser.add_argument("--shot", type=int, default=2)
     parser.add_argument("--image_size", type=int, default=240)
     parser.add_argument("--max_epoch", type=int, default=1)
+    parser.add_argument("--steps_per_epoch", type=int, default=100)
     parser.add_argument("--output_dir", default="./tmp/inctrl_pqa_lite_smoke")
     parser.add_argument("opts", nargs=argparse.REMAINDER)
     return parser.parse_args()
@@ -172,6 +173,7 @@ def main():
     cfg.val_outlier_json_path = _as_cfg_path_list(args.val_outlier_json_path)
     cfg.shot = args.shot
     cfg.image_size = args.image_size
+    cfg.steps_per_epoch = args.steps_per_epoch
     cfg.OUTPUT_DIR = args.output_dir
     cfg.SOLVER.MAX_EPOCH = args.max_epoch
     cfg.NUM_GPUS = 1
