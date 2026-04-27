@@ -128,7 +128,7 @@ _C.MODEL.NUM_CLASSES = 1
 _C.MODEL.LOSS_FUNC = "cross_entropy"
 
 # Active InCTRL architecture.
-_C.MODEL.ACTIVE_MODEL = "InCTRLPQA"
+_C.MODEL.ACTIVE_MODEL = "InCTRLAdapt"
 
 # Dropout rate before final projection in the backbone.
 _C.MODEL.DROPOUT_RATE = 0.0

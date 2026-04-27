@@ -4,7 +4,7 @@ import torch
 
 from engine_IC import (
     _build_active_model,
-    _is_pqa_model,
+    _is_adapt_model,
     _resolve_max_epochs,
     _split_batch_with_optional_masks,
 )
@@ -27,7 +27,7 @@ def test_resolve_max_epochs_keeps_legacy_default_for_generic_cfg_default():
 def test_pqa_lite_config_defaults_are_available():
     cfg = get_cfg()
 
-    assert cfg.MODEL.ACTIVE_MODEL == "InCTRLPQA"
+    assert cfg.MODEL.ACTIVE_MODEL == "InCTRLAdapt"
     assert cfg.VISUAL_ADAPTER.ENABLE is True
     assert cfg.VISUAL_ADAPTER.REDUCTION == 4
     assert cfg.VISUAL_ADAPTER.ZERO_INIT is True
@@ -99,15 +99,15 @@ def test_build_active_model_returns_inctrl_pqa_for_default_cfg():
 
     model = _build_active_model(cfg, model_cfg, cast_dtype=None, quick_gelu=False)
 
-    assert model.__class__.__name__ == "InCTRLPQA"
+    assert model.__class__.__name__ == "InCTRLAdapt"
 
 
 def test_active_model_switch_identifies_legacy_model_path():
     cfg = get_cfg()
-    assert _is_pqa_model(cfg) is True
+    assert _is_adapt_model(cfg) is True
 
     cfg.MODEL.ACTIVE_MODEL = "InCTRL"
-    assert _is_pqa_model(cfg) is False
+    assert _is_adapt_model(cfg) is False
 
 
 def test_train_local_wraps_single_json_path_for_dataset_constructor():

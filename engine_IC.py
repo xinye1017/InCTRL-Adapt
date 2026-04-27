@@ -20,7 +20,7 @@ from binary_focal_loss import BinaryFocalLoss
 import torch.distributed as dist
 import matplotlib.pyplot as plt
 from open_clip.model import get_cast_dtype
-from open_clip.inctrl_pqa import InCTRLPQA
+from open_clip.inctrl_adapt import InCTRLAdapt
 from open_clip.inctrl_pqa_losses import compute_inctrl_pqa_loss
 from open_clip.utils.env import checkpoint_pathmgr as pathmgr
 
@@ -61,13 +61,14 @@ def _build_active_model(cfg, model_cfg, cast_dtype, quick_gelu):
     embed_dim = model_cfg["embed_dim"]
     vision_cfg = model_cfg["vision_cfg"]
     text_cfg = model_cfg["text_cfg"]
-    if getattr(cfg.MODEL, "ACTIVE_MODEL", "InCTRL") == "InCTRLPQA":
-        return InCTRLPQA(cfg, embed_dim, vision_cfg, text_cfg, quick_gelu, cast_dtype=cast_dtype)
+    active_model = getattr(cfg.MODEL, "ACTIVE_MODEL", "InCTRL")
+    if active_model in {"InCTRLAdapt", "InCTRLPQA"}:
+        return InCTRLAdapt(cfg, embed_dim, vision_cfg, text_cfg, quick_gelu, cast_dtype=cast_dtype)
     return open_clip.model.InCTRL(cfg, embed_dim, vision_cfg, text_cfg, quick_gelu, cast_dtype=cast_dtype)
 
 
-def _is_pqa_model(cfg):
-    return getattr(cfg.MODEL, "ACTIVE_MODEL", "InCTRL") == "InCTRLPQA"
+def _is_adapt_model(cfg):
+    return getattr(cfg.MODEL, "ACTIVE_MODEL", "InCTRL") in {"InCTRLAdapt", "InCTRLPQA"}
 
 
 def _resolve_max_epochs(cfg):
@@ -134,7 +135,7 @@ def train_epoch(
     for cur_iter, batch in enumerate(train_loader):
         query_image, prompt_images, types, labels, masks = _split_batch_with_optional_masks(batch, device=device)
 
-        if _is_pqa_model(cfg):
+        if _is_adapt_model(cfg):
             outputs = model(
                 tokenizer=tokenizer,
                 query_image=query_image,
@@ -197,7 +198,7 @@ def eval_epoch(val_loader, model, cfg, tokenizer, mode=None):
     for cur_iter, batch in enumerate(val_loader):
         query_image, prompt_images, types, labels, _ = _split_batch_with_optional_masks(batch, device=device)
 
-        if _is_pqa_model(cfg):
+        if _is_adapt_model(cfg):
             outputs = model(
                 tokenizer=tokenizer,
                 query_image=query_image,
