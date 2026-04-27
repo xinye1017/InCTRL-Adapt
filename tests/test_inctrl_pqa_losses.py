@@ -14,6 +14,7 @@ def _cfg():
             PQA_WEIGHT=0.5,
             TEXT_WEIGHT=0.0,
             MASK_WEIGHT=1.0,
+            TEXT_MASK_WEIGHT=0.0,
         )
     )
 
@@ -41,8 +42,9 @@ def test_compute_inctrl_pqa_loss_uses_image_pqa_text_and_mask_terms():
 
     loss, parts = compute_inctrl_pqa_loss(outputs, labels, masks, _cfg())
 
-    assert set(parts.keys()) == {"final", "image", "pqa", "text", "mask", "total"}
+    assert set(parts.keys()) == {"final", "image", "pqa", "text", "mask", "text_mask", "total"}
     assert parts["mask"] > 0.0
+    assert parts["text_mask"] == 0.0
     assert parts["total"] == loss.item()
 
 
@@ -58,8 +60,9 @@ def test_compute_inctrl_pqa_loss_allows_missing_masks_with_zero_mask_term():
 
     loss, parts = compute_inctrl_pqa_loss(outputs, labels, masks=None, cfg=_cfg())
 
-    assert set(parts.keys()) == {"final", "image", "pqa", "text", "mask", "total"}
+    assert set(parts.keys()) == {"final", "image", "pqa", "text", "mask", "text_mask", "total"}
     assert parts["mask"] == 0.0
+    assert parts["text_mask"] == 0.0
     assert parts["total"] == loss.item()
 
 
@@ -80,6 +83,7 @@ def test_compute_inctrl_pqa_loss_skips_pqa_and_mask_terms_when_pqa_disabled():
 
     assert parts["pqa"] == 0.0
     assert parts["mask"] == 0.0
+    assert parts["text_mask"] == 0.0
     assert parts["total"] == loss.item()
 
 
@@ -101,4 +105,65 @@ def test_compute_inctrl_pqa_loss_skips_mask_term_when_seg_head_disabled():
     # PQA logit loss still computed (alignment-only), but mask loss is zero
     assert parts["pqa"] > 0.0
     assert parts["mask"] == 0.0
+    assert parts["text_mask"] == 0.0
     assert parts["total"] == loss.item()
+
+
+def test_compute_inctrl_pqa_loss_uses_ce_when_text_logits_present():
+    outputs = {
+        "final_logit": torch.tensor([0.0, 1.0]),
+        "image_logit": torch.tensor([0.0, 1.0]),
+        "pqa_logit": torch.tensor([0.0, 1.0]),
+        "text_logit": torch.tensor([0.0, 1.0]),
+        "text_logits": torch.tensor([[0.1, 0.9], [0.8, 0.2]]),
+        "pqa_seg_logits": torch.randn(2, 1, 8, 8),
+    }
+    labels = torch.tensor([0, 1])
+    cfg = _cfg()
+    cfg.LOSS.TEXT_WEIGHT = 1.0
+
+    loss, parts = compute_inctrl_pqa_loss(outputs, labels, masks=None, cfg=cfg)
+
+    assert parts["text"] > 0.0
+    assert parts["text_mask"] == 0.0
+
+
+def test_compute_inctrl_pqa_loss_text_mask_activates_when_weight_positive():
+    outputs = {
+        "final_logit": torch.tensor([0.0, 1.0]),
+        "image_logit": torch.tensor([0.0, 1.0]),
+        "pqa_logit": torch.tensor([0.0, 1.0]),
+        "text_logit": torch.tensor([0.0, 1.0]),
+        "text_map_logits": torch.randn(2, 1, 8, 8),
+        "pqa_seg_logits": torch.randn(2, 1, 8, 8),
+    }
+    labels = torch.tensor([0, 1])
+    masks = torch.zeros(2, 1, 8, 8)
+    masks[1, :, 2:5, 2:5] = 1.0
+    cfg = _cfg()
+    cfg.LOSS.TEXT_MASK_WEIGHT = 0.5
+
+    loss, parts = compute_inctrl_pqa_loss(outputs, labels, masks, cfg)
+
+    assert parts["text_mask"] > 0.0
+
+
+def test_compute_inctrl_pqa_loss_text_mask_zero_when_text_disabled():
+    cfg = _cfg()
+    cfg.TEXT_BRANCH.ENABLE = False
+    cfg.LOSS.TEXT_MASK_WEIGHT = 0.5
+    outputs = {
+        "final_logit": torch.tensor([0.0, 1.0]),
+        "image_logit": torch.tensor([0.0, 1.0]),
+        "pqa_logit": torch.tensor([0.0, 1.0]),
+        "text_logit": torch.tensor([0.0, 1.0]),
+        "text_map_logits": torch.randn(2, 1, 8, 8),
+        "pqa_seg_logits": torch.randn(2, 1, 8, 8),
+    }
+    labels = torch.tensor([0, 1])
+    masks = torch.ones(2, 1, 8, 8)
+
+    loss, parts = compute_inctrl_pqa_loss(outputs, labels, masks, cfg)
+
+    assert parts["text"] == 0.0
+    assert parts["text_mask"] == 0.0

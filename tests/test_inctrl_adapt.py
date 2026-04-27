@@ -121,6 +121,10 @@ def test_disabled_text_branch_outputs_neutral_zero_logits_without_tokenizer():
     assert torch.equal(outputs["text_logit"], torch.zeros(2))
     assert torch.allclose(outputs["text_score"], torch.full((2,), 0.5))
     assert outputs["text_map"].shape == (2, 1, 32, 32)
+    assert outputs["text_logits"] is None
+    assert outputs["text_map_logits"].shape == (2, 1, 32, 32)
+    assert outputs["patch_text_logits"] is None
+    assert outputs["text_features"] is None
 
 
 def test_disabled_pqa_branch_outputs_neutral_zero_logits_and_map():
@@ -195,3 +199,12 @@ def test_set_train_phase_text_enables_text_and_disables_visual():
         assert p.requires_grad is False
     for p in model.get_text_parameters():
         assert p.requires_grad is True
+
+
+def test_get_text_parameters_includes_textual_adapter_params():
+    from open_clip.adaptclip_textual_adapter import AdaptCLIPTextualAdapter
+    ta = AdaptCLIPTextualAdapter(ctx_dim=8, image_size=32, n_ctx=4)
+    params = list(ta.parameters())
+    param_names = {n for n, _ in ta.named_parameters()}
+    assert len(params) == 2
+    assert param_names == {"prompt_learner.ctx_pos", "prompt_learner.ctx_neg"}

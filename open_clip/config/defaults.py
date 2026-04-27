@@ -156,11 +156,16 @@ _C.VISUAL_ADAPTER.ZERO_INIT = True
 
 _C.TEXT_BRANCH = CfgNode()
 _C.TEXT_BRANCH.ENABLE = True
+_C.TEXT_BRANCH.TYPE = "adaptclip_prompt"
 _C.TEXT_BRANCH.TEMPLATES = [
     "a photo of a normal object.",
     "a photo of a damaged object.",
 ]
 _C.TEXT_BRANCH.LOGIT_SCALE = 100.0
+_C.TEXT_BRANCH.N_CTX = 12
+_C.TEXT_BRANCH.NORMAL_SUFFIX = "normal object."
+_C.TEXT_BRANCH.ABNORMAL_SUFFIX = "damaged object."
+_C.TEXT_BRANCH.CTX_INIT_STD = 0.02
 
 _C.PQA = CfgNode()
 _C.PQA.ENABLE = True
@@ -184,6 +189,7 @@ _C.LOSS.IMAGE_WEIGHT = 1.0
 _C.LOSS.PQA_WEIGHT = 0.5
 _C.LOSS.MASK_WEIGHT = 1.0
 _C.LOSS.TEXT_WEIGHT = 0.0
+_C.LOSS.TEXT_MASK_WEIGHT = 0.0
 
 
 # -----------------------------------------------------------------------------

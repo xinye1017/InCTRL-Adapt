@@ -29,6 +29,7 @@ def compute_inctrl_pqa_loss(
     pqa_enabled = bool(getattr(cfg.PQA, "ENABLE", True)) if hasattr(cfg, "PQA") else True
     seg_head_enabled = bool(getattr(cfg.PQA, "ENABLE_SEG_HEAD", True)) if hasattr(cfg, "PQA") else True
     text_enabled = bool(getattr(cfg.TEXT_BRANCH, "ENABLE", True)) if hasattr(cfg, "TEXT_BRANCH") else True
+    text_mask_weight = float(getattr(cfg.LOSS, "TEXT_MASK_WEIGHT", 0.0)) if hasattr(cfg, "LOSS") else 0.0
 
     final = F.binary_cross_entropy_with_logits(final_logit, labels)
     image = F.binary_cross_entropy_with_logits(outputs["image_logit"], labels)
@@ -37,16 +38,22 @@ def compute_inctrl_pqa_loss(
         if pqa_enabled
         else final_logit.sum() * 0.0
     )
-    text = (
-        F.binary_cross_entropy_with_logits(outputs["text_logit"], labels)
-        if text_enabled
-        else final_logit.sum() * 0.0
-    )
+    if not text_enabled:
+        text = final_logit.sum() * 0.0
+    elif outputs.get("text_logits") is not None:
+        text = F.cross_entropy(outputs["text_logits"], labels.long())
+    else:
+        text = F.binary_cross_entropy_with_logits(outputs["text_logit"], labels)
     if masks is None or not pqa_enabled or not seg_head_enabled:
         mask = final_logit.sum() * 0.0
     else:
         seg_logits = outputs["pqa_seg_logits"]
         mask = segmentation_loss(seg_logits, masks.to(device=seg_logits.device))
+    if masks is None or not text_enabled or text_mask_weight <= 0.0 or outputs.get("text_map_logits") is None:
+        text_mask = final_logit.sum() * 0.0
+    else:
+        text_map_logits = outputs["text_map_logits"]
+        text_mask = segmentation_loss(text_map_logits, masks.to(device=text_map_logits.device))
 
     total = (
         final
@@ -54,6 +61,7 @@ def compute_inctrl_pqa_loss(
         + float(cfg.LOSS.PQA_WEIGHT) * pqa
         + float(cfg.LOSS.TEXT_WEIGHT) * text
         + float(cfg.LOSS.MASK_WEIGHT) * mask
+        + text_mask_weight * text_mask
     )
     parts = {
         "final": final.item(),
@@ -61,6 +69,7 @@ def compute_inctrl_pqa_loss(
         "pqa": pqa.item(),
         "text": text.item(),
         "mask": mask.item(),
+        "text_mask": text_mask.item(),
         "total": total.item(),
     }
     return total, parts

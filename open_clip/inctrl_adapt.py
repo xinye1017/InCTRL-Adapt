@@ -6,7 +6,7 @@ from torch import nn
 import torch.nn.functional as F
 
 from .model import _build_vision_tower_Mul, _build_text_tower
-from .object_agnostic_text import ObjectAgnosticTextBranch
+from .adaptclip_textual_adapter import AdaptCLIPTextualAdapter
 from .pqa_adapter import PQAdapter
 from .visual_adapter import VisualAdapter
 
@@ -127,9 +127,15 @@ class InCTRLAdapt(nn.Module):
         self.patch_text_projection = (
             nn.Identity() if patch_dim == embed_dim else nn.Linear(patch_dim, embed_dim)
         )
-        self.text_branch = ObjectAgnosticTextBranch(
-            templates=list(getattr(args.TEXT_BRANCH, "TEMPLATES")),
+        self.text_branch = AdaptCLIPTextualAdapter(
+            ctx_dim=self.ln_final.weight.shape[0],
+            image_size=self.image_size,
+            n_ctx=int(getattr(args.TEXT_BRANCH, "N_CTX", 12)),
+            normal_suffix=str(getattr(args.TEXT_BRANCH, "NORMAL_SUFFIX", "normal object.")),
+            abnormal_suffix=str(getattr(args.TEXT_BRANCH, "ABNORMAL_SUFFIX", "damaged object.")),
+            init_std=float(getattr(args.TEXT_BRANCH, "CTX_INIT_STD", 0.02)),
             logit_scale=float(getattr(args.TEXT_BRANCH, "LOGIT_SCALE", 100.0)),
+            dtype=cast_dtype,
         )
 
     def get_visual_parameters(self):
@@ -180,6 +186,22 @@ class InCTRLAdapt(nn.Module):
         x = x[torch.arange(x.shape[0], device=x.device), text.argmax(dim=-1)] @ self.text_projection
         return F.normalize(x, dim=-1) if normalize else x
 
+    def encode_text_prompted(
+        self,
+        prompts: torch.Tensor,
+        tokenized_prompts: torch.Tensor,
+        normalize: bool = False,
+    ):
+        cast_dtype = self.transformer.get_cast_dtype()
+        x = prompts.to(cast_dtype) + self.positional_embedding.to(device=prompts.device, dtype=cast_dtype)
+        x = x.permute(1, 0, 2)
+        x = self.transformer(x, attn_mask=self.attn_mask)
+        x = x.permute(1, 0, 2)
+        x = self.ln_final(x)
+        eot_indices = tokenized_prompts.argmax(dim=-1)
+        x = x[torch.arange(x.shape[0], device=x.device), eot_indices] @ self.text_projection
+        return F.normalize(x, dim=-1) if normalize else x
+
     def _flatten_prompt_tokens(self, prompt_tokens: torch.Tensor) -> torch.Tensor:
         batch, shot, patches, dim = prompt_tokens.shape
         return prompt_tokens.reshape(batch, shot * patches, dim)
@@ -214,6 +236,10 @@ class InCTRLAdapt(nn.Module):
             "text_logit": text_logit,
             "text_score": torch.sigmoid(text_logit),
             "text_map": text_map,
+            "text_logits": None,
+            "text_map_logits": text_map,
+            "patch_text_logits": None,
+            "text_features": None,
             "text_prototypes": None,
         }
 
@@ -340,11 +366,11 @@ class InCTRLAdapt(nn.Module):
         text_patch_feat = self.patch_text_projection(query_patch_levels[-1])
         if self.use_text_branch:
             text_out = self.text_branch(
-                encode_text=self.encode_text,
+                encode_text_prompted=self.encode_text_prompted,
+                token_embedding=self.token_embedding,
                 tokenizer=tokenizer,
                 global_feat=query_global,
                 patch_feat=text_patch_feat,
-                image_size=self.image_size,
             )
         else:
             text_out = self._zero_text_outputs(query_global, text_patch_feat)
@@ -394,6 +420,10 @@ class InCTRLAdapt(nn.Module):
             "text_score": text_score,
             "text_logit": text_logit,
             "text_map": text_map,
+            "text_logits": text_out.get("text_logits"),
+            "patch_text_logits": text_out.get("patch_text_logits"),
+            "text_map_logits": text_out.get("text_map_logits"),
+            "text_features": text_out.get("text_features"),
             "final_map": final_map,
         }
         if return_aux:
