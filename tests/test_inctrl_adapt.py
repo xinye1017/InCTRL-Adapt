@@ -9,6 +9,40 @@ from open_clip.inctrl_adapt import (
 )
 
 
+def _make_model_stub():
+    """Create a lightweight stub that has the same interface as InCTRLAdapt."""
+    model = InCTRLAdapt.__new__(InCTRLAdapt)
+    model.use_visual_adapter = True
+    model.use_pqa = True
+    model.use_seg_head = True
+    model.use_text_branch = True
+    # Monkeypatch get_visual_parameters / get_text_parameters to use plain tensors
+    model._visual_params = [torch.randn(4, 4, requires_grad=True)]
+    model._image_head_params = [torch.randn(4, 1, requires_grad=True)]
+    model._pqa_params = [torch.randn(4, 4, requires_grad=True)]
+    model._proj_params = [torch.randn(4, 4, requires_grad=True)]
+    model._text_params = [torch.randn(4, 4, requires_grad=True)]
+    return model
+
+
+def _stub_get_visual_parameters(self):
+    params = []
+    if self.use_visual_adapter:
+        params.extend(self._visual_params)
+    params.extend(self._image_head_params)
+    if self.use_pqa:
+        params.extend(self._pqa_params)
+    if self._proj_params:
+        params.extend(self._proj_params)
+    return params
+
+
+def _stub_get_text_parameters(self):
+    if not self.use_text_branch:
+        return []
+    return list(self._text_params)
+
+
 def test_score_to_logit_is_finite_at_edges():
     scores = torch.tensor([0.0, 0.5, 1.0])
     logits = _score_to_logit(scores)
@@ -112,3 +146,52 @@ def test_disabled_pqa_branch_contributes_zero_final_map_component():
     pqa_map = InCTRLAdapt._pqa_map_from_logits(model, logits)
 
     assert torch.equal(pqa_map, torch.zeros_like(logits))
+
+
+def test_get_visual_parameters_returns_adapter_and_head_params():
+    model = _make_model_stub()
+    model.get_visual_parameters = lambda: _stub_get_visual_parameters(model)
+    params = model.get_visual_parameters()
+    assert len(params) == 4
+    for p in params:
+        assert p.requires_grad is True
+
+
+def test_get_text_parameters_returns_text_branch_params():
+    model = _make_model_stub()
+    model.get_text_parameters = lambda: _stub_get_text_parameters(model)
+    params = model.get_text_parameters()
+    assert len(params) == 1
+    assert params[0].requires_grad is True
+
+
+def test_get_text_parameters_returns_empty_when_text_disabled():
+    model = _make_model_stub()
+    model.use_text_branch = False
+    model.get_text_parameters = lambda: _stub_get_text_parameters(model)
+    params = model.get_text_parameters()
+    assert params == []
+
+
+def test_set_train_phase_visual_enables_visual_and_disables_text():
+    model = _make_model_stub()
+    model.get_visual_parameters = lambda: _stub_get_visual_parameters(model)
+    model.get_text_parameters = lambda: _stub_get_text_parameters(model)
+    InCTRLAdapt.set_train_phase(model, "visual")
+
+    for p in model.get_visual_parameters():
+        assert p.requires_grad is True
+    for p in model.get_text_parameters():
+        assert p.requires_grad is False
+
+
+def test_set_train_phase_text_enables_text_and_disables_visual():
+    model = _make_model_stub()
+    model.get_visual_parameters = lambda: _stub_get_visual_parameters(model)
+    model.get_text_parameters = lambda: _stub_get_text_parameters(model)
+    InCTRLAdapt.set_train_phase(model, "text")
+
+    for p in model.get_visual_parameters():
+        assert p.requires_grad is False
+    for p in model.get_text_parameters():
+        assert p.requires_grad is True

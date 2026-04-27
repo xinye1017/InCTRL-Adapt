@@ -132,6 +132,30 @@ class InCTRLAdapt(nn.Module):
             logit_scale=float(getattr(args.TEXT_BRANCH, "LOGIT_SCALE", 100.0)),
         )
 
+    def get_visual_parameters(self):
+        params = []
+        if self.use_visual_adapter:
+            params.extend(self.visual_adapter.parameters())
+        params.extend(self.image_head.parameters())
+        if self.use_pqa:
+            params.extend(self.pq_adapter.parameters())
+        if self.patch_text_projection is not None:
+            params.extend(self.patch_text_projection.parameters())
+        return params
+
+    def get_text_parameters(self):
+        if not self.use_text_branch:
+            return []
+        return list(self.text_branch.parameters())
+
+    def set_train_phase(self, phase: str):
+        visual_grad = phase == "visual"
+        text_grad = phase == "text"
+        for p in self.get_visual_parameters():
+            p.requires_grad = visual_grad
+        for p in self.get_text_parameters():
+            p.requires_grad = text_grad
+
     def _normalize_image_features(self, features):
         global_feat, patch_levels, fp = features
         normalized_patches = [F.normalize(level, dim=-1) for level in patch_levels]
