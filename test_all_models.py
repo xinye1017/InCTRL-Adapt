@@ -34,11 +34,6 @@ SHOTS = [2, 4, 8]
 MODEL_VARIANTS = {
     "Baseline": {
         "checkpoint_root": PROJECT_ROOT / "checkpoints" / "InCTRL_trained_on_MVTec",
-        "enable_va": False,
-    },
-    "VA": {
-        "checkpoint_root": PROJECT_ROOT / "checkpoints" / "InCTRL_trained_on_MVTec_VA",
-        "enable_va": True,
     },
 }
 
@@ -106,13 +101,12 @@ def resolve_checkpoint_file(shot, variant_name):
     raise FileNotFoundError(f"未找到 checkpoint: shot={shot}, variant={variant_name}, in {root}")
 
 
-def build_model(enable_va, checkpoint_path, device):
+def build_model(checkpoint_path, device):
     model_config_path = PROJECT_ROOT / "open_clip" / "model_configs" / "ViT-B-16-plus-240.json"
     with open(model_config_path, encoding="utf-8") as f:
         model_config = json.load(f)
 
     cfg = get_cfg()
-    cfg.VISUAL_ADAPTER.ENABLE = bool(enable_va)
 
     from open_clip import model as _model_mod
 
@@ -267,7 +261,7 @@ def evaluate_all_and_save_json():
             ckpt_path = resolve_checkpoint_file(shot, variant_name)
             print(f"[INFO] 模型: {variant_name} | checkpoint: {ckpt_path}")
 
-            model = build_model(spec["enable_va"], ckpt_path, DEVICE)
+            model = build_model(ckpt_path, DEVICE)
             variant_results = {}
 
             for ds in ["aitex", "elpv", "visa"]:

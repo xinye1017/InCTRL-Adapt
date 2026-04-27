@@ -105,8 +105,6 @@ def build_baseline_model(checkpoint_path, device):
         model_config = json.load(f)
 
     cfg = get_cfg()
-    # Official paper baseline: do not instantiate the local Visual Adapter branch.
-    cfg.VISUAL_ADAPTER.ENABLE = False
 
     from open_clip import model as _model_mod
 
@@ -118,8 +116,6 @@ def build_baseline_model(checkpoint_path, device):
         quick_gelu=False,
         cast_dtype=get_cast_dtype("fp32"),
     )
-    if getattr(model, "visual_adapter", None) is not None:
-        raise RuntimeError("Baseline 评测不应启用 Visual Adapter，请检查 cfg.VISUAL_ADAPTER.ENABLE。")
 
     ckpt = torch.load(checkpoint_path, map_location="cpu")
     state_dict = ckpt["model_state"] if isinstance(ckpt, dict) and "model_state" in ckpt else ckpt
@@ -300,7 +296,7 @@ def evaluate_baseline_and_save_json():
                 "model": "Baseline",
                 "mode": "official_baseline_reproduction",
                 "checkpoint_root": str(CHECKPOINT_ROOT),
-                "visual_adapter_enabled": False,
+                "model_type": "InCTRL",
                 "model_shots": MODEL_SHOTS,
                 "eval_shots": EVAL_SHOTS,
                 "results": all_results,
