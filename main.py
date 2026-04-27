@@ -4,9 +4,6 @@
 
 import argparse
 import sys
-import os
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 
 import torch
 from engine_IC import test, train

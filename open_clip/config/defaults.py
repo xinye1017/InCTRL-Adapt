@@ -127,6 +127,8 @@ _C.MODEL.NUM_CLASSES = 1
 # Loss function.
 _C.MODEL.LOSS_FUNC = "cross_entropy"
 
+# Active InCTRL architecture.
+_C.MODEL.ACTIVE_MODEL = "InCTRLPQA"
 
 # Dropout rate before final projection in the backbone.
 _C.MODEL.DROPOUT_RATE = 0.0
@@ -136,6 +138,45 @@ _C.MODEL.HEAD_ACT = "softmax"
 
 # Activation checkpointing enabled or not to save GPU memory.
 _C.MODEL.ACT_CHECKPOINT = False
+
+
+# -----------------------------------------------------------------------------
+# InCTRL PQA Lite options
+# -----------------------------------------------------------------------------
+_C.VISUAL_ADAPTER = CfgNode()
+_C.VISUAL_ADAPTER.ENABLE = True
+_C.VISUAL_ADAPTER.REDUCTION = 4
+_C.VISUAL_ADAPTER.ZERO_INIT = True
+
+_C.TEXT_BRANCH = CfgNode()
+_C.TEXT_BRANCH.ENABLE = True
+_C.TEXT_BRANCH.TEMPLATES = [
+    "a photo of a normal object.",
+    "a photo of a damaged object.",
+]
+_C.TEXT_BRANCH.LOGIT_SCALE = 100.0
+
+_C.PQA = CfgNode()
+_C.PQA.ENABLE = True
+_C.PQA.PATCH_LAYERS = [7, 9, 11]
+_C.PQA.CONTEXT_BETA = 1.0
+_C.PQA.HIDDEN_DIM = 128
+_C.PQA.GLOBAL_TOPK = 10
+
+_C.FUSION = CfgNode()
+_C.FUSION.IMAGE_WEIGHT = 0.35
+_C.FUSION.PATCH_WEIGHT = 0.25
+_C.FUSION.PQA_WEIGHT = 0.25
+_C.FUSION.TEXT_WEIGHT = 0.15
+_C.FUSION.MAP_RES_WEIGHT = 0.4
+_C.FUSION.MAP_PQA_WEIGHT = 0.4
+_C.FUSION.MAP_TEXT_WEIGHT = 0.2
+
+_C.LOSS = CfgNode()
+_C.LOSS.IMAGE_WEIGHT = 1.0
+_C.LOSS.PQA_WEIGHT = 0.5
+_C.LOSS.MASK_WEIGHT = 1.0
+_C.LOSS.TEXT_WEIGHT = 0.0
 
 
 # -----------------------------------------------------------------------------

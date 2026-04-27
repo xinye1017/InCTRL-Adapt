@@ -20,7 +20,8 @@ from binary_focal_loss import BinaryFocalLoss
 import torch.distributed as dist
 import matplotlib.pyplot as plt
 from open_clip.model import get_cast_dtype
-from open_clip.inctrl_three_adapters import InCTRLWithAdapters
+from open_clip.inctrl_pqa import InCTRLPQA
+from open_clip.inctrl_pqa_losses import compute_inctrl_pqa_loss
 from open_clip.utils.env import checkpoint_pathmgr as pathmgr
 
 logger = logging.get_logger(__name__)
@@ -38,12 +39,55 @@ def _split_query_prompt_batch(inputs, device=None):
     return query_image, prompt_images
 
 
+def _split_batch_with_optional_masks(batch, device=None):
+    if len(batch) == 4:
+        inputs, types, labels, masks = batch
+    else:
+        inputs, types, labels = batch
+        masks = None
+    query_image, prompt_images = _split_query_prompt_batch(inputs, device)
+    if device is not None:
+        labels = labels.to(device)
+        if masks is not None:
+            masks = masks.to(device)
+    return query_image, prompt_images, types, labels, masks
+
+
 def _get_base_model(model):
     return model.module if hasattr(model, "module") else model
 
 
+def _build_active_model(cfg, model_cfg, cast_dtype, quick_gelu):
+    embed_dim = model_cfg["embed_dim"]
+    vision_cfg = model_cfg["vision_cfg"]
+    text_cfg = model_cfg["text_cfg"]
+    if getattr(cfg.MODEL, "ACTIVE_MODEL", "InCTRL") == "InCTRLPQA":
+        return InCTRLPQA(cfg, embed_dim, vision_cfg, text_cfg, quick_gelu, cast_dtype=cast_dtype)
+    return open_clip.model.InCTRL(cfg, embed_dim, vision_cfg, text_cfg, quick_gelu, cast_dtype=cast_dtype)
+
+
+def _is_pqa_model(cfg):
+    return getattr(cfg.MODEL, "ACTIVE_MODEL", "InCTRL") == "InCTRLPQA"
+
+
+def _resolve_max_epochs(cfg):
+    max_epoch = int(getattr(cfg.SOLVER, "MAX_EPOCH", 400))
+    return 10 if max_epoch == 400 else max_epoch
+
+
+def _trainable_parameters(model):
+    return [param for param in model.parameters() if param.requires_grad]
+
+
 def _build_alternating_optimizers(model, lr=1e-3):
     base_model = _get_base_model(model)
+    if not hasattr(base_model, "get_visual_parameters") or not hasattr(base_model, "get_text_parameters"):
+        optimizer = torch.optim.AdamW(
+            _trainable_parameters(base_model),
+            lr=lr,
+            betas=(0.9, 0.999),
+        )
+        return optimizer, optimizer
     visual_optimizer = torch.optim.AdamW(
         base_model.get_visual_parameters(),
         lr=lr,
@@ -81,32 +125,34 @@ def train_epoch(
     # Enable train mode.
     model.train()
     base_model = _get_base_model(model)
-    base_model.set_train_phase(phase)
+    if hasattr(base_model, "set_train_phase"):
+        base_model.set_train_phase(phase)
     optimizer = visual_optimizer if phase == "visual" else text_optimizer
 
     all_loss = 0.0
-    for cur_iter, (inputs, types, labels) in enumerate(train_loader):
+    device = torch.device("cuda", torch.cuda.current_device()) if cfg.NUM_GPUS else None
+    for cur_iter, batch in enumerate(train_loader):
+        query_image, prompt_images, types, labels, masks = _split_batch_with_optional_masks(batch, device=device)
 
-        if cfg.NUM_GPUS:
-            labels = labels.cuda()
-            query_image, prompt_images = _split_query_prompt_batch(inputs, labels.device)
+        if _is_pqa_model(cfg):
+            outputs = model(
+                tokenizer=tokenizer,
+                query_image=query_image,
+                prompt_images=prompt_images,
+                obj_types=types,
+                return_aux=False,
+                return_dict=True,
+            )
+            loss, _ = compute_inctrl_pqa_loss(outputs, labels.float(), masks, cfg)
         else:
-            query_image, prompt_images = _split_query_prompt_batch(inputs)
-
-        loss_fun = BinaryFocalLoss()
-        if cfg.NUM_GPUS:
-            loss_fun = loss_fun.cuda()
-
-        outputs = model(
-            query_image=query_image,
-            prompt_images=prompt_images,
-            obj_types=types,
-            return_aux=False,
-            return_dict=True,
-        )
-
-        # Compute the loss.
-        loss = loss_fun(outputs["final_score"], labels.float())
+            inputs, types, labels = batch[:3]
+            if cfg.NUM_GPUS:
+                labels = labels.cuda()
+            preds, image_score = model(tokenizer, inputs, types)
+            loss_fun = BinaryFocalLoss()
+            if cfg.NUM_GPUS:
+                loss_fun = loss_fun.cuda()
+            loss = loss_fun(preds, labels.float()) + loss_fun(image_score, labels.float())
 
         # check Nan Loss.
         misc.check_nan_losses(loss)
@@ -143,24 +189,29 @@ def eval_epoch(val_loader, model, cfg, tokenizer, mode=None):
     # Evaluation mode enabled. The running stats would not be updated.
     model.eval()
 
-    total_label = torch.Tensor([]).cuda()
-    total_pred = torch.Tensor([]).cuda()
+    metric_device = torch.device("cuda", torch.cuda.current_device()) if cfg.NUM_GPUS else torch.device("cpu")
+    total_label = torch.Tensor([]).to(metric_device)
+    total_pred = torch.Tensor([]).to(metric_device)
 
-    for cur_iter, (inputs, types, labels) in enumerate(val_loader):
-        if cfg.NUM_GPUS:
-            labels = labels.cuda()
-            query_image, prompt_images = _split_query_prompt_batch(inputs, labels.device)
+    device = metric_device if cfg.NUM_GPUS else None
+    for cur_iter, batch in enumerate(val_loader):
+        query_image, prompt_images, types, labels, _ = _split_batch_with_optional_masks(batch, device=device)
+
+        if _is_pqa_model(cfg):
+            outputs = model(
+                tokenizer=tokenizer,
+                query_image=query_image,
+                prompt_images=prompt_images,
+                obj_types=types,
+                return_aux=False,
+                return_dict=True,
+            )
+            preds = outputs["final_score"]
         else:
-            query_image, prompt_images = _split_query_prompt_batch(inputs)
-
-        outputs = model(
-            query_image=query_image,
-            prompt_images=prompt_images,
-            obj_types=types,
-            return_aux=False,
-            return_dict=True,
-        )
-        preds = outputs["final_score"]
+            inputs, types, labels = batch[:3]
+            if cfg.NUM_GPUS:
+                labels = labels.cuda()
+            preds, _ = model(tokenizer, inputs, types)
 
         total_pred = torch.cat((total_pred, preds), 0)
         total_label = torch.cat((total_label, labels), 0)
@@ -204,7 +255,7 @@ def train(cfg):
     cast_dtype = get_cast_dtype('fp32')
     quick_gelu = False
 
-    model = InCTRLWithAdapters(cfg, embed_dim, vision_cfg, text_cfg, quick_gelu, cast_dtype=cast_dtype)
+    model = _build_active_model(cfg, model_cfg, cast_dtype=cast_dtype, quick_gelu=quick_gelu)
 
     if torch.cuda.is_available():
         assert (
@@ -253,7 +304,7 @@ def train(cfg):
     epoch_losses = []
 
     epoch_timer = EpochTimer()
-    for cur_epoch in range(start_epoch, 10):
+    for cur_epoch in range(start_epoch, _resolve_max_epochs(cfg)):
         print("Epoch: ", cur_epoch)
         phase = "visual" if cur_epoch % 2 == 0 else "text"
         print("Train phase: ", phase)
@@ -283,7 +334,9 @@ def train(cfg):
             f"{epoch_timer.avg_epoch_time()/len(train_loader):.2f}s in average."
         )
 
-        path = "./tmp/checkpoints/checkpoint_" + str(cur_epoch + 1) + ".pyth"
+        checkpoint_dir = os.path.join(cfg.OUTPUT_DIR, "checkpoints")
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        path = os.path.join(checkpoint_dir, "checkpoint_" + str(cur_epoch + 1) + ".pyth")
         torch.save(model.state_dict(), path)
 
         total_roc = eval_epoch(train_loader, model, cfg, tokenizer, "train")
@@ -333,7 +386,7 @@ def test(cfg, load=None, mode = None):
     cast_dtype = get_cast_dtype('fp32')
     quick_gelu = False
 
-    model = open_clip.model.InCTRL(cfg, embed_dim, vision_cfg, text_cfg, quick_gelu, cast_dtype=cast_dtype)
+    model = _build_active_model(cfg, model_cfg, cast_dtype=cast_dtype, quick_gelu=quick_gelu)
     model = model.cuda(device=device)
 
     cu.load_test_checkpoint(cfg, model)

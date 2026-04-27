@@ -20,6 +20,7 @@ from binary_focal_loss import BinaryFocalLoss
 import torch.distributed as dist
 import matplotlib.pyplot as plt
 from open_clip.model import get_cast_dtype
+from open_clip.inctrl_pqa import InCTRLPQA
 from open_clip.utils.env import checkpoint_pathmgr as pathmgr
 from PIL import Image
 
@@ -44,10 +45,15 @@ def eval_epoch(val_loader, model, cfg, tokenizer, normal_list, mode=None):
     # Evaluation mode enabled. The running stats would not be updated.
     model.eval()
 
-    total_label = torch.Tensor([]).cuda()
-    total_pred = torch.Tensor([]).cuda()
+    metric_device = torch.device("cuda", torch.cuda.current_device()) if cfg.NUM_GPUS else torch.device("cpu")
+    total_label = torch.Tensor([]).to(metric_device)
+    total_pred = torch.Tensor([]).to(metric_device)
 
-    for cur_iter, (inputs, types, labels) in enumerate(val_loader):
+    for cur_iter, batch in enumerate(val_loader):
+        if len(batch) == 4:
+            inputs, types, labels, _ = batch
+        else:
+            inputs, types, labels = batch
         if cfg.NUM_GPUS:
             labels = labels.cuda()
 
@@ -115,7 +121,10 @@ def test(cfg, load=None, mode = None):
     cast_dtype = get_cast_dtype('fp32')
     quick_gelu = False
 
-    model = open_clip.model.InCTRL(cfg, embed_dim, vision_cfg, text_cfg, quick_gelu, cast_dtype=cast_dtype)
+    if getattr(cfg.MODEL, "ACTIVE_MODEL", "InCTRL") == "InCTRLPQA":
+        model = InCTRLPQA(cfg, embed_dim, vision_cfg, text_cfg, quick_gelu, cast_dtype=cast_dtype)
+    else:
+        model = open_clip.model.InCTRL(cfg, embed_dim, vision_cfg, text_cfg, quick_gelu, cast_dtype=cast_dtype)
     model = model.cuda(device=device)
 
     cu.load_test_checkpoint(cfg, model)
