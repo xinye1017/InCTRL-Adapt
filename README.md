@@ -1,84 +1,119 @@
-# InCTRL (CVPR 2024)
+# InCTRL-Adapt: Integrating AdaptCLIP Adapters into InCTRL for Generalist Anomaly Detection
 
-Official PyTorch implementation of ["Toward Generalist Anomaly Detection via In-context Residual Learning with Few-shot Sample Prompts"](https://arxiv.org/pdf/2403.06495.pdf).
+This repository extends the [InCTRL (CVPR 2024)](https://arxiv.org/abs/2403.06495) generalist anomaly detection framework with [AdaptCLIP](https://arxiv.org/abs/xxxxx)-style adapter modules — **VisualAdapter**, **TextualAdapter**, and **PQAdapter** — to enhance the model's few-shot anomaly detection capability across diverse domains.
 
-## Overview
-In this work, we propose to train a Generalist Anomaly Detection (GAD) model with few-shot normal images as sample prompts for AD on diverse datasets on the fly. To this end, we introduce a novel approach that learns an incontext residual learning model for GAD, termed InCTRL. It is trained on an auxiliary dataset to discriminate anomalies from normal samples based on a holistic evaluation of the residuals between query images and few-shot normal sample prompts. Regardless of the datasets, per definition of anomaly, larger residuals are expected for anomalies than normal samples, thereby enabling InCTRL to generalize across different domains without further training. Comprehensive experiments on nine AD datasets are performed to establish a GAD benchmark that encapsulate the detection of industrial defect anomalies, medical anomalies, and semantic anomalies in both one-vs-all and multi-class setting, on which InCTRL is the best performer and significantly outperforms state-of-the-art competing methods.
+## Background
 
-![image](./fr.jpg)
+**InCTRL** (In-context Residual Learning) trains a single model to detect anomalies across multiple datasets without dataset-specific fine-tuning. Given a query image and a few normal reference images (few-shot sample prompts), it computes feature residuals between the query and the normal samples. The core insight: anomalies produce larger residuals than normal samples, enabling cross-domain generalization.
+
+This repository builds on InCTRL by integrating three AdaptCLIP-style adapter modules:
+
+| Adapter | Purpose |
+|---------|---------|
+| **VisualAdapter** | Bottleneck residual adaptation of global image features and multi-layer patch features |
+| **TextualAdapter** | Learnable prompt contexts for object-aware text descriptions |
+| **PQAdapter** | Patch-Query alignment mechanism for finer anomaly localization |
+
+## Key Features (beyond original InCTRL)
+
+- **VisualAdapter**: Lightweight bottleneck adapter applied to both global CLS tokens and per-layer patch features before residual computation
+- **TextualAdapter**: AdaptCLIP-style learnable prompt contexts replacing fixed text templates
+- **PQAdapter**: Patch-to-query cross-attention for enhanced anomaly scoring
+- **Alternating training**: Phase-switching between visual adapter and text adapter optimization
+- **Multi-dataset evaluation**: Slash-separated dataset spec (e.g., `visa/aitex/elpv`)
+- **Full-category training**: `--train_dataset` shorthand for training on all categories at once
+- **Cached text features**: Speed up evaluation by caching CLIP text embeddings
+- **Structured CSV results**: Per-category evaluation metrics exported to CSV
 
 ## Setup
-- python >= 3.10.11
-- torch >= 1.13.0
-- torchvision >= 0.14.0
-- scipy >= 1.10.1
-- scikit-image >= 0.21.0
-- numpy >= 1.24.3
-- tqdm >= 4.64.0
 
-## Device
-Single NVIDIA GeForce RTX 3090
+```
+python >= 3.10
+torch >= 1.13.0
+torchvision >= 0.14.0
+scipy >= 1.10.1
+scikit-image >= 0.21.0
+numpy >= 1.24.3
+tqdm >= 4.64.0
+```
 
-## Run
-#### Step 1. Download the Anomaly Detection Dataset([ELPV](https://github.com/zae-bayern/elpv-dataset), [SDD](https://www.vicos.si/resources/kolektorsdd/), [AITEX](https://www.aitex.es/afid/), [VisA](https://github.com/amazon-science/spot-diff), [MVTec AD](https://www.mvtec.com/company/research/datasets/mvtec-ad), [BrainMRI](https://www.kaggle.com/datasets/navoneel/brain-mri-images-for-brain-tumor-detection), [HeadCT](https://www.kaggle.com/datasets/felipekitamura/head-ct-hemorrhage), [MNIST](https://www.kaggle.com/datasets/jidhumohan/mnist-png), [CIFAR-10](https://www.kaggle.com/datasets/swaroopkml/cifar10-pngs-in-folders)) and Convert it to MVTec AD Format([the convert script](https://github.com/mala-lab/InCTRL/tree/main/datasets/preprocess)).
+## Dataset Preparation
 
-The dataset folder structure should look like:
+Supported datasets: MVTec AD, VisA, AITEX, ELPV, SDD, BrainMRI, HeadCT, MNIST, CIFAR-10
+
+1. Download datasets and convert to MVTec AD format:
+
 ```
 DATA_PATH/
     subset_1/
-        train/
-            good/
-        test/
-            good/
-            defect_class_1/
-            defect_class_2/
-            defect_class_3/
-            ...
-    ...
-```
-
-#### Step 2. Generate Training/Test Json Files of Anomaly Detection Datasets([the generate script](https://github.com/mala-lab/InCTRL/tree/main/datasets/preprocess)).
-
-The json folder structure should look like:
-```
-JSON_PATH/
-    dataset_1/
-        subset_1/
-            subset_1_train_normal.json
-            subset_1_train_outlier.json
-            subset_1_val_normal.json
-            subset_1_val_outlier.json
-        subset_2/
-        subset_3/
+        train/good/
+        test/good/
+        test/defect_class_1/
+        test/defect_class_2/
         ...
     ...
 ```
 
-#### Step 3. Download the Few-shot Normal Samples for Inference on [Google Drive](https://drive.google.com/drive/folders/1_RvmTqiCc4ZGa-Oq-uF7SOVotE1RW5QZ?usp=drive_link)
+2. Generate JSON split files using the preprocessing scripts in `datasets/preprocess/`
+3. Download few-shot normal samples and pretrained models (see original InCTRL Google Drive)
 
-#### Step 4. Download the Pre-train Models on [Google Drive](https://drive.google.com/drive/folders/1McmfxF8_H0BeRvcJ_poGIB-ATQCDDEIa?usp=sharing)
+## Quick Start (Evaluation)
 
-#### Step 5. Quick Start
-
-Change the `TEST.CHECKPOINT_FILE_PATH` in [config](https://github.com/mala-lab/InCTRL/blob/main/open_clip/config/defaults.py) to the path of pre-train model and run
 ```bash
-python test.py --val_normal_json_path $normal-json-files-for-testing --val_outlier_json_path $abnormal-json-files-for-testing --category $dataset-class-name --few_shot_dir $path-to-few-shot-samples
+python test.py \
+  --val_normal_json_path /path/to/normal.json \
+  --val_outlier_json_path /path/to/outlier.json \
+  --category candle \
+  --few_shot_dir /path/to/few_shot_samples/visa/2/
 ```
 
-For example, if run on the category `candle` of `visa` with `k=2`:
+Multi-dataset evaluation:
+
 ```bash
-python test.py --val_normal_json_path /AD_json/visa/candle_val_normal.json --val_outlier_json_path /AD_json/visa/candle_val_outlier.json --category candle --few_shot_dir /fs_samples/visa/2/
+python test.py --test_dataset visa/aitex/elpv --few_shot_dir /path/to/few_shot_samples/
 ```
 
 ## Training
+
 ```bash
-python main.py --normal_json_path $normal-json-files-for-training --outlier_json_path $abnormal-json-files-for-training --val_normal_json_path $normal-json-files-for-testing --val_outlier_json_path $abnormal-json-files-for-testing
+# Standard training
+python main.py \
+  --normal_json_path /path/to/train_normal.json \
+  --outlier_json_path /path/to/train_outlier.json \
+  --val_normal_json_path /path/to/val_normal.json \
+  --val_outlier_json_path /path/to/val_outlier.json
+
+# Full-dataset training with 2-shot
+python main.py \
+  --train_dataset visa \
+  --dataset_path /path/to/datasets/visa \
+  --few_shot 2
 ```
 
-## Implementation of WinCLIP
+## Model Variants
 
-WinCLIP is one main competing method to ours, but its official implentation is not publicly available. We have successfully reproduced the results of WinCLIP based on our extensive communications with its authors and used our implementation to perform experiments in the paper. Our implementation has been released at [WinCLIP](https://github.com/mala-lab/WinCLIP).
+The repository supports multiple model configurations via `open_clip/factory.py`:
 
+- `InCTRL` — Original in-context residual learning model
+- `InCTRLAdapt` — InCTRL + VisualAdapter + TextualAdapter
+- `InCTRLPQA` — InCTRLAdapt + PQAdapter (full AdaptCLIP integration)
+- `InCTRLPQA-fused` — Fused variant with alternative head design
+
+## Project Structure
+
+```
+open_clip/
+    model.py                    # Core CLIP + InCTRL model
+    inctrl_adapt.py             # InCTRLAdapt with VisualAdapter + TextualAdapter
+    visual_adapter.py           # VisualAdapter (bottleneck residual)
+    adaptclip_textual_adapter.py # TextualAdapter (learnable prompt contexts)
+    pqa_adapter.py              # PQAdapter (patch-query alignment)
+    inctrl_pqa_losses.py        # PQA-specific loss functions
+    object_agnostic_text.py     # Object-agnostic text prompt templates
+main.py                         # Training entry point
+test.py / test_baseline.py      # Evaluation entry points
+engine_IC.py                    # Training loop
+```
 
 ## Citation
 
@@ -91,3 +126,9 @@ WinCLIP is one main competing method to ours, but its official implentation is n
   year={2024}
 }
 ```
+
+## Related
+
+- Original InCTRL: [mala-lab/InCTRL](https://github.com/mala-lab/InCTRL)
+- WinCLIP reproduction (competing method): [mala-lab/WinCLIP](https://github.com/mala-lab/WinCLIP)
+- This repository: [xinye1017/InCTRL-Adapt](https://github.com/xinye1017/InCTRL-Adapt)
