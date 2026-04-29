@@ -80,6 +80,8 @@ def compute_inctrl_pqa_loss(
     seg_head_enabled = bool(getattr(cfg.PQA, "ENABLE_SEG_HEAD", True)) if hasattr(cfg, "PQA") else True
     text_enabled = bool(getattr(cfg.TEXT_BRANCH, "ENABLE", True)) if hasattr(cfg, "TEXT_BRANCH") else True
     text_mask_weight = float(getattr(cfg.LOSS, "TEXT_MASK_WEIGHT", 0.0)) if hasattr(cfg, "LOSS") else 0.0
+    visual_weight = float(getattr(cfg.LOSS, "VISUAL_WEIGHT", 0.0)) if hasattr(cfg, "LOSS") else 0.0
+    visual_mask_weight = float(getattr(cfg.LOSS, "VISUAL_MASK_WEIGHT", 0.0)) if hasattr(cfg, "LOSS") else 0.0
 
     final = F.binary_cross_entropy_with_logits(final_logit, labels)
     image = F.binary_cross_entropy_with_logits(outputs["image_logit"], labels)
@@ -112,6 +114,18 @@ def compute_inctrl_pqa_loss(
         text_map_logits = outputs["text_map_logits"]
         text_mask = segmentation_loss(text_map_logits, masks.to(device=text_map_logits.device))
 
+    # Visual branch (VA + static text) losses.
+    if visual_weight <= 0.0 or outputs.get("visual_logits") is None:
+        visual = final_logit.sum() * 0.0
+    else:
+        visual = F.cross_entropy(outputs["visual_logits"], labels.long())
+
+    if masks is None or visual_mask_weight <= 0.0 or outputs.get("visual_map_logits") is None:
+        visual_mask = final_logit.sum() * 0.0
+    else:
+        visual_map_logits = outputs["visual_map_logits"]
+        visual_mask = segmentation_loss(visual_map_logits, masks.to(device=visual_map_logits.device))
+
     total = (
         final
         + float(cfg.LOSS.IMAGE_WEIGHT) * image
@@ -119,6 +133,8 @@ def compute_inctrl_pqa_loss(
         + float(cfg.LOSS.TEXT_WEIGHT) * text
         + float(cfg.LOSS.MASK_WEIGHT) * mask
         + text_mask_weight * text_mask
+        + visual_weight * visual
+        + visual_mask_weight * visual_mask
     )
     parts = {
         "final": final.item(),
@@ -127,6 +143,8 @@ def compute_inctrl_pqa_loss(
         "text": text.item(),
         "mask": mask.item(),
         "text_mask": text_mask.item(),
+        "visual": visual.item(),
+        "visual_mask": visual_mask.item(),
         "total": total.item(),
     }
     return total, parts

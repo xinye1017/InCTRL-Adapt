@@ -22,24 +22,37 @@ def _fuse_scores(
     pqa_logit: torch.Tensor,
     text_logit: torch.Tensor,
     weights: tuple[float, float, float, float],
+    visual_logit: torch.Tensor | None = None,
+    visual_weight: float = 0.0,
 ) -> torch.Tensor:
     image_w, patch_w, pqa_w, text_w = weights
-    return (
+    out = (
         image_w * image_logit
         + patch_w * patch_logit
         + pqa_w * pqa_logit
         + text_w * text_logit
     )
+    if visual_logit is not None and visual_weight > 0.0:
+        out = out + visual_weight * visual_logit
+    return out
 
 
 def _fuse_maps(
     residual_map: torch.Tensor,
     pqa_map: torch.Tensor,
-    text_map: torch.Tensor,
-    weights: tuple[float, float, float],
+    weights: tuple[float, float],
+    text_map: torch.Tensor | None = None,
+    text_w: float = 0.0,
+    visual_map: torch.Tensor | None = None,
+    visual_w: float = 0.0,
 ) -> torch.Tensor:
-    residual_w, pqa_w, text_w = weights
-    return residual_w * residual_map + pqa_w * pqa_map + text_w * text_map
+    residual_w, pqa_w = weights
+    out = residual_w * residual_map + pqa_w * pqa_map
+    if text_map is not None and text_w > 0.0:
+        out = out + text_w * text_map
+    if visual_map is not None and visual_w > 0.0:
+        out = out + visual_w * visual_map
+    return out
 
 
 def _harmonic_mean(tensor_list: list[torch.Tensor]) -> torch.Tensor:
@@ -100,6 +113,7 @@ class InCTRLAdapt(nn.Module):
         self.image_size = int(getattr(args, "image_size", 240))
         self.patch_layers = list(getattr(args.PQA, "PATCH_LAYERS", [7, 9, 11]))
         self.use_visual_adapter = bool(getattr(args.VISUAL_ADAPTER, "ENABLE", True))
+        self.use_visual_branch = bool(getattr(args.FUSION, "USE_VISUAL_BRANCH", True)) if self.use_visual_adapter else False
         self.use_text_branch = bool(getattr(args.TEXT_BRANCH, "ENABLE", True))
         self.use_pqa = bool(getattr(args.PQA, "ENABLE", True))
         self.use_seg_head = bool(getattr(args.PQA, "ENABLE_SEG_HEAD", True))
@@ -154,6 +168,11 @@ class InCTRLAdapt(nn.Module):
             dtype=cast_dtype,
         )
 
+        # Static text features for the visual-text branch (frozen, not learnable).
+        # These are the AdaptCLIP "normal"/"anomaly" template embeddings.
+        self._static_text_features: torch.Tensor | None = None
+        self._visual_logit_scale = float(getattr(args.TEXT_BRANCH, "LOGIT_SCALE", 100.0))
+
     def get_visual_parameters(self):
         params = []
         if self.use_visual_adapter:
@@ -164,6 +183,77 @@ class InCTRLAdapt(nn.Module):
         if self.patch_text_projection is not None:
             params.extend(self.patch_text_projection.parameters())
         return params
+
+    def _get_static_text_features(self, tokenizer, device) -> torch.Tensor:
+        """Build or return cached static text features for VA branch."""
+        if self._static_text_features is not None:
+            return self._static_text_features.to(device)
+        templates = list(getattr(self.args.TEXT_BRANCH, "TEMPLATES", [
+            "a photo of a normal object.",
+            "a photo of a damaged object.",
+        ]))
+        tokens = torch.cat([tokenizer(t) for t in templates]).to(device)
+        with torch.no_grad():
+            feats = self.encode_text(tokens, normalize=True)  # [2, D]
+        self._static_text_features = feats.detach()
+        return self._static_text_features
+
+    def _visual_branch(
+        self,
+        query_global_va: torch.Tensor,
+        query_patch_va: torch.Tensor,
+        static_text: torch.Tensor,
+    ) -> dict:
+        """AdaptCLIP-style visual-text alignment branch.
+
+        Uses VA-adapted visual features + frozen static text features to
+        compute image-level logit and pixel-level anomaly map.
+        """
+        batch = query_global_va.shape[0]
+        global_feat = F.normalize(query_global_va, dim=-1)
+        patch_feat = F.normalize(query_patch_va, dim=-1)
+        # static_text: [2, D] → [B, 2, D]
+        text_feat = static_text.unsqueeze(0).expand(batch, -1, -1)
+
+        # Image-level
+        logits = self._visual_logit_scale * torch.einsum("bd,bcd->bc", global_feat, text_feat)
+        visual_logit = logits[:, 1] - logits[:, 0]  # anomaly - normal
+        visual_score = logits.softmax(dim=-1)[:, 1]
+
+        # Patch-level
+        patches = patch_feat.shape[1]
+        patch_logits = self._visual_logit_scale * torch.einsum("bnd,bcd->bnc", patch_feat, text_feat)
+        patch_logit = patch_logits[..., 1] - patch_logits[..., 0]
+        grid = int(math.sqrt(patches))
+        visual_map_logits = patch_logit.reshape(batch, 1, grid, grid)
+        visual_map_logits = F.interpolate(
+            visual_map_logits,
+            size=(self.image_size, self.image_size),
+            mode="bilinear",
+            align_corners=False,
+        )
+        visual_map = torch.sigmoid(visual_map_logits)
+
+        return {
+            "visual_logits": logits,
+            "visual_logit": visual_logit,
+            "visual_score": visual_score,
+            "visual_map_logits": visual_map_logits,
+            "visual_map": visual_map,
+        }
+
+    def _zero_visual_outputs(self, query_global: torch.Tensor, patch_tokens: torch.Tensor):
+        visual_logit = query_global.new_zeros(query_global.shape[0])
+        visual_map = self._upsample_patch_map(
+            patch_tokens.new_zeros(patch_tokens.shape[0], patch_tokens.shape[1])
+        )
+        return {
+            "visual_logits": None,
+            "visual_logit": visual_logit,
+            "visual_score": torch.sigmoid(visual_logit),
+            "visual_map_logits": visual_map,
+            "visual_map": visual_map,
+        }
 
     def get_text_parameters(self):
         if not self.use_text_branch:
@@ -346,19 +436,22 @@ class InCTRLAdapt(nn.Module):
             for level in prompt_patch_levels_flat
         ]
 
-        # Save frozen (pre-adaptation) features for the text branch.
-        # In AdaptCLIP's alternating learning design:
-        #   VA path: adapted visual features + frozen static text → visual side learns
-        #   TA path: frozen visual features + learned text prompts → text side learns
-        # Using adapted features in TA would create joint learning (both sides
-        # trainable in the same path), which the paper shows is inferior.
-        query_global_frozen = query_global.detach() if self.use_visual_adapter else query_global
-        query_patch_frozen = [level.detach() for level in query_patch_levels] if self.use_visual_adapter else query_patch_levels
+        # Frozen features for InCTRL residual/PQA path and TA.
+        # VA output is ONLY used for the visual-text branch — never enters
+        # image_head / _compute_patch_residual / pq_adapter.
+        query_global_frozen = query_global
+        query_patch_frozen = query_patch_levels
 
         if self.use_visual_adapter:
-            query_global, query_patch_levels = self.visual_adapter(query_global, query_patch_levels)
+            query_global_va, query_patch_va = self.visual_adapter(
+                query_global.detach(), [l.detach() for l in query_patch_levels]
+            )
+        else:
+            query_global_va = query_global
+            query_patch_va = query_patch_levels
 
-        image_score, image_logit = self.image_head(query_global, prompt_global)
+        # InCTRL residual path uses frozen (un-adapted) features.
+        image_score, image_logit = self.image_head(query_global_frozen, prompt_global)
 
         residual_maps = []
         align_maps = []
@@ -367,7 +460,7 @@ class InCTRLAdapt(nn.Module):
         pqa_global_logits_list = []
         pqa_seg_logits_per_layer = []
         for layer_idx, (query_tokens, prompt_tokens) in enumerate(
-            zip(query_patch_levels, prompt_patch_levels)
+            zip(query_patch_frozen, prompt_patch_levels)
         ):
             prompt_flat_tokens = self._flatten_prompt_tokens(prompt_tokens)
             residual_map = self._compute_patch_residual(query_tokens, prompt_flat_tokens)
@@ -400,7 +493,21 @@ class InCTRLAdapt(nn.Module):
             else None
         )
 
-        # Text branch uses frozen (pre-adaptation) visual features,
+        # Visual-text branch: VA-adapted features + frozen static text.
+        if self.use_visual_branch and tokenizer is not None:
+            static_text = self._get_static_text_features(tokenizer, query_global.device)
+            visual_out = self._visual_branch(
+                query_global_va,
+                query_patch_va[-1][:, :, :] if query_patch_va[-1].dim() == 3 else query_patch_va[-1],
+                static_text,
+            )
+        else:
+            visual_out = self._zero_visual_outputs(query_global_frozen, query_patch_frozen[-1])
+        visual_logit = visual_out["visual_logit"]
+        visual_score = visual_out["visual_score"]
+        visual_map = visual_out["visual_map"]
+
+        # Text branch uses frozen (un-adapted) visual features,
         # matching AdaptCLIP's alternating learning: TA fixes vision, learns text.
         text_patch_feat = self.patch_text_projection(query_patch_frozen[-1])
         if self.use_text_branch:
@@ -417,6 +524,7 @@ class InCTRLAdapt(nn.Module):
         text_score = text_out["text_score"]
         text_map = text_out["text_map"]
 
+        visual_weight = float(getattr(self.args.FUSION, "VISUAL_WEIGHT", 0.0))
         final_logit = _fuse_scores(
             image_logit,
             patch_logit,
@@ -428,14 +536,31 @@ class InCTRLAdapt(nn.Module):
                 float(self.args.FUSION.PQA_WEIGHT),
                 float(self.args.FUSION.TEXT_WEIGHT),
             ),
+            visual_logit=visual_logit,
+            visual_weight=visual_weight,
         )
         final_score = torch.sigmoid(final_logit)
 
-        # Pixel-level fusion: average_mean of branch maps, then
-        # harmonic_mean with align_score (AdaptCLIP design).
+        # Pixel-level fusion: only include text/visual maps when their
+        # corresponding mask loss weight > 0 (i.e. they have supervision).
         residual_map_up = self._upsample_patch_map(patch_residual_map)
         pqa_map = self._pqa_map_from_logits(pqa_seg_logits)
-        branch_map = _average_mean([residual_map_up, pqa_map, text_map])
+        text_mask_w = float(getattr(self.args.LOSS, "TEXT_MASK_WEIGHT", 0.0))
+        visual_mask_w = float(getattr(self.args.LOSS, "VISUAL_MASK_WEIGHT", 0.0))
+        map_text_w = float(getattr(self.args.FUSION, "MAP_TEXT_WEIGHT", 0.2)) if text_mask_w > 0 else 0.0
+        map_visual_w = float(getattr(self.args.FUSION, "MAP_VISUAL_WEIGHT", 0.1)) if visual_mask_w > 0 else 0.0
+        branch_map = _fuse_maps(
+            residual_map_up,
+            pqa_map,
+            weights=(
+                float(getattr(self.args.FUSION, "MAP_RES_WEIGHT", 0.4)),
+                float(getattr(self.args.FUSION, "MAP_PQA_WEIGHT", 0.4)),
+            ),
+            text_map=text_map if map_text_w > 0 else None,
+            text_w=map_text_w,
+            visual_map=visual_map if map_visual_w > 0 else None,
+            visual_w=map_visual_w,
+        )
         final_map = _harmonic_mean([branch_map, align_score_map])
 
         # Image-pixel coupling: anomaly_map_max feeds back into image score
@@ -464,6 +589,11 @@ class InCTRLAdapt(nn.Module):
             "patch_text_logits": text_out.get("patch_text_logits"),
             "text_map_logits": text_out.get("text_map_logits"),
             "text_features": text_out.get("text_features"),
+            "visual_score": visual_score,
+            "visual_logit": visual_logit,
+            "visual_logits": visual_out.get("visual_logits"),
+            "visual_map": visual_map,
+            "visual_map_logits": visual_out.get("visual_map_logits"),
             "align_score_map": align_score_map,
             "final_map": final_map,
         }
