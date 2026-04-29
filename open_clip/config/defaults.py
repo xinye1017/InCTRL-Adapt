@@ -46,6 +46,10 @@ _C.TRAIN.SHOW_PROGRESS = True
 # If True, suppress Python warnings during local training runs.
 _C.TRAIN.SUPPRESS_WARNINGS = True
 
+# Early stopping patience (0 = disabled). Stop when val AUROC has not improved
+# for this many consecutive eval epochs.
+_C.TRAIN.EARLY_STOP_PATIENCE = 0
+
 # ---------------------------------------------------------------------------- #
 # Augmentation options.
 # ---------------------------------------------------------------------------- #
@@ -375,6 +379,9 @@ _C.SOLVER.BASE_LR_SCALE_NUM_SHARDS = False
 
 # If True, start from the peak cosine learning rate after warm up.
 _C.SOLVER.COSINE_AFTER_WARMUP = True
+
+# Minimum learning rate for cosine schedule in local training.
+_C.SOLVER.COSINE_MIN_LR = 1e-5
 
 # If True, perform no weight decay on parameter with one dimension (bias term, etc).
 _C.SOLVER.ZERO_WD_1D_PARAM = True

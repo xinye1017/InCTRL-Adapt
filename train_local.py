@@ -218,6 +218,8 @@ def parse_args():
     parser.add_argument("--output_dir", default=None)
     parser.add_argument("--no_progress", action="store_true", help="Disable tqdm training progress bars.")
     parser.add_argument("--show_warnings", action="store_true", help="Show Python warnings during training.")
+    parser.add_argument("--early_stop_patience", type=int, default=5,
+                        help="Stop if val AUROC does not improve for N eval epochs. 0=disabled.")
     parser.add_argument("--test_dataset", default=None,
                         help="Dataset(s) for val + per-category eval. Single name or slash-separated (e.g. visa or visa/aitex/elpv)")
     parser.add_argument("opts", nargs=argparse.REMAINDER)
@@ -277,6 +279,7 @@ def main():
     cfg.TRAIN.EVAL_PERIOD = args.eval_period
     cfg.TRAIN.SHOW_PROGRESS = not args.no_progress
     cfg.TRAIN.SUPPRESS_WARNINGS = not args.show_warnings
+    cfg.TRAIN.EARLY_STOP_PATIENCE = args.early_stop_patience
     cfg.NUM_GPUS = 1
     cfg.NUM_SHARDS = 1
     cfg.SHARD_ID = 0

@@ -6,6 +6,7 @@ import random
 import json
 import csv
 import time
+import copy
 import open_clip
 from open_clip import create_model_and_transforms, trace_model, get_tokenizer, create_loss
 import open_clip.utils.checkpoint as cu
@@ -290,6 +291,7 @@ def _training_header_lines(cfg, max_epoch, train_loader, test_loader, use_altern
         f"train_batches={len(train_loader)} | eval_batches={len(test_loader)} | alternating={use_alternating}",
         f"adapters: VA={cfg.VISUAL_ADAPTER.ENABLE} TA={cfg.TEXT_BRANCH.ENABLE} PQA={cfg.PQA.ENABLE}",
         f"score={cfg.FUSION.SCORE_OUTPUT} | pixel_fusion={cfg.FUSION.PIXEL_FUSION} | align_fusion={cfg.FUSION.ALIGN_FUSION}",
+        f"lr=1e-3→{float(getattr(cfg.SOLVER, 'COSINE_MIN_LR', 1e-5)):.0e} (cosine) | early_stop_patience={int(getattr(cfg.TRAIN, 'EARLY_STOP_PATIENCE', 0))}",
         f"eval_mode={eval_label} | baseline_auroc={baseline_label} | output_dir={cfg.OUTPUT_DIR}",
         "-" * 78,
     ]
@@ -548,6 +550,20 @@ def train(cfg):
 
     visual_optimizer, text_optimizer = _build_alternating_optimizers(model, lr=1e-3)
 
+    # Cosine LR schedule: decay from 1e-3 → COSINE_MIN_LR over max_epoch.
+    _max_ep = _resolve_max_epochs(cfg)
+    _min_lr = float(getattr(cfg.SOLVER, "COSINE_MIN_LR", 1e-5))
+    visual_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        visual_optimizer, T_max=_max_ep, eta_min=_min_lr,
+    )
+    text_scheduler = (
+        torch.optim.lr_scheduler.CosineAnnealingLR(
+            text_optimizer, T_max=_max_ep, eta_min=_min_lr,
+        )
+        if text_optimizer is not visual_optimizer
+        else visual_scheduler
+    )
+
     # Detect alternating training eligibility
     base_model = _get_base_model(model)
     has_visual = hasattr(base_model, "get_visual_parameters") and len(base_model.get_visual_parameters()) > 0
@@ -577,6 +593,9 @@ def train(cfg):
     history_path = os.path.join(cfg.OUTPUT_DIR, "train_history.csv")
     latest_path = os.path.join(cfg.OUTPUT_DIR, "latest_metrics.json")
     checkpoint_path = os.path.join(cfg.OUTPUT_DIR, "checkpoint.pyth")
+    best_checkpoint_path = os.path.join(cfg.OUTPUT_DIR, "checkpoint_best.pyth")
+    patience = int(getattr(cfg.TRAIN, "EARLY_STOP_PATIENCE", 0))
+    epochs_without_improvement = 0
     _print_training_header(cfg, max_epoch, train_loader, test_loader, use_alternating, baseline_auroc)
     for cur_epoch in range(start_epoch, max_epoch):
         epoch_start = time.time()
@@ -636,13 +655,45 @@ def train(cfg):
         _write_json(latest_path, _latest_metrics_payload(cfg.OUTPUT_DIR, history_rows, checkpoint_path))
         print(_format_epoch_summary(record), flush=True)
 
+        # Save best checkpoint when val AUROC improves.
+        if did_eval and test_roc is not None and best_val_auroc is not None:
+            if float(test_roc) >= float(best_val_auroc):
+                torch.save({
+                    "epoch": cur_epoch + 1,
+                    "model_state": model.state_dict(),
+                    "cfg": cfg.dump(),
+                }, best_checkpoint_path)
+                epochs_without_improvement = 0
+            else:
+                epochs_without_improvement += 1
+
+        # Early stopping check.
+        if patience > 0 and epochs_without_improvement >= patience:
+            print(f"Early stopping at epoch {cur_epoch + 1} (no improvement for {patience} eval epochs)", flush=True)
+            break
+
+        # Step LR schedulers.
+        visual_scheduler.step()
+        if text_scheduler is not visual_scheduler:
+            text_scheduler.step()
+
+    # Always save last checkpoint for resumability.
     torch.save({
-        "epoch": max_epoch,
+        "epoch": cur_epoch + 1,
         "model_state": model.state_dict(),
         "cfg": cfg.dump(),
     }, checkpoint_path)
     _write_json(latest_path, _latest_metrics_payload(cfg.OUTPUT_DIR, history_rows, checkpoint_path))
-    cfg.TEST.CHECKPOINT_FILE_PATH = checkpoint_path
+
+    # Use best checkpoint for evaluation if it exists, otherwise fall back to last.
+    if os.path.exists(best_checkpoint_path):
+        cfg.TEST.CHECKPOINT_FILE_PATH = best_checkpoint_path
+        # Reload best weights into the returned model.
+        best_state = torch.load(best_checkpoint_path, map_location="cpu")
+        model.load_state_dict(best_state["model_state"], strict=False)
+        print(f"Loaded best checkpoint (epoch {best_state['epoch']}) for evaluation.", flush=True)
+    else:
+        cfg.TEST.CHECKPOINT_FILE_PATH = checkpoint_path
 
     return model, tokenizer, transform
 
