@@ -22,15 +22,16 @@ def focal_loss(
         targets = targets.squeeze(1)
     if logits.shape[1] == 2:
         probs = logits.softmax(dim=1)
-        pt = torch.where(targets.bool(), probs[:, 1], probs[:, 0])
-        logit_ch1 = logits[:, 1]  # [B, H, W]
+        target_indices = targets.long()
+        pt = probs.gather(1, target_indices.unsqueeze(1)).squeeze(1)
+        base_loss = F.cross_entropy(logits, target_indices, reduction="none")
     else:
         probs = torch.sigmoid(logits)
         pt = torch.where(targets.bool(), probs, 1.0 - probs)
         logit_ch1 = logits.squeeze(1)
+        base_loss = F.binary_cross_entropy_with_logits(logit_ch1, targets, reduction="none")
     pt = pt.clamp(min=1e-6)
-    bce = F.binary_cross_entropy_with_logits(logit_ch1, targets, reduction="none")
-    loss = alpha * (1.0 - pt) ** gamma * bce
+    loss = alpha * (1.0 - pt) ** gamma * base_loss
     return loss.mean()
 
 

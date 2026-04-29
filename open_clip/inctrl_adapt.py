@@ -45,7 +45,16 @@ def _fuse_maps(
     text_w: float = 0.0,
     visual_map: torch.Tensor | None = None,
     visual_w: float = 0.0,
+    pixel_fusion: str = "weighted",
 ) -> torch.Tensor:
+    maps = [residual_map, pqa_map]
+    if text_map is not None and text_w > 0.0:
+        maps.append(text_map)
+    if visual_map is not None and visual_w > 0.0:
+        maps.append(visual_map)
+    if pixel_fusion != "weighted":
+        return _fuse_tensor_list(maps, mode=pixel_fusion)
+
     residual_w, pqa_w = weights
     out = residual_w * residual_map + pqa_w * pqa_map
     if text_map is not None and text_w > 0.0:
@@ -68,6 +77,18 @@ def _harmonic_mean(tensor_list: list[torch.Tensor]) -> torch.Tensor:
 
 def _average_mean(tensor_list: list[torch.Tensor]) -> torch.Tensor:
     return torch.stack(tensor_list, dim=0).mean(dim=0)
+
+
+def _fuse_tensor_list(tensor_list: list[torch.Tensor], mode: str) -> torch.Tensor:
+    if not tensor_list:
+        raise ValueError("tensor_list must contain at least one tensor.")
+    if len(tensor_list) == 1:
+        return tensor_list[0]
+    if mode == "average_mean":
+        return _average_mean(tensor_list)
+    if mode == "harmonic_mean":
+        return _harmonic_mean(tensor_list)
+    raise ValueError(f"Unsupported fusion mode: {mode}")
 
 
 def _get_vision_width(vision_cfg, fallback: int) -> int:
@@ -363,7 +384,12 @@ class InCTRLAdapt(nn.Module):
 
     def _pqa_map_from_logits(self, pqa_seg_logits: torch.Tensor) -> torch.Tensor:
         if not self.use_pqa:
-            return torch.zeros_like(pqa_seg_logits)
+            return pqa_seg_logits.new_zeros(
+                pqa_seg_logits.shape[0],
+                1,
+                pqa_seg_logits.shape[-2],
+                pqa_seg_logits.shape[-1],
+            )
         if pqa_seg_logits.shape[1] == 2:
             return pqa_seg_logits.softmax(dim=1)[:, 1:2]
         return torch.sigmoid(pqa_seg_logits)
@@ -476,8 +502,8 @@ class InCTRLAdapt(nn.Module):
             pqa_global_logits_list.append(pqa_out.get("pqa_global_logits"))
             pqa_seg_logits_per_layer.append(pqa_out["pqa_seg_logits"])
 
-        # Align scores: harmonic_mean across layers (AdaptCLIP design).
-        align_score_map = _harmonic_mean(align_maps) if len(align_maps) > 1 else align_maps[0]
+        align_fusion = str(getattr(self.args.FUSION, "ALIGN_FUSION", "harmonic_mean"))
+        align_score_map = _fuse_tensor_list(align_maps, mode=align_fusion)
 
         patch_residual_map = torch.stack(residual_maps, dim=0).mean(dim=0)
         patch_score = patch_residual_map.max(dim=-1).values
@@ -560,13 +586,17 @@ class InCTRLAdapt(nn.Module):
             text_w=map_text_w,
             visual_map=visual_map if map_visual_w > 0 else None,
             visual_w=map_visual_w,
+            pixel_fusion=str(getattr(self.args.FUSION, "PIXEL_FUSION", "weighted")),
         )
-        final_map = _harmonic_mean([branch_map, align_score_map])
+        final_map = _fuse_tensor_list([branch_map, align_score_map], mode=align_fusion)
 
         # Image-pixel coupling: anomaly_map_max feeds back into image score
         # via harmonic_mean (AdaptCLIP design).
         anomaly_map_max, _ = final_map.view(batch, -1).max(dim=-1)
-        coupled_image_score = _harmonic_mean([final_score, anomaly_map_max])
+        if bool(getattr(self.args.FUSION, "IMAGE_PIXEL_COUPLING", True)):
+            coupled_image_score = _harmonic_mean([final_score, anomaly_map_max])
+        else:
+            coupled_image_score = final_score
 
         outputs = {
             "final_score": final_score,

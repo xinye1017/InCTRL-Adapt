@@ -184,13 +184,13 @@ _C.FUSION.TEXT_WEIGHT = 0.15
 _C.FUSION.MAP_RES_WEIGHT = 0.4
 _C.FUSION.MAP_PQA_WEIGHT = 0.4
 _C.FUSION.MAP_TEXT_WEIGHT = 0.2
-_C.FUSION.PIXEL_FUSION = 'average_mean'  # average_mean or harmonic_mean
+_C.FUSION.PIXEL_FUSION = 'weighted'  # weighted, average_mean, or harmonic_mean
 _C.FUSION.ALIGN_FUSION = 'harmonic_mean'  # how to fuse align scores across layers
 _C.FUSION.IMAGE_PIXEL_COUPLING = True  # harmonic_mean of image_score + anomaly_map_max
 _C.FUSION.VISUAL_WEIGHT = 0.0  # weight for VA visual-text branch in score fusion
 _C.FUSION.USE_VISUAL_BRANCH = True  # enable VA visual-text branch (requires VISUAL_ADAPTER.ENABLE)
 _C.FUSION.MAP_VISUAL_WEIGHT = 0.1  # weight for visual_map in pixel fusion (only if VISUAL_MASK_WEIGHT > 0)
-_C.FUSION.SCORE_OUTPUT = 'final_score'  # which score to use for eval: final_score or coupled_score
+_C.FUSION.SCORE_OUTPUT = 'auto'  # auto, final_score, or coupled_score
 
 _C.LOSS = CfgNode()
 _C.LOSS.IMAGE_WEIGHT = 1.0

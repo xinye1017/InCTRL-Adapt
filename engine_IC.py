@@ -130,6 +130,17 @@ def _build_alternating_optimizers(model, lr=1e-3):
     return visual_optimizer, text_optimizer
 
 
+def _select_adapt_score(outputs, cfg):
+    score_key = str(getattr(cfg.FUSION, "SCORE_OUTPUT", "auto"))
+    if score_key == "auto":
+        score_key = (
+            "coupled_score"
+            if bool(getattr(cfg.FUSION, "IMAGE_PIXEL_COUPLING", True))
+            else "final_score"
+        )
+    return outputs.get(score_key, outputs["final_score"])
+
+
 def _progress_enabled(cfg):
     return bool(getattr(cfg.TRAIN, "SHOW_PROGRESS", False)) and tqdm is not None
 
@@ -274,8 +285,7 @@ def eval_epoch(val_loader, model, cfg, tokenizer, mode=None):
                 return_aux=False,
                 return_dict=True,
             )
-            score_key = str(getattr(cfg.FUSION, "SCORE_OUTPUT", "final_score"))
-            preds = outputs.get(score_key, outputs["final_score"])
+            preds = _select_adapt_score(outputs, cfg)
         else:
             inputs, types, labels = batch[:3]
             if cfg.NUM_GPUS:

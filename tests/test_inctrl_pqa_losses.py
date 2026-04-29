@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import torch
 
-from open_clip.inctrl_pqa_losses import compute_inctrl_pqa_loss, dice_loss
+from open_clip.inctrl_pqa_losses import compute_inctrl_pqa_loss, dice_loss, focal_loss
 
 
 def _cfg():
@@ -26,6 +26,24 @@ def test_dice_loss_is_near_zero_for_perfect_mask():
     loss = dice_loss(logits, masks)
 
     assert loss < 1e-4
+
+
+def test_focal_loss_2ch_uses_cross_entropy_for_both_channels():
+    logits = torch.tensor(
+        [[
+            [[2.0, -1.0], [0.5, 1.0]],
+            [[-2.0, 3.0], [1.5, -0.5]],
+        ]]
+    )
+    targets = torch.tensor([[[0, 1], [1, 0]]])
+
+    loss = focal_loss(logits, targets, alpha=0.75, gamma=2.0)
+
+    ce = torch.nn.functional.cross_entropy(logits, targets.long(), reduction="none")
+    probs = logits.softmax(dim=1)
+    pt = probs.gather(1, targets.long().unsqueeze(1)).squeeze(1).clamp(min=1e-6)
+    expected = (0.75 * (1.0 - pt) ** 2.0 * ce).mean()
+    assert torch.allclose(loss, expected)
 
 
 def test_compute_inctrl_pqa_loss_uses_image_pqa_text_and_mask_terms():

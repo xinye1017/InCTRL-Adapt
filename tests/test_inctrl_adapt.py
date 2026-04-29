@@ -2,6 +2,7 @@ import torch
 
 from open_clip.inctrl_adapt import (
     InCTRLAdapt,
+    _fuse_tensor_list,
     _fuse_maps,
     _fuse_scores,
     _get_vision_width,
@@ -76,6 +77,45 @@ def test_fuse_maps_preserves_shape_and_weighting():
     assert torch.allclose(fused, torch.ones(1, 1, 4, 4) * 1.8)
 
 
+def test_fuse_maps_honors_configured_pixel_fusion_modes():
+    residual = torch.ones(1, 1, 2, 2)
+    pqa = torch.ones(1, 1, 2, 2) * 4
+
+    weighted = _fuse_maps(
+        residual,
+        pqa,
+        weights=(0.25, 0.75),
+        pixel_fusion="weighted",
+    )
+    average = _fuse_maps(
+        residual,
+        pqa,
+        weights=(0.25, 0.75),
+        pixel_fusion="average_mean",
+    )
+    harmonic = _fuse_maps(
+        residual,
+        pqa,
+        weights=(0.25, 0.75),
+        pixel_fusion="harmonic_mean",
+    )
+
+    assert torch.allclose(weighted, torch.ones(1, 1, 2, 2) * 3.25)
+    assert torch.allclose(average, torch.ones(1, 1, 2, 2) * 2.5)
+    assert torch.allclose(harmonic, torch.ones(1, 1, 2, 2) * 1.6)
+
+
+def test_fuse_tensor_list_honors_align_fusion_mode():
+    first = torch.ones(1, 1, 2, 2)
+    second = torch.ones(1, 1, 2, 2) * 4
+
+    average = _fuse_tensor_list([first, second], mode="average_mean")
+    harmonic = _fuse_tensor_list([first, second], mode="harmonic_mean")
+
+    assert torch.allclose(average, torch.ones(1, 1, 2, 2) * 2.5)
+    assert torch.allclose(harmonic, torch.ones(1, 1, 2, 2) * 1.6)
+
+
 def test_get_vision_width_reads_patch_token_dimension_from_config():
     assert _get_vision_width({"width": 896}, fallback=640) == 896
     assert _get_vision_width({}, fallback=640) == 640
@@ -146,11 +186,12 @@ def test_disabled_pqa_branch_outputs_neutral_zero_logits_and_map():
 def test_disabled_pqa_branch_contributes_zero_final_map_component():
     model = InCTRLAdapt.__new__(InCTRLAdapt)
     model.use_pqa = False
-    logits = torch.zeros(2, 1, 32, 32)
+    logits = torch.zeros(2, 2, 32, 32)
 
     pqa_map = InCTRLAdapt._pqa_map_from_logits(model, logits)
 
-    assert torch.equal(pqa_map, torch.zeros_like(logits))
+    assert pqa_map.shape == (2, 1, 32, 32)
+    assert torch.equal(pqa_map, torch.zeros(2, 1, 32, 32))
 
 
 def test_get_visual_parameters_returns_adapter_and_head_params():

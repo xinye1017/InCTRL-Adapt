@@ -209,6 +209,45 @@ def test_eval_epoch_uses_progress_wrapper(monkeypatch):
     ]
 
 
+def test_eval_epoch_uses_coupled_score_when_coupling_is_enabled(monkeypatch):
+    cfg = get_cfg()
+    cfg.NUM_GPUS = 0
+    cfg.TRAIN.SHOW_PROGRESS = False
+    cfg.FUSION.IMAGE_PIXEL_COUPLING = True
+    cfg.FUSION.SCORE_OUTPUT = "auto"
+
+    class FakeModel:
+        def __init__(self):
+            self.outputs = iter([
+                {"final_score": torch.tensor([0.9]), "coupled_score": torch.tensor([0.1])},
+                {"final_score": torch.tensor([0.1]), "coupled_score": torch.tensor([0.9])},
+            ])
+
+        def eval(self):
+            return self
+
+        def __call__(self, **kwargs):
+            return next(self.outputs)
+
+    def make_batch(label):
+        inputs = [
+            torch.zeros(1, 3, 8, 8),
+            torch.zeros(1, 3, 8, 8),
+        ]
+        return inputs, ["AITEX"], torch.tensor([label])
+
+    auroc, aupr = eval_epoch(
+        [make_batch(0), make_batch(1)],
+        FakeModel(),
+        cfg,
+        tokenizer=None,
+        mode="test/AITEX",
+    )
+
+    assert auroc == 1.0
+    assert aupr == 1.0
+
+
 def test_configure_train_local_output_suppresses_warnings():
     cfg = get_cfg()
     cfg.TRAIN.SUPPRESS_WARNINGS = True
