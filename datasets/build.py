@@ -12,7 +12,7 @@ The call should return a `torch.utils.data.Dataset` object.
 """
 
 
-def build_dataset(data_name, data_path, normal_json_path, outlier_json_path, transform, shot):
+def build_dataset(data_name, data_path, normal_json_path, outlier_json_path, transform, shot, few_shot_seed=42):
     """
     Build a dataset, defined by `dataset_name`.
     Args:
@@ -29,4 +29,4 @@ def build_dataset(data_name, data_path, normal_json_path, outlier_json_path, tra
     # start with an uppercase letter.
     name = data_name
 
-    return DATASET_REGISTRY.get(name)(data_path, normal_json_path, outlier_json_path, transform, shot)
+    return DATASET_REGISTRY.get(name)(data_path, normal_json_path, outlier_json_path, transform, shot, few_shot_seed=few_shot_seed)

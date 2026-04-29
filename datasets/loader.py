@@ -70,7 +70,8 @@ def construct_loader(cfg, split, transform):
         batch_size = int(cfg.TEST.BATCH_SIZE / max(1, cfg.NUM_GPUS))
 
     # Construct the dataset
-    dataset = build_dataset(data_name, data_path, normal_json_path, outlier_json_path, transform, shot)
+    few_shot_seed = int(getattr(cfg, "FEW_SHOT_SEED", 42))
+    dataset = build_dataset(data_name, data_path, normal_json_path, outlier_json_path, transform, shot, few_shot_seed=few_shot_seed)
 
     # Create a sampler for multi-process training
     if cfg.AUG.NUM_SAMPLE > 1 and split in ["train"]:
