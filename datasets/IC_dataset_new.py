@@ -72,7 +72,8 @@ class IC_dataset(VisionDataset):
         normal_json_path_list: list,
         outlier_json_path_list: list,
         transform: Optional[Callable] = None,
-        shot = None
+        shot = None,
+        few_shot_seed: int = 42,
     ) -> None:
         super().__init__(root)
 
@@ -118,7 +119,7 @@ class IC_dataset(VisionDataset):
         # 为每个样本预计算shot索引（使用固定seed确保可复现）
         # 这样每个epoch采样结果相同，但避免重复IO
         self.precomputed_shot_indices = []
-        rng = np.random.default_rng(42)  # 固定seed保证可复现
+        rng = np.random.default_rng(few_shot_seed)  # 可配置seed保证可复现
         for idx, sample in enumerate(self.image):
             sample_type = sample['type']
             normal_indices = self.type_to_normal_indices.get(sample_type, [])
