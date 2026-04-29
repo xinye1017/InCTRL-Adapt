@@ -33,12 +33,13 @@ def test_compute_inctrl_pqa_loss_uses_image_pqa_text_and_mask_terms():
         "final_logit": torch.tensor([0.0, 1.0]),
         "image_logit": torch.tensor([0.0, 1.0]),
         "pqa_logit": torch.tensor([0.0, 1.0]),
+        "pqa_global_logits": torch.tensor([[0.1, 0.9], [0.8, 0.2]]),
         "text_logit": torch.tensor([0.0, 1.0]),
-        "pqa_seg_logits": torch.randn(2, 1, 8, 8),
+        "pqa_seg_logits": torch.randn(2, 2, 8, 8),
     }
     labels = torch.tensor([0, 1])
-    masks = torch.zeros(2, 1, 8, 8)
-    masks[1, :, 2:5, 2:5] = 1.0
+    masks = torch.zeros(2, 8, 8)
+    masks[1, 2:5, 2:5] = 1.0
 
     loss, parts = compute_inctrl_pqa_loss(outputs, labels, masks, _cfg())
 
@@ -53,8 +54,9 @@ def test_compute_inctrl_pqa_loss_allows_missing_masks_with_zero_mask_term():
         "final_logit": torch.tensor([0.0, 1.0]),
         "image_logit": torch.tensor([0.0, 1.0]),
         "pqa_logit": torch.tensor([0.0, 1.0]),
+        "pqa_global_logits": torch.tensor([[0.1, 0.9], [0.8, 0.2]]),
         "text_logit": torch.tensor([0.0, 1.0]),
-        "pqa_seg_logits": torch.randn(2, 1, 8, 8),
+        "pqa_seg_logits": torch.randn(2, 2, 8, 8),
     }
     labels = torch.tensor([0, 1])
 
@@ -74,10 +76,10 @@ def test_compute_inctrl_pqa_loss_skips_pqa_and_mask_terms_when_pqa_disabled():
         "image_logit": torch.tensor([0.0, 1.0]),
         "pqa_logit": torch.tensor([0.0, 1.0]),
         "text_logit": torch.tensor([0.0, 1.0]),
-        "pqa_seg_logits": torch.randn(2, 1, 8, 8),
+        "pqa_seg_logits": torch.randn(2, 2, 8, 8),
     }
     labels = torch.tensor([0, 1])
-    masks = torch.ones(2, 1, 8, 8)
+    masks = torch.ones(2, 8, 8)
 
     loss, parts = compute_inctrl_pqa_loss(outputs, labels, masks, cfg)
 
@@ -95,10 +97,10 @@ def test_compute_inctrl_pqa_loss_skips_mask_term_when_seg_head_disabled():
         "image_logit": torch.tensor([0.0, 1.0]),
         "pqa_logit": torch.tensor([0.0, 1.0]),
         "text_logit": torch.tensor([0.0, 1.0]),
-        "pqa_seg_logits": torch.randn(2, 1, 8, 8),
+        "pqa_seg_logits": torch.randn(2, 2, 8, 8),
     }
     labels = torch.tensor([0, 1])
-    masks = torch.ones(2, 1, 8, 8)
+    masks = torch.ones(2, 8, 8)
 
     loss, parts = compute_inctrl_pqa_loss(outputs, labels, masks, cfg)
 
@@ -114,9 +116,10 @@ def test_compute_inctrl_pqa_loss_uses_ce_when_text_logits_present():
         "final_logit": torch.tensor([0.0, 1.0]),
         "image_logit": torch.tensor([0.0, 1.0]),
         "pqa_logit": torch.tensor([0.0, 1.0]),
+        "pqa_global_logits": torch.tensor([[0.1, 0.9], [0.8, 0.2]]),
         "text_logit": torch.tensor([0.0, 1.0]),
         "text_logits": torch.tensor([[0.1, 0.9], [0.8, 0.2]]),
-        "pqa_seg_logits": torch.randn(2, 1, 8, 8),
+        "pqa_seg_logits": torch.randn(2, 2, 8, 8),
     }
     labels = torch.tensor([0, 1])
     cfg = _cfg()
@@ -135,11 +138,11 @@ def test_compute_inctrl_pqa_loss_text_mask_activates_when_weight_positive():
         "pqa_logit": torch.tensor([0.0, 1.0]),
         "text_logit": torch.tensor([0.0, 1.0]),
         "text_map_logits": torch.randn(2, 1, 8, 8),
-        "pqa_seg_logits": torch.randn(2, 1, 8, 8),
+        "pqa_seg_logits": torch.randn(2, 2, 8, 8),
     }
     labels = torch.tensor([0, 1])
-    masks = torch.zeros(2, 1, 8, 8)
-    masks[1, :, 2:5, 2:5] = 1.0
+    masks = torch.zeros(2, 8, 8)
+    masks[1, 2:5, 2:5] = 1.0
     cfg = _cfg()
     cfg.LOSS.TEXT_MASK_WEIGHT = 0.5
 
@@ -158,10 +161,10 @@ def test_compute_inctrl_pqa_loss_text_mask_zero_when_text_disabled():
         "pqa_logit": torch.tensor([0.0, 1.0]),
         "text_logit": torch.tensor([0.0, 1.0]),
         "text_map_logits": torch.randn(2, 1, 8, 8),
-        "pqa_seg_logits": torch.randn(2, 1, 8, 8),
+        "pqa_seg_logits": torch.randn(2, 2, 8, 8),
     }
     labels = torch.tensor([0, 1])
-    masks = torch.ones(2, 1, 8, 8)
+    masks = torch.ones(2, 8, 8)
 
     loss, parts = compute_inctrl_pqa_loss(outputs, labels, masks, cfg)
 

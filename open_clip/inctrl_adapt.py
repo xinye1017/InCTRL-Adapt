@@ -42,6 +42,21 @@ def _fuse_maps(
     return residual_w * residual_map + pqa_w * pqa_map + text_w * text_map
 
 
+def _harmonic_mean(tensor_list: list[torch.Tensor]) -> torch.Tensor:
+    """Harmonic mean: penalizes low scores more than arithmetic mean.
+
+    Any branch can 'veto' a normal prediction, which is desirable for
+    anomaly detection where missing a defect is costly.
+    """
+    stacked = torch.stack(tensor_list, dim=0)  # [N, ...]
+    stacked = stacked.clamp(min=1e-6)
+    return stacked.shape[0] / (1.0 / stacked).sum(dim=0)
+
+
+def _average_mean(tensor_list: list[torch.Tensor]) -> torch.Tensor:
+    return torch.stack(tensor_list, dim=0).mean(dim=0)
+
+
 def _get_vision_width(vision_cfg, fallback: int) -> int:
     if isinstance(vision_cfg, dict):
         return int(vision_cfg.get("width", fallback))
@@ -120,6 +135,7 @@ class InCTRLAdapt(nn.Module):
             dim=patch_dim,
             hidden_dim=hidden_dim,
             image_size=self.image_size,
+            num_layers=len(self.patch_layers),
             topk=int(getattr(args.PQA, "GLOBAL_TOPK", 10)),
             beta=float(getattr(args.PQA, "CONTEXT_BETA", 1.0)),
             enable_seg_head=self.use_seg_head,
@@ -244,10 +260,12 @@ class InCTRLAdapt(nn.Module):
         }
 
     def _zero_pqa_outputs(self, query_tokens: torch.Tensor):
-        pqa_logit = query_tokens.new_zeros(query_tokens.shape[0])
-        pqa_patch_map = query_tokens.new_zeros(query_tokens.shape[0], query_tokens.shape[1])
+        batch = query_tokens.shape[0]
+        pqa_logit = query_tokens.new_zeros(batch)
+        pqa_patch_map = query_tokens.new_zeros(batch, query_tokens.shape[1])
         return {
-            "pqa_seg_logits": self._upsample_patch_map(pqa_patch_map),
+            "pqa_seg_logits": query_tokens.new_zeros(batch, 2, self.image_size, self.image_size),
+            "pqa_global_logits": query_tokens.new_zeros(batch, 2),
             "pqa_logit": pqa_logit,
             "pqa_score": torch.sigmoid(pqa_logit),
             "pqa_patch_map": pqa_patch_map,
@@ -256,6 +274,8 @@ class InCTRLAdapt(nn.Module):
     def _pqa_map_from_logits(self, pqa_seg_logits: torch.Tensor) -> torch.Tensor:
         if not self.use_pqa:
             return torch.zeros_like(pqa_seg_logits)
+        if pqa_seg_logits.shape[1] == 2:
+            return pqa_seg_logits.softmax(dim=1)[:, 1:2]
         return torch.sigmoid(pqa_seg_logits)
 
     def _legacy_inputs_to_new(self, image, normal_list):
@@ -326,34 +346,45 @@ class InCTRLAdapt(nn.Module):
             for level in prompt_patch_levels_flat
         ]
 
+        # Save frozen (pre-adaptation) features for the text branch.
+        # In AdaptCLIP's alternating learning design:
+        #   VA path: adapted visual features + frozen static text → visual side learns
+        #   TA path: frozen visual features + learned text prompts → text side learns
+        # Using adapted features in TA would create joint learning (both sides
+        # trainable in the same path), which the paper shows is inferior.
+        query_global_frozen = query_global.detach() if self.use_visual_adapter else query_global
+        query_patch_frozen = [level.detach() for level in query_patch_levels] if self.use_visual_adapter else query_patch_levels
+
         if self.use_visual_adapter:
             query_global, query_patch_levels = self.visual_adapter(query_global, query_patch_levels)
-            prompt_global = self.visual_adapter.global_adapter(prompt_global)
-            prompt_patch_levels = [
-                self.visual_adapter.local_adapter(
-                    level.reshape(batch * shot, level.shape[2], level.shape[3])
-                ).reshape(batch, shot, level.shape[2], level.shape[3])
-                for level in prompt_patch_levels
-            ]
 
         image_score, image_logit = self.image_head(query_global, prompt_global)
 
         residual_maps = []
+        align_maps = []
         pqa_maps = []
         pqa_logits = []
+        pqa_global_logits_list = []
         pqa_seg_logits_per_layer = []
-        for query_tokens, prompt_tokens in zip(query_patch_levels, prompt_patch_levels):
+        for layer_idx, (query_tokens, prompt_tokens) in enumerate(
+            zip(query_patch_levels, prompt_patch_levels)
+        ):
             prompt_flat_tokens = self._flatten_prompt_tokens(prompt_tokens)
             residual_map = self._compute_patch_residual(query_tokens, prompt_flat_tokens)
             pqa_out = (
-                self.pq_adapter(query_tokens, prompt_flat_tokens)
+                self.pq_adapter(query_tokens, prompt_flat_tokens, layer_idx=layer_idx)
                 if self.use_pqa
                 else self._zero_pqa_outputs(query_tokens)
             )
             residual_maps.append(residual_map)
+            align_maps.append(self._upsample_patch_map(residual_map))
             pqa_maps.append(pqa_out["pqa_patch_map"])
             pqa_logits.append(pqa_out["pqa_logit"])
+            pqa_global_logits_list.append(pqa_out.get("pqa_global_logits"))
             pqa_seg_logits_per_layer.append(pqa_out["pqa_seg_logits"])
+
+        # Align scores: harmonic_mean across layers (AdaptCLIP design).
+        align_score_map = _harmonic_mean(align_maps) if len(align_maps) > 1 else align_maps[0]
 
         patch_residual_map = torch.stack(residual_maps, dim=0).mean(dim=0)
         patch_score = patch_residual_map.max(dim=-1).values
@@ -362,14 +393,22 @@ class InCTRLAdapt(nn.Module):
         pqa_logit = torch.stack(pqa_logits, dim=0).mean(dim=0)
         pqa_score = torch.sigmoid(pqa_logit)
         pqa_seg_logits = torch.stack(pqa_seg_logits_per_layer, dim=0).mean(dim=0)
+        # PQA global logits: average across layers → [B, 2].
+        pqa_global_logits = (
+            torch.stack(pqa_global_logits_list, dim=0).mean(dim=0)
+            if pqa_global_logits_list[0] is not None
+            else None
+        )
 
-        text_patch_feat = self.patch_text_projection(query_patch_levels[-1])
+        # Text branch uses frozen (pre-adaptation) visual features,
+        # matching AdaptCLIP's alternating learning: TA fixes vision, learns text.
+        text_patch_feat = self.patch_text_projection(query_patch_frozen[-1])
         if self.use_text_branch:
             text_out = self.text_branch(
                 encode_text_prompted=self.encode_text_prompted,
                 token_embedding=self.token_embedding,
                 tokenizer=tokenizer,
-                global_feat=query_global,
+                global_feat=query_global_frozen,
                 patch_feat=text_patch_feat,
             )
         else:
@@ -392,22 +431,22 @@ class InCTRLAdapt(nn.Module):
         )
         final_score = torch.sigmoid(final_logit)
 
+        # Pixel-level fusion: average_mean of branch maps, then
+        # harmonic_mean with align_score (AdaptCLIP design).
         residual_map_up = self._upsample_patch_map(patch_residual_map)
         pqa_map = self._pqa_map_from_logits(pqa_seg_logits)
-        final_map = _fuse_maps(
-            residual_map_up,
-            pqa_map,
-            text_map,
-            weights=(
-                float(self.args.FUSION.MAP_RES_WEIGHT),
-                float(self.args.FUSION.MAP_PQA_WEIGHT),
-                float(self.args.FUSION.MAP_TEXT_WEIGHT),
-            ),
-        )
+        branch_map = _average_mean([residual_map_up, pqa_map, text_map])
+        final_map = _harmonic_mean([branch_map, align_score_map])
+
+        # Image-pixel coupling: anomaly_map_max feeds back into image score
+        # via harmonic_mean (AdaptCLIP design).
+        anomaly_map_max, _ = final_map.view(batch, -1).max(dim=-1)
+        coupled_image_score = _harmonic_mean([final_score, anomaly_map_max])
 
         outputs = {
             "final_score": final_score,
             "final_logit": final_logit,
+            "coupled_score": coupled_image_score,
             "image_score": image_score,
             "image_logit": image_logit,
             "patch_score": patch_score,
@@ -415,6 +454,7 @@ class InCTRLAdapt(nn.Module):
             "patch_residual_map": patch_residual_map,
             "pqa_score": pqa_score,
             "pqa_logit": pqa_logit,
+            "pqa_global_logits": pqa_global_logits,
             "pqa_patch_map": pqa_patch_map,
             "pqa_seg_logits": pqa_seg_logits,
             "text_score": text_score,
@@ -424,6 +464,7 @@ class InCTRLAdapt(nn.Module):
             "patch_text_logits": text_out.get("patch_text_logits"),
             "text_map_logits": text_out.get("text_map_logits"),
             "text_features": text_out.get("text_features"),
+            "align_score_map": align_score_map,
             "final_map": final_map,
         }
         if return_aux:

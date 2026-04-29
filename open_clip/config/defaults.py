@@ -174,6 +174,7 @@ _C.PQA.PATCH_LAYERS = [7, 9, 11]
 _C.PQA.CONTEXT_BETA = 1.0
 _C.PQA.HIDDEN_DIM = 128
 _C.PQA.GLOBAL_TOPK = 10
+_C.PQA.NUM_LAYERS = 3  # should match len(PATCH_LAYERS)
 
 _C.FUSION = CfgNode()
 _C.FUSION.IMAGE_WEIGHT = 0.35
@@ -183,6 +184,9 @@ _C.FUSION.TEXT_WEIGHT = 0.15
 _C.FUSION.MAP_RES_WEIGHT = 0.4
 _C.FUSION.MAP_PQA_WEIGHT = 0.4
 _C.FUSION.MAP_TEXT_WEIGHT = 0.2
+_C.FUSION.PIXEL_FUSION = 'average_mean'  # average_mean or harmonic_mean
+_C.FUSION.ALIGN_FUSION = 'harmonic_mean'  # how to fuse align scores across layers
+_C.FUSION.IMAGE_PIXEL_COUPLING = True  # harmonic_mean of image_score + anomaly_map_max
 
 _C.LOSS = CfgNode()
 _C.LOSS.IMAGE_WEIGHT = 1.0

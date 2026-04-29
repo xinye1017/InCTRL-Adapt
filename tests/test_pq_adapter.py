@@ -23,33 +23,37 @@ def test_align_prompt_to_query_matches_best_prompt_token():
 
 def test_pq_adapter_output_shapes_and_range():
     torch.manual_seed(7)
-    adapter = PQAdapter(dim=16, hidden_dim=32, image_size=64, topk=5, beta=0.5)
+    adapter = PQAdapter(dim=16, hidden_dim=32, image_size=64, num_layers=2, topk=5, beta=0.5)
+    adapter.eval()  # BN requires eval or batch>1
 
     batch, patches, dim = 2, 16, 16  # 16 patches = 4x4 grid
     query_tokens = torch.randn(batch, patches, dim)
     prompt_tokens = torch.randn(batch, patches * 3, dim)  # 3-shot
 
-    out = adapter(query_tokens, prompt_tokens)
+    out = adapter(query_tokens, prompt_tokens, layer_idx=0)
 
-    assert out["pqa_seg_logits"].shape == (batch, 1, 64, 64)
+    assert out["pqa_seg_logits"].shape == (batch, 2, 64, 64)
+    assert out["pqa_global_logits"].shape == (batch, 2)
     assert out["pqa_logit"].shape == (batch,)
     assert out["pqa_score"].shape == (batch,)
-    assert out["pqa_patch_map"].shape == (batch, patches)
+    # After two ConvTranspose2d(2x): 4x4 → 8x8 → 16x16 = 256 patches
+    assert out["pqa_patch_map"].shape == (batch, 256)
     assert 0 <= out["pqa_score"].min() <= out["pqa_score"].max() <= 1
 
 
 def test_pq_adapter_without_seg_head_returns_alignment_residual_and_zero_logits():
     torch.manual_seed(7)
-    adapter = PQAdapter(dim=16, hidden_dim=32, image_size=64, topk=5, beta=0.5, enable_seg_head=False)
+    adapter = PQAdapter(dim=16, hidden_dim=32, image_size=64, num_layers=2, topk=5, beta=0.5, enable_seg_head=False)
 
     batch, patches, dim = 2, 16, 16
     query_tokens = torch.randn(batch, patches, dim)
     prompt_tokens = torch.randn(batch, patches * 3, dim)
 
-    out = adapter(query_tokens, prompt_tokens)
+    out = adapter(query_tokens, prompt_tokens, layer_idx=0)
 
     # Seg logits and logit should be zero
-    assert torch.equal(out["pqa_seg_logits"], torch.zeros(batch, 1, 64, 64))
+    assert torch.equal(out["pqa_seg_logits"], torch.zeros(batch, 2, 64, 64))
+    assert torch.equal(out["pqa_global_logits"], torch.zeros(batch, 2))
     assert torch.equal(out["pqa_logit"], torch.zeros(batch))
     assert torch.allclose(out["pqa_score"], torch.full((batch,), 0.5))
     # pqa_patch_map should fall back to alignment residual
@@ -59,13 +63,15 @@ def test_pq_adapter_without_seg_head_returns_alignment_residual_and_zero_logits(
 
 def test_pq_adapter_beta_controls_context_blending():
     torch.manual_seed(11)
-    adapter_low_beta = PQAdapter(dim=8, hidden_dim=16, image_size=32, beta=0.1)
-    adapter_high_beta = PQAdapter(dim=8, hidden_dim=16, image_size=32, beta=2.0)
+    adapter_low_beta = PQAdapter(dim=8, hidden_dim=16, image_size=32, num_layers=1, beta=0.1)
+    adapter_high_beta = PQAdapter(dim=8, hidden_dim=16, image_size=32, num_layers=1, beta=2.0)
+    adapter_low_beta.eval()
+    adapter_high_beta.eval()
 
-    query = torch.randn(1, 4, 8)
-    prompt = torch.randn(1, 12, 8)
+    query = torch.randn(2, 4, 8)
+    prompt = torch.randn(2, 12, 8)
 
-    out_low = adapter_low_beta(query, prompt)
-    out_high = adapter_high_beta(query, prompt)
+    out_low = adapter_low_beta(query, prompt, layer_idx=0)
+    out_high = adapter_high_beta(query, prompt, layer_idx=0)
 
     assert not torch.allclose(out_low["pqa_score"], out_high["pqa_score"])

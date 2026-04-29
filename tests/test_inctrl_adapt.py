@@ -137,9 +137,10 @@ def test_disabled_pqa_branch_outputs_neutral_zero_logits_and_map():
     assert torch.equal(outputs["pqa_logit"], torch.zeros(2))
     assert torch.allclose(outputs["pqa_score"], torch.full((2,), 0.5))
     assert outputs["pqa_patch_map"].shape == (2, 4)
-    assert outputs["pqa_seg_logits"].shape == (2, 1, 32, 32)
+    assert outputs["pqa_seg_logits"].shape == (2, 2, 32, 32)
     assert torch.equal(outputs["pqa_patch_map"], torch.zeros(2, 4))
-    assert torch.equal(outputs["pqa_seg_logits"], torch.zeros(2, 1, 32, 32))
+    assert torch.equal(outputs["pqa_seg_logits"], torch.zeros(2, 2, 32, 32))
+    assert torch.equal(outputs["pqa_global_logits"], torch.zeros(2, 2))
 
 
 def test_disabled_pqa_branch_contributes_zero_final_map_component():
