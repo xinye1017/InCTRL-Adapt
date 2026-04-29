@@ -5,11 +5,15 @@ import torch
 
 from engine_IC import (
     _build_active_model,
+    _build_epoch_record,
+    _format_epoch_summary,
     eval_epoch,
     _iter_with_progress,
     _is_adapt_model,
+    _latest_metrics_payload,
     _progress_enabled,
     _resolve_max_epochs,
+    _should_eval_epoch,
     _split_batch_with_optional_masks,
 )
 from open_clip.config.defaults import get_cfg
@@ -155,6 +159,80 @@ def test_iter_with_progress_wraps_iterable_when_enabled(monkeypatch):
     ]
 
 
+def test_should_eval_epoch_respects_train_eval_period():
+    cfg = get_cfg()
+    cfg.TRAIN.EVAL_PERIOD = 2
+
+    assert _should_eval_epoch(cur_epoch=0, max_epoch=5, cfg=cfg) is True
+    assert _should_eval_epoch(cur_epoch=1, max_epoch=5, cfg=cfg) is True
+    assert _should_eval_epoch(cur_epoch=2, max_epoch=5, cfg=cfg) is False
+    assert _should_eval_epoch(cur_epoch=4, max_epoch=5, cfg=cfg) is True
+
+
+def test_epoch_record_tracks_best_metric_and_baseline_delta():
+    record, best = _build_epoch_record(
+        epoch=2,
+        phase="text",
+        train_loss=0.321,
+        loss_parts={"final": 0.2, "pqa": 0.1},
+        val_auroc=0.9,
+        val_aupr=0.8,
+        best_val_auroc=0.88,
+        baseline_auroc=0.858,
+        elapsed_sec=12.345,
+        lr=1e-3,
+        did_eval=True,
+    )
+
+    assert best == 0.9
+    assert record["epoch"] == 2
+    assert record["phase"] == "text"
+    assert record["val_auroc"] == 0.9
+    assert record["best_val_auroc"] == 0.9
+    assert record["delta_vs_baseline"] == 0.042
+    assert record["final_loss"] == 0.2
+    assert record["pqa_loss"] == 0.1
+    assert record["elapsed_sec"] == 12.345
+    assert record["lr"] == 0.001
+
+
+def test_epoch_summary_is_human_readable():
+    summary = _format_epoch_summary({
+        "epoch": 3,
+        "phase": "visual",
+        "train_loss": 0.12345,
+        "val_auroc": 0.8765,
+        "val_aupr": 0.7654,
+        "best_val_auroc": 0.9,
+        "delta_vs_baseline": -0.0235,
+        "elapsed_sec": 5.2,
+        "did_eval": True,
+    })
+
+    assert "epoch 003" in summary
+    assert "phase=visual" in summary
+    assert "loss=0.1235" in summary
+    assert "auroc=0.8765" in summary
+    assert "best=0.9000" in summary
+    assert "delta=-0.0235" in summary
+
+
+def test_latest_metrics_payload_points_to_training_artifacts():
+    payload = _latest_metrics_payload(
+        output_dir="results/run",
+        history_rows=[
+            {"epoch": 1, "val_auroc": 0.7, "best_val_auroc": 0.7},
+            {"epoch": 2, "val_auroc": 0.8, "best_val_auroc": 0.8},
+        ],
+        checkpoint_path="results/run/checkpoint.pyth",
+    )
+
+    assert payload["latest_epoch"] == 2
+    assert payload["best_val_auroc"] == 0.8
+    assert payload["history_csv"] == "results/run/train_history.csv"
+    assert payload["checkpoint_path"] == "results/run/checkpoint.pyth"
+
+
 def test_eval_epoch_uses_progress_wrapper(monkeypatch):
     cfg = get_cfg()
     cfg.NUM_GPUS = 0
@@ -264,3 +342,16 @@ def test_train_local_wraps_single_json_path_for_dataset_constructor():
         "datasets/AD_json/visa/candle_train_normal.json"
     ]
     assert _as_cfg_path_list(["a.json", "b.json"]) == ["a.json", "b.json"]
+
+
+def test_train_local_parse_args_exposes_eval_period(monkeypatch):
+    from train_local import parse_args
+
+    monkeypatch.setattr(
+        "sys.argv",
+        ["train_local.py", "--train_dataset", "mvtec", "--test_dataset", "visa", "--eval_period", "3"],
+    )
+
+    args = parse_args()
+
+    assert args.eval_period == 3
