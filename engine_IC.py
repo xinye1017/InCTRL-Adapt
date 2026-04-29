@@ -5,6 +5,7 @@ import os
 import random
 import json
 import csv
+import time
 import open_clip
 from open_clip import create_model_and_transforms, trace_model, get_tokenizer, create_loss
 import open_clip.utils.checkpoint as cu
@@ -20,6 +21,7 @@ from sklearn.metrics import average_precision_score, roc_auc_score
 from binary_focal_loss import BinaryFocalLoss
 import torch.distributed as dist
 import matplotlib.pyplot as plt
+from collections import defaultdict
 from open_clip.model import get_cast_dtype
 from open_clip.inctrl_adapt import InCTRLAdapt
 from open_clip.inctrl_pqa_losses import compute_inctrl_pqa_loss
@@ -31,6 +33,27 @@ except ImportError:
 
 logger = logging.get_logger(__name__)
 
+TRAIN_HISTORY_FIELDS = [
+    "epoch",
+    "phase",
+    "train_loss",
+    "final_loss",
+    "image_loss",
+    "pqa_loss",
+    "text_loss",
+    "mask_loss",
+    "text_mask_loss",
+    "visual_loss",
+    "visual_mask_loss",
+    "val_auroc",
+    "val_aupr",
+    "best_val_auroc",
+    "delta_vs_baseline",
+    "elapsed_sec",
+    "lr",
+    "did_eval",
+]
+
 
 def _write_csv(path, rows, fieldnames):
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -38,6 +61,12 @@ def _write_csv(path, rows, fieldnames):
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
+
+
+def _write_json(path, payload):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
 
 def _convert_to_rgb(image):
     return image.convert('RGB')
@@ -87,6 +116,11 @@ def _is_adapt_model(cfg):
 def _resolve_max_epochs(cfg):
     max_epoch = int(getattr(cfg.SOLVER, "MAX_EPOCH", 400))
     return 10 if max_epoch == 400 else max_epoch
+
+
+def _should_eval_epoch(cur_epoch, max_epoch, cfg):
+    eval_period = max(1, int(getattr(cfg.TRAIN, "EVAL_PERIOD", 1)))
+    return cur_epoch == 0 or (cur_epoch + 1) % eval_period == 0 or cur_epoch == max_epoch - 1
 
 
 def _trainable_parameters(model):
@@ -141,6 +175,126 @@ def _select_adapt_score(outputs, cfg):
     return outputs.get(score_key, outputs["final_score"])
 
 
+def _optimizer_lr(optimizer):
+    if optimizer is None or not optimizer.param_groups:
+        return 0.0
+    return float(optimizer.param_groups[0].get("lr", 0.0))
+
+
+def _cfg_float(cfg, name, default=None):
+    value = getattr(cfg, name, default)
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _round_or_none(value, digits=4):
+    if value is None:
+        return None
+    return round(float(value), digits)
+
+
+def _format_metric(value, digits=4):
+    if value is None:
+        return "-"
+    return f"{float(value):.{digits}f}"
+
+
+def _build_epoch_record(
+    epoch,
+    phase,
+    train_loss,
+    loss_parts,
+    val_auroc,
+    val_aupr,
+    best_val_auroc,
+    baseline_auroc,
+    elapsed_sec,
+    lr,
+    did_eval,
+):
+    if did_eval and val_auroc is not None:
+        best_val_auroc = max(best_val_auroc or float("-inf"), float(val_auroc))
+    best_value = None if best_val_auroc in (None, float("-inf")) else float(best_val_auroc)
+    delta = None
+    if did_eval and val_auroc is not None and baseline_auroc is not None and baseline_auroc >= 0:
+        delta = float(val_auroc) - float(baseline_auroc)
+
+    record = {
+        "epoch": int(epoch),
+        "phase": phase,
+        "train_loss": _round_or_none(train_loss, 6),
+        "final_loss": _round_or_none(loss_parts.get("final")),
+        "image_loss": _round_or_none(loss_parts.get("image")),
+        "pqa_loss": _round_or_none(loss_parts.get("pqa")),
+        "text_loss": _round_or_none(loss_parts.get("text")),
+        "mask_loss": _round_or_none(loss_parts.get("mask")),
+        "text_mask_loss": _round_or_none(loss_parts.get("text_mask")),
+        "visual_loss": _round_or_none(loss_parts.get("visual")),
+        "visual_mask_loss": _round_or_none(loss_parts.get("visual_mask")),
+        "val_auroc": _round_or_none(val_auroc),
+        "val_aupr": _round_or_none(val_aupr),
+        "best_val_auroc": _round_or_none(best_value),
+        "delta_vs_baseline": _round_or_none(delta),
+        "elapsed_sec": _round_or_none(elapsed_sec, 3),
+        "lr": _round_or_none(lr, 8),
+        "did_eval": bool(did_eval),
+    }
+    return record, best_value
+
+
+def _format_epoch_summary(record):
+    eval_state = "eval" if record.get("did_eval") else "skip"
+    return (
+        f"epoch {int(record['epoch']):03d} | "
+        f"phase={record['phase']:<6} | "
+        f"loss={_format_metric(record.get('train_loss'))} | "
+        f"auroc={_format_metric(record.get('val_auroc'))} | "
+        f"aupr={_format_metric(record.get('val_aupr'))} | "
+        f"best={_format_metric(record.get('best_val_auroc'))} | "
+        f"delta={_format_metric(record.get('delta_vs_baseline'))} | "
+        f"{eval_state} | "
+        f"{_format_metric(record.get('elapsed_sec'), digits=1)}s"
+    )
+
+
+def _latest_metrics_payload(output_dir, history_rows, checkpoint_path):
+    latest = history_rows[-1] if history_rows else {}
+    return {
+        "output_dir": output_dir,
+        "latest_epoch": latest.get("epoch"),
+        "latest": latest,
+        "best_val_auroc": latest.get("best_val_auroc"),
+        "history_csv": os.path.join(output_dir, "train_history.csv"),
+        "latest_metrics_json": os.path.join(output_dir, "latest_metrics.json"),
+        "checkpoint_path": checkpoint_path,
+    }
+
+
+def _training_header_lines(cfg, max_epoch, train_loader, test_loader, use_alternating, baseline_auroc):
+    return [
+        "",
+        "=" * 78,
+        "InCTRL local training",
+        "=" * 78,
+        f"model={cfg.MODEL.ACTIVE_MODEL} | shot={getattr(cfg, 'shot', '-')} | image_size={getattr(cfg, 'image_size', '-')}",
+        f"epochs={max_epoch} | eval_period={getattr(cfg.TRAIN, 'EVAL_PERIOD', 1)} | steps_per_epoch={getattr(cfg, 'steps_per_epoch', '-')}",
+        f"train_batches={len(train_loader)} | eval_batches={len(test_loader)} | alternating={use_alternating}",
+        f"adapters: VA={cfg.VISUAL_ADAPTER.ENABLE} TA={cfg.TEXT_BRANCH.ENABLE} PQA={cfg.PQA.ENABLE}",
+        f"score={cfg.FUSION.SCORE_OUTPUT} | pixel_fusion={cfg.FUSION.PIXEL_FUSION} | align_fusion={cfg.FUSION.ALIGN_FUSION}",
+        f"baseline_auroc={_format_metric(baseline_auroc)} | output_dir={cfg.OUTPUT_DIR}",
+        "-" * 78,
+    ]
+
+
+def _print_training_header(cfg, max_epoch, train_loader, test_loader, use_alternating, baseline_auroc):
+    for line in _training_header_lines(cfg, max_epoch, train_loader, test_loader, use_alternating, baseline_auroc):
+        print(line, flush=True)
+
+
 def _progress_enabled(cfg):
     return bool(getattr(cfg.TRAIN, "SHOW_PROGRESS", False)) and tqdm is not None
 
@@ -173,6 +327,7 @@ def train_epoch(
     phase,
     cur_epoch=None,
     max_epoch=None,
+    return_details=False,
 ):
     """
     Perform the training for one epoch.
@@ -195,6 +350,8 @@ def train_epoch(
     optimizer = visual_optimizer if phase == "visual" else text_optimizer
 
     all_loss = 0.0
+    loss_part_sums = defaultdict(float)
+    loss_part_count = 0
     device = torch.device("cuda", torch.cuda.current_device()) if cfg.NUM_GPUS else None
     train_iter = _iter_with_progress(
         enumerate(train_loader),
@@ -214,7 +371,10 @@ def train_epoch(
                 return_aux=False,
                 return_dict=True,
             )
-            loss, _ = compute_inctrl_pqa_loss(outputs, labels.float(), masks, cfg)
+            loss, loss_parts = compute_inctrl_pqa_loss(outputs, labels.float(), masks, cfg)
+            for name, value in loss_parts.items():
+                loss_part_sums[name] += float(value)
+            loss_part_count += 1
         else:
             inputs, types, labels = batch[:3]
             if cfg.NUM_GPUS:
@@ -239,10 +399,20 @@ def train_epoch(
         loss_value = loss.item()
         all_loss = all_loss + loss_value
         if hasattr(train_iter, "set_postfix"):
-            train_iter.set_postfix(loss=f"{loss_value:.4f}")
+            avg_loss = all_loss / (cur_iter + 1)
+            train_iter.set_postfix(
+                loss=f"{loss_value:.4f}",
+                avg=f"{avg_loss:.4f}",
+                lr=f"{_optimizer_lr(optimizer):.1e}",
+            )
 
     all_loss = all_loss / (cur_iter + 1)
-    print("train_loss: ", all_loss)
+    avg_parts = {
+        name: value / loss_part_count
+        for name, value in loss_part_sums.items()
+    } if loss_part_count else {}
+    if return_details:
+        return all_loss, avg_parts
     return all_loss
 
 
@@ -397,16 +567,21 @@ def train(cfg):
     epoch_timer = EpochTimer()
     max_epoch = _resolve_max_epochs(cfg)
     history_rows = []
+    best_val_auroc = None
+    baseline_auroc = _cfg_float(cfg, "eval_baseline_auroc", default=None)
+    history_path = os.path.join(cfg.OUTPUT_DIR, "train_history.csv")
+    latest_path = os.path.join(cfg.OUTPUT_DIR, "latest_metrics.json")
+    checkpoint_path = os.path.join(cfg.OUTPUT_DIR, "checkpoint.pyth")
+    _print_training_header(cfg, max_epoch, train_loader, test_loader, use_alternating, baseline_auroc)
     for cur_epoch in range(start_epoch, max_epoch):
-        print("Epoch: ", cur_epoch)
+        epoch_start = time.time()
         if use_alternating:
             phase = "visual" if cur_epoch % 2 == 0 else "text"
         else:
             phase = "visual" if has_visual else "text"
-        print("Train phase: ", phase)
         # Train for one epoch.
         epoch_timer.epoch_tic()
-        epoch_loss = train_epoch(
+        epoch_loss, loss_parts = train_epoch(
             train_loader,
             model,
             visual_optimizer,
@@ -416,6 +591,7 @@ def train(cfg):
             phase,
             cur_epoch=cur_epoch,
             max_epoch=max_epoch,
+            return_details=True,
         )
         epoch_losses.append(epoch_loss)
         epoch_timer.epoch_toc()
@@ -432,32 +608,35 @@ def train(cfg):
             f"{epoch_timer.avg_epoch_time()/len(train_loader):.2f}s in average."
         )
 
-        eval_period = max(1, max_epoch // 5)  # eval ~5 times total
-        if cur_epoch == 0 or (cur_epoch + 1) % eval_period == 0 or cur_epoch == max_epoch - 1:
+        did_eval = _should_eval_epoch(cur_epoch, max_epoch, cfg)
+        if did_eval:
             test_roc, test_pr = eval_epoch(test_loader, model, cfg, tokenizer, "test")
         else:
-            test_roc, test_pr = 0.0, 0.0
-        history_rows.append({
-            "epoch": cur_epoch + 1,
-            "phase": phase,
-            "train_loss": epoch_loss,
-            "train_auroc": 0.0,
-            "train_aupr": 0.0,
-            "val_auroc": test_roc,
-            "val_aupr": test_pr,
-        })
+            test_roc, test_pr = None, None
+        record, best_val_auroc = _build_epoch_record(
+            epoch=cur_epoch + 1,
+            phase=phase,
+            train_loss=epoch_loss,
+            loss_parts=loss_parts,
+            val_auroc=test_roc,
+            val_aupr=test_pr,
+            best_val_auroc=best_val_auroc,
+            baseline_auroc=baseline_auroc,
+            elapsed_sec=time.time() - epoch_start,
+            lr=_optimizer_lr(visual_optimizer if phase == "visual" else text_optimizer),
+            did_eval=did_eval,
+        )
+        history_rows.append(record)
+        _write_csv(history_path, history_rows, TRAIN_HISTORY_FIELDS)
+        _write_json(latest_path, _latest_metrics_payload(cfg.OUTPUT_DIR, history_rows, checkpoint_path))
+        print(_format_epoch_summary(record), flush=True)
 
-    _write_csv(
-        os.path.join(cfg.OUTPUT_DIR, "train_history.csv"),
-        history_rows,
-        ["epoch", "phase", "train_loss", "train_auroc", "train_aupr", "val_auroc", "val_aupr"],
-    )
-    checkpoint_path = os.path.join(cfg.OUTPUT_DIR, "checkpoint.pyth")
     torch.save({
         "epoch": max_epoch,
         "model_state": model.state_dict(),
         "cfg": cfg.dump(),
     }, checkpoint_path)
+    _write_json(latest_path, _latest_metrics_payload(cfg.OUTPUT_DIR, history_rows, checkpoint_path))
     cfg.TEST.CHECKPOINT_FILE_PATH = checkpoint_path
 
     return model, tokenizer, transform

@@ -207,6 +207,8 @@ def parse_args():
     parser.add_argument("--image_size", type=int, default=240)
     parser.add_argument("--max_epoch", type=int, default=1)
     parser.add_argument("--steps_per_epoch", type=int, default=100)
+    parser.add_argument("--eval_period", type=int, default=1,
+                        help="Evaluate every N epochs. Default 1 for clear local metric trends.")
     parser.add_argument("--output_dir", default=None)
     parser.add_argument("--no_progress", action="store_true", help="Disable tqdm training progress bars.")
     parser.add_argument("--show_warnings", action="store_true", help="Show Python warnings during training.")
@@ -247,16 +249,21 @@ def main():
         first_val_normals, first_val_outliers = _expand_dataset_jsons(test_datasets[0], split="val")
         cfg.val_normal_json_path = first_val_normals
         cfg.val_outlier_json_path = first_val_outliers
+        cfg.eval_dataset_name = test_datasets[0].lower()
     else:
         if not args.val_normal_json_path or not args.val_outlier_json_path:
             raise ValueError("Must provide --test_dataset or --val_normal_json_path + --val_outlier_json_path")
         cfg.val_normal_json_path = _as_cfg_path_list(args.val_normal_json_path)
         cfg.val_outlier_json_path = _as_cfg_path_list(args.val_outlier_json_path)
+        cfg.eval_dataset_name = "custom"
+    cfg.train_dataset_name = (args.train_dataset or "custom").lower()
+    cfg.eval_baseline_auroc = PUBLISHED_IN_DOMAIN_AUROC.get(cfg.eval_dataset_name, {}).get(args.shot, -1.0)
     cfg.shot = args.shot
     cfg.image_size = args.image_size
     cfg.steps_per_epoch = args.steps_per_epoch
     cfg.OUTPUT_DIR = args.output_dir or _default_output_dir(cfg)
     cfg.SOLVER.MAX_EPOCH = args.max_epoch
+    cfg.TRAIN.EVAL_PERIOD = args.eval_period
     cfg.TRAIN.SHOW_PROGRESS = not args.no_progress
     cfg.TRAIN.SUPPRESS_WARNINGS = not args.show_warnings
     cfg.NUM_GPUS = 1
