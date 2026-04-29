@@ -70,7 +70,7 @@ def test_fuse_maps_preserves_shape_and_weighting():
     pqa = torch.ones(1, 1, 4, 4) * 2
     text = torch.ones(1, 1, 4, 4) * 3
 
-    fused = _fuse_maps(residual, pqa, text, weights=(0.4, 0.4, 0.2))
+    fused = _fuse_maps(residual, pqa, weights=(0.4, 0.4), text_map=text, text_w=0.2)
 
     assert fused.shape == (1, 1, 4, 4)
     assert torch.allclose(fused, torch.ones(1, 1, 4, 4) * 1.8)

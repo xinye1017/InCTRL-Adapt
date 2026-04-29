@@ -43,9 +43,11 @@ def test_compute_inctrl_pqa_loss_uses_image_pqa_text_and_mask_terms():
 
     loss, parts = compute_inctrl_pqa_loss(outputs, labels, masks, _cfg())
 
-    assert set(parts.keys()) == {"final", "image", "pqa", "text", "mask", "text_mask", "total"}
+    assert set(parts.keys()) == {"final", "image", "pqa", "text", "mask", "text_mask", "visual", "visual_mask", "total"}
     assert parts["mask"] > 0.0
     assert parts["text_mask"] == 0.0
+    assert parts["visual"] == 0.0
+    assert parts["visual_mask"] == 0.0
     assert parts["total"] == loss.item()
 
 
@@ -62,9 +64,11 @@ def test_compute_inctrl_pqa_loss_allows_missing_masks_with_zero_mask_term():
 
     loss, parts = compute_inctrl_pqa_loss(outputs, labels, masks=None, cfg=_cfg())
 
-    assert set(parts.keys()) == {"final", "image", "pqa", "text", "mask", "text_mask", "total"}
+    assert set(parts.keys()) == {"final", "image", "pqa", "text", "mask", "text_mask", "visual", "visual_mask", "total"}
     assert parts["mask"] == 0.0
     assert parts["text_mask"] == 0.0
+    assert parts["visual"] == 0.0
+    assert parts["visual_mask"] == 0.0
     assert parts["total"] == loss.item()
 
 
