@@ -274,7 +274,8 @@ def eval_epoch(val_loader, model, cfg, tokenizer, mode=None):
                 return_aux=False,
                 return_dict=True,
             )
-            preds = outputs["final_score"]
+            score_key = str(getattr(cfg.FUSION, "SCORE_OUTPUT", "final_score"))
+            preds = outputs.get(score_key, outputs["final_score"])
         else:
             inputs, types, labels = batch[:3]
             if cfg.NUM_GPUS:
