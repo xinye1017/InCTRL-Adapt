@@ -17,18 +17,19 @@ def focal_loss(
     For 1-channel logits: applies sigmoid then binary focal.
     """
     targets = targets.float()
+    # Squeeze channel dim from masks if present: [B,1,H,W] → [B,H,W].
+    if targets.dim() == logits.dim() and targets.shape[1] == 1:
+        targets = targets.squeeze(1)
     if logits.shape[1] == 2:
         probs = logits.softmax(dim=1)
         pt = torch.where(targets.bool(), probs[:, 1], probs[:, 0])
+        logit_ch1 = logits[:, 1]  # [B, H, W]
     else:
         probs = torch.sigmoid(logits)
         pt = torch.where(targets.bool(), probs, 1.0 - probs)
+        logit_ch1 = logits.squeeze(1)
     pt = pt.clamp(min=1e-6)
-    bce = F.binary_cross_entropy_with_logits(
-        logits[:, 1] if logits.shape[1] == 2 else logits.squeeze(1),
-        targets,
-        reduction="none",
-    )
+    bce = F.binary_cross_entropy_with_logits(logit_ch1, targets, reduction="none")
     loss = alpha * (1.0 - pt) ** gamma * bce
     return loss.mean()
 
@@ -40,12 +41,17 @@ def dice_loss_2ch(
 ) -> torch.Tensor:
     """Dice loss for 2-channel logits (softmax) or 1-channel (sigmoid)."""
     masks = masks.float()
+    # Squeeze channel dim from masks if present: [B,1,H,W] → [B,H,W].
+    if masks.dim() == logits.dim() and masks.shape[1] == 1:
+        masks = masks.squeeze(1)
     if logits.shape[1] == 2:
-        probs = logits.softmax(dim=1)[:, 1]
+        probs = logits.softmax(dim=1)[:, 1]  # [B, H, W]
     else:
         probs = torch.sigmoid(logits).squeeze(1)
-    intersection = (probs * masks).sum(dim=(1, 2))
-    union = probs.sum(dim=(1, 2)) + masks.sum(dim=(1, 2))
+    # Sum over spatial dims (H, W) per batch.
+    spatial_dims = tuple(range(probs.dim() - 2))  # handles [B,H,W] and [B,H,W] equally
+    intersection = (probs * masks).sum(dim=(-2, -1))
+    union = probs.sum(dim=(-2, -1)) + masks.sum(dim=(-2, -1))
     return (1.0 - (2.0 * intersection + eps) / (union + eps)).mean()
 
 
