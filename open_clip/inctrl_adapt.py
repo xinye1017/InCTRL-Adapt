@@ -205,6 +205,17 @@ class InCTRLAdapt(nn.Module):
             params.extend(self.patch_text_projection.parameters())
         return params
 
+    def _visual_branch_is_active(self) -> bool:
+        if not self.use_visual_branch:
+            return False
+        fusion_visual_w = float(getattr(self.args.FUSION, "VISUAL_WEIGHT", 0.0))
+        loss_visual_w = float(getattr(self.args.LOSS, "VISUAL_WEIGHT", 0.0))
+        loss_visual_mask_w = float(getattr(self.args.LOSS, "VISUAL_MASK_WEIGHT", 0.0))
+        return fusion_visual_w > 0.0 or loss_visual_w > 0.0 or loss_visual_mask_w > 0.0
+
+    def _project_patch_to_text_dim(self, patch_tokens: torch.Tensor) -> torch.Tensor:
+        return self.patch_text_projection(patch_tokens)
+
     def _get_static_text_features(self, tokenizer, device) -> torch.Tensor:
         """Build or return cached static text features for VA branch."""
         if self._static_text_features is not None:
@@ -520,11 +531,12 @@ class InCTRLAdapt(nn.Module):
         )
 
         # Visual-text branch: VA-adapted features + frozen static text.
-        if self.use_visual_branch and tokenizer is not None:
+        if self._visual_branch_is_active() and tokenizer is not None:
             static_text = self._get_static_text_features(tokenizer, query_global.device)
+            visual_patch_feat = self._project_patch_to_text_dim(query_patch_va[-1])
             visual_out = self._visual_branch(
                 query_global_va,
-                query_patch_va[-1][:, :, :] if query_patch_va[-1].dim() == 3 else query_patch_va[-1],
+                visual_patch_feat,
                 static_text,
             )
         else:

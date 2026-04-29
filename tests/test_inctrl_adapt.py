@@ -1,4 +1,5 @@
 import torch
+from torch import nn
 
 from open_clip.inctrl_adapt import (
     InCTRLAdapt,
@@ -250,3 +251,34 @@ def test_get_text_parameters_includes_textual_adapter_params():
     param_names = {n for n, _ in ta.named_parameters()}
     assert len(params) == 2
     assert param_names == {"prompt_learner.ctx_pos", "prompt_learner.ctx_neg"}
+
+
+def test_visual_branch_is_inactive_when_it_has_no_loss_or_fusion_weight():
+    from types import SimpleNamespace
+
+    model = InCTRLAdapt.__new__(InCTRLAdapt)
+    model.use_visual_branch = True
+    model.args = SimpleNamespace(
+        FUSION=SimpleNamespace(VISUAL_WEIGHT=0.0),
+        LOSS=SimpleNamespace(VISUAL_WEIGHT=0.0, VISUAL_MASK_WEIGHT=0.0),
+    )
+
+    assert InCTRLAdapt._visual_branch_is_active(model) is False
+
+
+def test_visual_branch_projected_patch_tokens_match_static_text_dim():
+    model = InCTRLAdapt.__new__(InCTRLAdapt)
+    nn.Module.__init__(model)
+    model.image_size = 32
+    model._visual_logit_scale = 1.0
+    model.patch_text_projection = nn.Linear(896, 640)
+    query_global = torch.randn(2, 640)
+    query_patch = torch.randn(2, 4, 896)
+    static_text = torch.randn(2, 640)
+
+    projected_patch = InCTRLAdapt._project_patch_to_text_dim(model, query_patch)
+    outputs = InCTRLAdapt._visual_branch(model, query_global, projected_patch, static_text)
+
+    assert projected_patch.shape == (2, 4, 640)
+    assert outputs["visual_logits"].shape == (2, 2)
+    assert outputs["visual_map_logits"].shape == (2, 1, 32, 32)
