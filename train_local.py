@@ -51,12 +51,18 @@ DATASET_CATEGORIES = {
     ],
 }
 
-PUBLISHED_IN_DOMAIN_AUROC = {
+# Original InCTRL paper results — these are CROSS-DOMAIN evaluation numbers
+# (e.g. "visa" means train on VisA, test on that row's dataset).
+# Do NOT use for in-domain comparison (train and test on the same dataset).
+PUBLISHED_CROSS_DOMAIN_AUROC = {
     "elpv": {0: 0.733, 2: 0.839, 4: 0.846, 8: 0.872},
     "aitex": {0: 0.733, 2: 0.761, 4: 0.790, 8: 0.806},
     "visa": {0: 0.781, 2: 0.858, 4: 0.877, 8: 0.887},
     "mvtec": {0: 0.912, 2: 0.940, 4: 0.945, 8: 0.953},
 }
+
+# Keep old name as alias for any external code referencing it.
+PUBLISHED_IN_DOMAIN_AUROC = PUBLISHED_CROSS_DOMAIN_AUROC
 
 PHASE1_MVTEC_THRESHOLDS = {
     "mvtec->aitex": 0.73,
@@ -90,7 +96,7 @@ def _baseline_delta(row):
     test_dataset = row.get("test_dataset")
     shot = int(row.get("eval_shot"))
     auroc = row.get("auroc")
-    baselines = PUBLISHED_IN_DOMAIN_AUROC.get(test_dataset, {})
+    baselines = PUBLISHED_CROSS_DOMAIN_AUROC.get(test_dataset, {})
     in_domain = baselines.get(shot)
     zero_shot = baselines.get(0)
     return {
@@ -257,7 +263,12 @@ def main():
         cfg.val_outlier_json_path = _as_cfg_path_list(args.val_outlier_json_path)
         cfg.eval_dataset_name = "custom"
     cfg.train_dataset_name = (args.train_dataset or "custom").lower()
-    cfg.eval_baseline_auroc = PUBLISHED_IN_DOMAIN_AUROC.get(cfg.eval_dataset_name, {}).get(args.shot, -1.0)
+    # Only use published baselines for cross-domain evaluation (train ≠ test).
+    # For in-domain (train == test), no published cross-domain baseline applies.
+    if cfg.train_dataset_name != cfg.eval_dataset_name:
+        cfg.eval_baseline_auroc = PUBLISHED_CROSS_DOMAIN_AUROC.get(cfg.eval_dataset_name, {}).get(args.shot, -1.0)
+    else:
+        cfg.eval_baseline_auroc = -1.0
     cfg.shot = args.shot
     cfg.image_size = args.image_size
     cfg.steps_per_epoch = args.steps_per_epoch

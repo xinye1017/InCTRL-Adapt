@@ -275,6 +275,11 @@ def _latest_metrics_payload(output_dir, history_rows, checkpoint_path):
 
 
 def _training_header_lines(cfg, max_epoch, train_loader, test_loader, use_alternating, baseline_auroc):
+    train_ds = getattr(cfg, "train_dataset_name", "custom")
+    eval_ds = getattr(cfg, "eval_dataset_name", "custom")
+    is_cross_domain = train_ds != eval_ds
+    eval_label = f"cross-domain ({train_ds}->{eval_ds})" if is_cross_domain else f"in-domain ({train_ds})"
+    baseline_label = _format_metric(baseline_auroc) if baseline_auroc is not None and baseline_auroc >= 0 else "n/a (in-domain)"
     return [
         "",
         "=" * 78,
@@ -285,7 +290,7 @@ def _training_header_lines(cfg, max_epoch, train_loader, test_loader, use_altern
         f"train_batches={len(train_loader)} | eval_batches={len(test_loader)} | alternating={use_alternating}",
         f"adapters: VA={cfg.VISUAL_ADAPTER.ENABLE} TA={cfg.TEXT_BRANCH.ENABLE} PQA={cfg.PQA.ENABLE}",
         f"score={cfg.FUSION.SCORE_OUTPUT} | pixel_fusion={cfg.FUSION.PIXEL_FUSION} | align_fusion={cfg.FUSION.ALIGN_FUSION}",
-        f"baseline_auroc={_format_metric(baseline_auroc)} | output_dir={cfg.OUTPUT_DIR}",
+        f"eval_mode={eval_label} | baseline_auroc={baseline_label} | output_dir={cfg.OUTPUT_DIR}",
         "-" * 78,
     ]
 
