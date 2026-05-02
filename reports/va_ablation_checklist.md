@@ -21,6 +21,8 @@
 
 ## 当前最佳基准：No-VA final
 
+注意：这里的 No-VA final 指的是 **VA 不参与 score/loss，但保留原始 visual-side/TA 交替训练调度**。后续复现实验应检查 `train_history.csv` 中 phase 是否为 `visual/text` 交替，而不是 `single`。
+
 ### 配置
 
 | 配置项 | 数值 | 说明 |

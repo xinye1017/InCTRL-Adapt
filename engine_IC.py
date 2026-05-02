@@ -582,7 +582,8 @@ def train(cfg):
 
     # Keep the original alternating schedule whenever both trainable sides exist.
     # Even with VA score/loss disabled, this separates TA updates from the
-    # residual/PQA/image-head side and acts as a training-schedule regularizer.
+    # visual-side residual/PQA/image-head/projection updates and acts as a
+    # training-schedule regularizer.
     base_model = _get_base_model(model)
     has_visual = _has_parameter_list(base_model, "get_visual_parameters")
     has_text = _has_parameter_list(base_model, "get_text_parameters")
@@ -614,7 +615,7 @@ def train(cfg):
     # Perform the training loop.
     logger.info("Start epoch: {}".format(start_epoch + 1))
     if use_alternating:
-        logger.info("Alternating training: VA/TA phase switching enabled")
+        logger.info("Alternating training: visual-side/TA phase switching enabled")
     else:
         phase_label = "single" if has_visual and has_text else ("visual" if has_visual else "text")
         logger.info(f"Single-phase training: {phase_label} only (alternating disabled)")
