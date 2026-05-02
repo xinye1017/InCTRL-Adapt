@@ -25,7 +25,6 @@ Thumbs.db
 # Data
 *.7z
 data/
-results/
 .worktrees/
 
 # Claude Code local state
