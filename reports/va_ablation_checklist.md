@@ -203,14 +203,41 @@ python train_local.py \
 
 | Shot | Dataset | AUROC | AUPR | FPR | FNR | vs No-VA | vs InCTRL baseline | 状态 | 备注 |
 | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| 2 | VisA | TBD | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
-| 2 | AITEX | TBD | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
-| 2 | ELPV | TBD | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+| 2 | VisA | 0.8832 | 0.8989 | TBD | TBD | -0.0198 vs 0.9030 | +0.0252 vs 0.858 | 已完成 | 明显低于 No-VA，pcb/macaroni 类别退化明显 |
+| 2 | AITEX | 0.7792 | 0.5593 | TBD | TBD | -0.0202 vs 0.7994 | +0.0182 vs 0.761 | 已完成 | 低于 No-VA，纹理域没有受益 |
+| 2 | ELPV | 0.8469 | 0.9254 | TBD | TBD | -0.0132 vs 0.8601 | +0.0079 vs 0.839 | 已完成 | 低于 No-VA，仅略高于原始 InCTRL baseline |
+
+VisA per-category 结果：
+
+| Category | AUROC | AUPR |
+| --- | ---: | ---: |
+| candle | 0.9651 | 0.9683 |
+| capsules | 0.8275 | 0.9032 |
+| cashew | 0.9456 | 0.9764 |
+| chewinggum | 0.9774 | 0.9911 |
+| fryum | 0.9366 | 0.9744 |
+| macaroni1 | 0.8505 | 0.8733 |
+| macaroni2 | 0.7828 | 0.8055 |
+| pcb1 | 0.7958 | 0.8197 |
+| pcb2 | 0.7915 | 0.8044 |
+| pcb3 | 0.8813 | 0.8755 |
+| pcb4 | 0.8570 | 0.8002 |
+| pipe_fryum | 0.9870 | 0.9945 |
+| **MEAN** | **0.8832** | **0.8989** |
+
+A1 初步结论：
+
+- 三域平均 AUROC 为 0.8364，低于 No-VA final 2-shot 平均 0.8542，差值约 -0.0178。
+- VisA 从 0.9030 下降到 0.8832，说明简单把 `PATCH_WEIGHT` 从 0.25 提到 0.30 会削弱整体图像级判别。
+- AITEX 从 0.7994 下降到 0.7792，说明更高 patch 残差权重没有改善纹理域，反而可能放大跨域纹理差异。
+- ELPV 从 0.8601 下降到 0.8469，也没有表现出定位/patch 证据增强带来的收益。
+- VisA 高敏类别中 `pcb1`、`pcb2`、`pcb4` 和 `macaroni1` 较弱，A1 没有修复这些类别，反而整体低于 No-VA。
+- 判定为负结果，不建议扩展到 4/8-shot 或多种子；优先继续 A2：`pqa_up`。
 
 判定：
 
-- 若三域平均 AUROC 高于 0.8542，或 AITEX 提升且 VisA/ELPV 下降不超过 0.003，则扩展到 4/8-shot。
-- 若 VisA pcb1/pcb2/macaroni2 明显提升，记录 per-category 证据。
+- A1 未达到扩展条件，停止该方向。
+- 下一步优先跑 A2，验证把权重转给 PQA 是否比转给 patch residual 更稳。
 
 ### A2：pqa_up
 
@@ -568,7 +595,7 @@ done
 | No-VA final | 基准 | VA=0，当前最佳权重 | 8 | 0.9060 | 0.8003 | 0.8815 | 0.8626 | AITEX 8-shot 低于原始 baseline |
 | VA-small | 已完成 | VA fusion=0.05, VA CE=0.2 | 2 | 0.9001 | 0.7974 | 0.8532 | 0.8502 | 三域均略低于 No-VA，未见稳定收益 |
 | VA-strong | 已完成 | VA fusion=0.12, VA CE=0.2 | 2 | 0.8904 | 0.8005 | 0.8574 | 0.8494 | AITEX 略升，但 VisA 明显下降 |
-| A1 patch_up | 待跑 | IMAGE 0.35 -> 0.30, PATCH 0.25 -> 0.30 | 2 | TBD | TBD | TBD | TBD | 主线优先级 1 |
+| A1 patch_up | 已完成 | IMAGE 0.35 -> 0.30, PATCH 0.25 -> 0.30 | 2 | 0.8832 | 0.7792 | 0.8469 | 0.8364 | 负结果，三域均低于 No-VA，不扩展 |
 | A2 pqa_up | 待跑 | IMAGE 0.35 -> 0.30, PQA 0.25 -> 0.30 | 2 | TBD | TBD | TBD | TBD | 主线优先级 2 |
 | A3 mask_down | 待跑 | MASK loss 1.0 -> 0.75 | 2 | TBD | TBD | TBD | TBD | 主线优先级 3 |
 | A4 tiny_text_ce | 待跑 | TEXT CE loss 0.0 -> 0.05 | 2 | TBD | TBD | TBD | TBD | 主线优先级 4 |
@@ -616,7 +643,7 @@ VA 的像素图来自 patch-level visual-text similarity，而非专门的分割
 
 ### 待跑主线
 
-- [ ] 跑 A1：patch_up 2-shot。
+- [x] 跑 A1：patch_up 2-shot。
 - [ ] 跑 A2：pqa_up 2-shot。
 - [ ] 跑 A3：mask_down 2-shot。
 - [ ] 跑 A4：tiny_text_ce 2-shot。
