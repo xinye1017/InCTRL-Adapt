@@ -61,7 +61,7 @@ python train_local.py \
   --train_dataset mvtec \
   --test_dataset visa/aitex/elpv \
   --shot 2 \
-  --max_epoch 2 \
+  --max_epoch 15 \
   --steps_per_epoch 100 \
   --output_dir results/ablation_no_va_final_2shot_15ep \
   FUSION.IMAGE_WEIGHT 0.35 \
@@ -76,7 +76,45 @@ python train_local.py \
   LOSS.TEXT_MASK_WEIGHT 0.0 \
   LOSS.VISUAL_WEIGHT 0.0 \
   LOSS.VISUAL_MASK_WEIGHT 0.0
-```
+``` 
+
+### 复现检查：恢复交替调度后的 No-VA rerun
+
+该结果用于检查恢复 `visual/text` 交替调度后，No-VA final 是否能回到旧记录水平。它不覆盖上方多种子 No-VA final 基准。
+
+| Shot | Dataset | AUROC | AUPR | vs 旧 No-VA final | vs InCTRL baseline | 状态 | 备注 |
+| ---: | --- | ---: | ---: | ---: | ---: | --- | --- |
+| 2 | VisA | 0.9012 | 0.9137 | -0.0018 vs 0.9030 | +0.0432 vs 0.858 | 已完成 | 基本接近旧 No-VA final |
+| 2 | AITEX | 0.7909 | 0.5677 | -0.0085 vs 0.7994 | +0.0299 vs 0.761 | 已完成 | 明显高于 single rerun，但仍低于旧 No-VA |
+| 2 | ELPV | 0.8432 | 0.9248 | -0.0169 vs 0.8601 | +0.0042 vs 0.839 | 已完成 | 没有回到旧 No-VA，是主要差异来源 |
+| 2 | **MEAN** | **0.8451** | **0.8021** | **-0.0091 vs 0.8542** | **+0.0258 vs 0.8193** | 已完成 | 部分复现，但不应覆盖旧基准 |
+
+VisA per-category 结果：
+
+| Category | AUROC | AUPR |
+| --- | ---: | ---: |
+| candle | 0.9636 | 0.9669 |
+| capsules | 0.8612 | 0.9212 |
+| cashew | 0.9634 | 0.9824 |
+| chewinggum | 0.9804 | 0.9916 |
+| fryum | 0.9356 | 0.9739 |
+| macaroni1 | 0.9012 | 0.9110 |
+| macaroni2 | 0.7925 | 0.8008 |
+| pcb1 | 0.8377 | 0.8644 |
+| pcb2 | 0.8271 | 0.8369 |
+| pcb3 | 0.8901 | 0.8825 |
+| pcb4 | 0.8732 | 0.8385 |
+| pipe_fryum | 0.9888 | 0.9947 |
+| **MEAN** | **0.9012** | **0.9137** |
+
+复现结论：
+
+- 恢复交替调度后，VisA 从 single rerun 的 0.8800 回到 0.9012，基本接近旧 No-VA final 的 0.9030。
+- AITEX 从 single rerun 的 0.7760 回到 0.7909，也明显恢复，但仍低于旧 No-VA final 的 0.7994。
+- ELPV 只有 0.8432，低于旧 No-VA final 的 0.8601，也低于 A1-A4 中的部分结果，是这次复现不完全的主要来源。
+- 三域平均 AUROC 为 0.8451，低于旧 No-VA final 平均 0.8542，但高于 single rerun 平均 0.8334，说明交替调度确实恢复了一部分性能。
+- 该结果支持“交替调度重要”，但也说明当前复现还存在 seed、few-shot 采样、epoch 数、checkpoint 选择或评估样本差异，需要进一步核查。
+- 复现实验必须检查 `train_history.csv` 的 `phase` 列是否为 `visual/text` 交替，以及实际训练 epoch 是否与旧实验一致。
 
 
 
@@ -371,7 +409,7 @@ python train_local.py \
   --train_dataset mvtec \
   --test_dataset visa/aitex/elpv \
   --shot 2 \
-  --max_epoch 2 \
+  --max_epoch 15 \
   --steps_per_epoch 100 \
   --output_dir results/ablation_mask_down_2shot_15ep \
   FUSION.IMAGE_WEIGHT 0.35 \
@@ -449,7 +487,7 @@ python train_local.py \
   --train_dataset mvtec \
   --test_dataset visa/aitex/elpv \
   --shot 2 \
-  --max_epoch 2 \
+  --max_epoch 15 \
   --steps_per_epoch 100 \
   --output_dir results/ablation_tiny_text_ce_2shot_15ep \
   FUSION.IMAGE_WEIGHT 0.35 \
@@ -716,6 +754,7 @@ done
 | 实验 | 类型 | 关键改动 | Shot | VisA AUROC | AITEX AUROC | ELPV AUROC | 平均 AUROC | 结论 |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | No-VA final | 基准 | VA=0，当前最佳权重 | 2 | 0.9030 | 0.7994 | 0.8601 | 0.8542 | 当前最佳 2-shot 已知配置 |
+| No-VA rerun | 复现检查 | 恢复 visual/text 交替调度后重跑 | 2 | 0.9012 | 0.7909 | 0.8432 | 0.8451 | 部分复现，ELPV 未回到旧 No-VA |
 | No-VA final | 基准 | VA=0，当前最佳权重 | 4 | 0.8916 | 0.7999 | 0.8705 | 0.8540 | VisA 4-shot 非单调 |
 | No-VA final | 基准 | VA=0，当前最佳权重 | 8 | 0.9060 | 0.8003 | 0.8815 | 0.8626 | AITEX 8-shot 低于原始 baseline |
 | VA-small | 已完成 | VA fusion=0.05, VA CE=0.2 | 2 | 0.9001 | 0.7974 | 0.8532 | 0.8502 | 三域均略低于 No-VA，未见稳定收益 |
