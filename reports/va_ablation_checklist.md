@@ -436,14 +436,54 @@ python train_local.py \
 
 | Shot | Dataset | AUROC | AUPR | FPR | FNR | vs No-VA | vs InCTRL baseline | 状态 | 备注 |
 | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| 2 | VisA | TBD | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
-| 2 | AITEX | TBD | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
-| 2 | ELPV | TBD | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+| 2 | VisA | 0.8870 | 0.9027 | TBD | TBD | -0.0160 vs 0.9030 | +0.0290 vs 0.858 | 已完成 | 略高于 A2/A3，但仍明显低于 No-VA |
+| 2 | AITEX | 0.7657 | 0.5532 | TBD | TBD | -0.0337 vs 0.7994 | +0.0047 vs 0.761 | 已完成 | 低于 No-VA，仅略高于原始 InCTRL baseline |
+| 2 | ELPV | 0.8538 | 0.9309 | TBD | TBD | -0.0063 vs 0.8601 | +0.0148 vs 0.839 | 已完成 | 是 A1-A4 中 ELPV 最高，但仍低于 No-VA |
+
+VisA per-category 结果：
+
+| Category | AUROC | AUPR |
+| --- | ---: | ---: |
+| candle | 0.9662 | 0.9692 |
+| capsules | 0.8302 | 0.9049 |
+| cashew | 0.9442 | 0.9760 |
+| chewinggum | 0.9784 | 0.9914 |
+| fryum | 0.9332 | 0.9727 |
+| macaroni1 | 0.8817 | 0.8973 |
+| macaroni2 | 0.7860 | 0.8066 |
+| pcb1 | 0.7905 | 0.8123 |
+| pcb2 | 0.8024 | 0.8069 |
+| pcb3 | 0.8849 | 0.8805 |
+| pcb4 | 0.8615 | 0.8214 |
+| pipe_fryum | 0.9844 | 0.9934 |
+| **MEAN** | **0.8870** | **0.9027** |
+
+A4 初步结论：
+
+- 三域平均 AUROC 为 0.8355，低于 No-VA final 2-shot 平均 0.8542，差值约 -0.0187。
+- A4 比 A3 的三域平均 0.8325 略高约 +0.0030，但仍低于 A2 的 0.8379，也明显低于 No-VA。
+- VisA 从 No-VA 的 0.9030 下降到 0.8870；`macaroni1` 有一定改善，但 `pcb1`、`pcb2`、`pcb4` 仍然偏弱。
+- AITEX 从 No-VA 的 0.7994 下降到 0.7657，仅比原始 InCTRL 2-shot baseline 0.761 高 +0.0047，说明极小文本 CE 没有改善纹理域泛化。
+- ELPV 从 No-VA 的 0.8601 下降到 0.8538，是 A1-A4 中最高的 ELPV，但不足以抵消 VisA/AITEX 退化。
+- 判定为负结果；`LOSS.TEXT_WEIGHT=0.05` 没有带来稳定收益，当前应保持 `LOSS.TEXT_WEIGHT=0.0`。
 
 判定：
 
-- 若 VisA/ELPV 提升且 AITEX 不明显下降，可考虑进一步测试 `TEXT_WEIGHT=0.10`。
-- 若 AITEX 或 VisA 高敏类别下降，说明 TA 独立监督会强化分支竞争，保持 `LOSS.TEXT_WEIGHT=0.0`。
+- A4 未达到扩展条件，停止该方向。
+- 不建议继续测试 `LOSS.TEXT_WEIGHT=0.10`，因为 0.05 已经导致 AITEX 明显低于 No-VA。
+- A1-A4 主线局部消融全部低于 No-VA final，当前最佳配置应保持不变。
+
+### A1-A4 主线总结
+
+| 实验 | VisA AUROC | AITEX AUROC | ELPV AUROC | 平均 AUROC | vs No-VA 平均 | 判定 |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| No-VA final | 0.9030 | 0.7994 | 0.8601 | 0.8542 | 0.0000 | 当前最佳 |
+| A1 patch_up | 0.8832 | 0.7792 | 0.8469 | 0.8364 | -0.0178 | 负结果 |
+| A2 pqa_up | 0.8858 | 0.7780 | 0.8498 | 0.8379 | -0.0163 | 负结果 |
+| A3 mask_down | 0.8859 | 0.7613 | 0.8502 | 0.8325 | -0.0217 | 负结果 |
+| A4 tiny_text_ce | 0.8870 | 0.7657 | 0.8538 | 0.8355 | -0.0187 | 负结果 |
+
+结论：A1-A4 都没有超过 No-VA final，说明当前最优配置的融合权重、`MASK_WEIGHT=1.0` 和 `TEXT_WEIGHT=0.0` 都应保留。后续若继续消融，应优先作为论文负结果补充或改做结构性诊断，而不是继续在这组权重附近盲目搜索。
 
 ---
 
@@ -655,7 +695,7 @@ done
 | A1 patch_up | 已完成 | IMAGE 0.35 -> 0.30, PATCH 0.25 -> 0.30 | 2 | 0.8832 | 0.7792 | 0.8469 | 0.8364 | 负结果，三域均低于 No-VA，不扩展 |
 | A2 pqa_up | 已完成 | IMAGE 0.35 -> 0.30, PQA 0.25 -> 0.30 | 2 | 0.8858 | 0.7780 | 0.8498 | 0.8379 | 负结果，略好于 A1 但仍明显低于 No-VA |
 | A3 mask_down | 已完成 | MASK loss 1.0 -> 0.75 | 2 | 0.8859 | 0.7613 | 0.8502 | 0.8325 | 负结果，AITEX 几乎退回原始 baseline |
-| A4 tiny_text_ce | 待跑 | TEXT CE loss 0.0 -> 0.05 | 2 | TBD | TBD | TBD | TBD | 主线优先级 4 |
+| A4 tiny_text_ce | 已完成 | TEXT CE loss 0.0 -> 0.05 | 2 | 0.8870 | 0.7657 | 0.8538 | 0.8355 | 负结果，略高于 A3 但仍明显低于 No-VA |
 | V1 VA-mid | 待跑 | VA fusion=0.08, VA CE=0.2 | 2 | TBD | TBD | TBD | TBD | VA 补充对照 |
 | V2 VA-mask-small | 待跑 | VA mask loss=0.05 | 2 | TBD | TBD | TBD | TBD | VA 补充对照 |
 | V3 AdaptCLIP-style | 待跑 | 五分支等权融合 | 2 | TBD | TBD | TBD | TBD | VA/AdaptCLIP 负结果对照 |
@@ -703,8 +743,8 @@ VA 的像素图来自 patch-level visual-text similarity，而非专门的分割
 - [x] 跑 A1：patch_up 2-shot。
 - [x] 跑 A2：pqa_up 2-shot。
 - [x] 跑 A3：mask_down 2-shot。
-- [ ] 跑 A4：tiny_text_ce 2-shot。
-- [ ] 根据 A1-A4 结果决定是否扩展 4/8-shot。
+- [x] 跑 A4：tiny_text_ce 2-shot。
+- [x] 根据 A1-A4 结果决定是否扩展 4/8-shot：均不扩展，保留 No-VA final。
 - [ ] 对最佳配置进行多种子复验。
 
 ### 待跑补充
