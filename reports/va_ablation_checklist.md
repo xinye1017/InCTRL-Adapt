@@ -1,19 +1,25 @@
-# VA 权重消融实验 Checklist
+# VA 与权重消融实验 Checklist
 
 ## 目标
 
-验证在当前最终模型 `InCTRL + PQA + TA` 基础上，引入 `Visual Adapter (VA)` 是否能提升跨域少样本工业异常检测性能，并评估不同 VA 图像级权重、VA loss 权重和 VA mask loss 权重对 AUROC、AUPR、误报率和像素级定位的影响。
+验证在当前最终模型 `InCTRL + PQA + TA` 基础上，不同分支权重和监督权重是否能进一步提升跨域少样本工业异常检测性能。
+
+当前结论已经比较明确：直接开启 VA 没有稳定优于 No-VA final。因此后续实验分成两类：
+
+1. **主线实验**：围绕当前最佳 No-VA 配置，微调 `IMAGE / PATCH / PQA / TEXT` 融合权重和关键 loss 权重。
+2. **补充实验**：继续验证 VA 是否存在很窄的甜点区间，或作为论文负结果/对照实验。
 
 核心问题：
 
-1. VA visual-text 分支是否能在 InCTRL 残差主干和 PQA 已存在时提供额外增益？
-2. VA 的合理融合权重应是多少？
-3. `VISUAL_MASK_WEIGHT` 是否会提升像素级定位，还是增加跨域误报？
-4. AdaptCLIP 原版等权融合思想是否适合迁移到 InCTRL-Adapt 框架？
+1. 当前 No-VA final 是否还可以通过残差、PQA、TA 权重微调提升？
+2. `PATCH_WEIGHT` 或 `PQA_WEIGHT` 上调是否能改善 VisA 高敏类别和 AITEX 纹理域？
+3. `MASK_WEIGHT` 下降是否能降低源域像素监督带来的跨域纹理过拟合？
+4. VA visual-text 分支是否只能作为极小辅助项，还是应彻底关闭？
+5. AdaptCLIP 原版等权融合思想是否适合迁移到当前 InCTRL-Adapt 框架？
 
 ---
 
-## 当前已完成实验：无 VA 最终模型
+## 当前最佳基准：No-VA final
 
 ### 配置
 
@@ -36,15 +42,15 @@
 
 | 实验 | Shot | Dataset | AUROC mean ± std | InCTRL baseline | Delta | 状态 |
 | --- | ---: | --- | ---: | ---: | ---: | --- |
-| No-VA final | 2 | VisA | 0.9030 ± 0.0015 | 0.858 | +0.0450 | ✅ 已完成 |
-| No-VA final | 2 | AITEX | 0.7994 ± 0.0058 | 0.761 | +0.0384 | ✅ 已完成 |
-| No-VA final | 2 | ELPV | 0.8601 ± 0.0077 | 0.839 | +0.0211 | ✅ 已完成 |
-| No-VA final | 4 | VisA | 0.8916 ± 0.0021 | 0.877 | +0.0146 | ✅ 已完成 |
-| No-VA final | 4 | AITEX | 0.7999 ± 0.0007 | 0.790 | +0.0099 | ✅ 已完成 |
-| No-VA final | 4 | ELPV | 0.8705 ± 0.0032 | 0.846 | +0.0245 | ✅ 已完成 |
-| No-VA final | 8 | VisA | 0.9060 ± 0.0018 | 0.887 | +0.0190 | ✅ 已完成 |
-| No-VA final | 8 | AITEX | 0.8003 ± 0.0034 | 0.806 | -0.0057 | ✅ 已完成 |
-| No-VA final | 8 | ELPV | 0.8815 ± 0.0023 | 0.872 | +0.0095 | ✅ 已完成 |
+| No-VA final | 2 | VisA | 0.9030 ± 0.0015 | 0.858 | +0.0450 | 已完成 |
+| No-VA final | 2 | AITEX | 0.7994 ± 0.0058 | 0.761 | +0.0384 | 已完成 |
+| No-VA final | 2 | ELPV | 0.8601 ± 0.0077 | 0.839 | +0.0211 | 已完成 |
+| No-VA final | 4 | VisA | 0.8916 ± 0.0021 | 0.877 | +0.0146 | 已完成 |
+| No-VA final | 4 | AITEX | 0.7999 ± 0.0007 | 0.790 | +0.0099 | 已完成 |
+| No-VA final | 4 | ELPV | 0.8705 ± 0.0032 | 0.846 | +0.0245 | 已完成 |
+| No-VA final | 8 | VisA | 0.9060 ± 0.0018 | 0.887 | +0.0190 | 已完成 |
+| No-VA final | 8 | AITEX | 0.8003 ± 0.0034 | 0.806 | -0.0057 | 已完成 |
+| No-VA final | 8 | ELPV | 0.8815 ± 0.0023 | 0.872 | +0.0095 | 已完成 |
 
 ### 已知结论
 
@@ -56,19 +62,9 @@
 
 ---
 
-## 实验执行原则
+## 已完成实验归档
 
-1. 优先保持 `PQA_WEIGHT=0.25` 和 `TEXT_WEIGHT=0.15` 不变，因为当前 VisA 提升主要来自稳定残差主干 + PQA + TA。
-2. VA 权重从小到大递增，避免一次性采用 AdaptCLIP 式等权融合导致误报升高。
-3. 先跑 `VISUAL_MASK_WEIGHT=0.0`，确认 VA 图像级分支是否有收益；再单独测试 VA mask loss。
-4. 每个配置至少先跑 2-shot；若 2-shot 有收益或结论关键，再扩展到 4/8-shot。
-5. 每个 smoke 或正式结果必须与 `reports/original_inctrl_baseline.md` 中对应 baseline 比较。
-
----
-
-## 待跑实验列表
-
-### E1：VA-small，推荐第一优先级
+### C1：VA-small
 
 目标：以最保守方式开启 VA，测试 VA visual-text 分支是否能在不破坏 InCTRL 残差主干的情况下提供增益。
 
@@ -82,32 +78,11 @@
 | `LOSS.VISUAL_WEIGHT` | 0.2 |
 | `LOSS.VISUAL_MASK_WEIGHT` | 0.0 |
 
-命令模板：
-
-```bash
-python train_local.py \
-  --train_dataset mvtec \
-  --test_dataset visa/aitex/elpv \
-  --shot 2 \
-  --max_epoch 15 \
-  --steps_per_epoch 100 \
-  --output_dir results/ablation_va_small_2shot_15ep \
-  FUSION.IMAGE_WEIGHT 0.32 \
-  FUSION.PATCH_WEIGHT 0.23 \
-  FUSION.PQA_WEIGHT 0.25 \
-  FUSION.TEXT_WEIGHT 0.15 \
-  FUSION.VISUAL_WEIGHT 0.05 \
-  LOSS.VISUAL_WEIGHT 0.2 \
-  LOSS.VISUAL_MASK_WEIGHT 0.0
-```
-
-记录：
-
 | Shot | Dataset | AUROC | AUPR | FPR | FNR | vs No-VA | vs InCTRL baseline | 状态 | 备注 |
 | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| 2 | VisA | 0.9001 | 0.9137 | TBD | TBD | -0.0029 vs 0.903 | +0.0421 vs 0.858 | ✅ 已完成 | 略低于 No-VA，多数类别仍较高 |
-| 2 | AITEX | 0.7974 | 0.5703 | TBD | TBD | -0.0020 vs 0.7994 | +0.0364 vs 0.761 | ✅ 已完成 | 略低于 No-VA，高于原始 InCTRL 2-shot baseline |
-| 2 | ELPV | 0.8532 | 0.9300 | TBD | TBD | -0.0069 vs 0.8601 | +0.0142 vs 0.839 | ✅ 已完成 | 低于 No-VA，高于原始 InCTRL 2-shot baseline |
+| 2 | VisA | 0.9001 | 0.9137 | TBD | TBD | -0.0029 vs 0.9030 | +0.0421 vs 0.858 | 已完成 | 略低于 No-VA，多数类别仍较高 |
+| 2 | AITEX | 0.7974 | 0.5703 | TBD | TBD | -0.0020 vs 0.7994 | +0.0364 vs 0.761 | 已完成 | 略低于 No-VA，高于原始 InCTRL 2-shot baseline |
+| 2 | ELPV | 0.8532 | 0.9300 | TBD | TBD | -0.0069 vs 0.8601 | +0.0142 vs 0.839 | 已完成 | 低于 No-VA，高于原始 InCTRL 2-shot baseline |
 
 VisA per-category 结果：
 
@@ -127,23 +102,272 @@ VisA per-category 结果：
 | pipe_fryum | 0.9898 | 0.9950 |
 | **MEAN** | **0.9001** | **0.9137** |
 
-E1 初步结论：
+结论：
 
 - VisA 2-shot AUROC 为 0.9001，低于 No-VA final 的 0.9030，差值约 -0.0029。
 - AITEX 2-shot AUROC 为 0.7974，低于 No-VA final 的 0.7994，差值约 -0.0020。
 - ELPV 2-shot AUROC 为 0.8532，低于 No-VA final 的 0.8601，差值约 -0.0069。
 - 三个目标域平均 AUROC 为 0.8502，低于 No-VA final 的 0.8542，差值约 -0.0039。
-- 该结果说明 VA-small 没有带来稳定收益；后续 VA-mid/VA-strong 更适合作为确认“VA 权重增大是否进一步退化或是否存在甜点区间”的补充实验。
+- VA-small 没有带来稳定收益，不建议扩展到 4/8-shot。
 
-判定：
+### C2：VA-strong
 
-- 若 VisA AUROC ≥ No-VA 2-shot 的 0.903，且 AITEX/ELPV 不显著下降，则扩展到 4/8-shot。
-- 若 VisA 提升但 AITEX 明显下降，记录为“VA 对纹理域有负迁移风险”。
-- 若三域均下降，说明当前 InCTRL 主干下不适合引入 VA。
+目标：测试较强 VA 权重是否导致过拟合或误报上升，作为“复杂适配器风险”的证据。
+
+| 配置项 | 数值 |
+| --- | ---: |
+| `FUSION.IMAGE_WEIGHT` | 0.28 |
+| `FUSION.PATCH_WEIGHT` | 0.20 |
+| `FUSION.PQA_WEIGHT` | 0.25 |
+| `FUSION.TEXT_WEIGHT` | 0.15 |
+| `FUSION.VISUAL_WEIGHT` | 0.12 |
+| `LOSS.VISUAL_WEIGHT` | 0.2 |
+| `LOSS.VISUAL_MASK_WEIGHT` | 0.0 |
+
+| Shot | Dataset | AUROC | AUPR | FPR | FNR | vs No-VA | vs VA-small | 状态 | 备注 |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| 2 | VisA | 0.8904 | 0.9061 | TBD | TBD | -0.0126 vs 0.9030 | -0.0097 vs 0.9001 | 已完成 | 明显低于 No-VA 和 VA-small |
+| 2 | AITEX | 0.8005 | 0.5753 | TBD | TBD | +0.0011 vs 0.7994 | +0.0031 vs 0.7974 | 已完成 | 略高于 No-VA 和 VA-small |
+| 2 | ELPV | 0.8574 | 0.9338 | TBD | TBD | -0.0027 vs 0.8601 | +0.0042 vs 0.8532 | 已完成 | 低于 No-VA，略高于 VA-small |
+
+VisA per-category 结果：
+
+| Category | AUROC | AUPR |
+| --- | ---: | ---: |
+| candle | 0.9690 | 0.9715 |
+| capsules | 0.8282 | 0.9062 |
+| cashew | 0.9474 | 0.9776 |
+| chewinggum | 0.9806 | 0.9918 |
+| fryum | 0.9438 | 0.9780 |
+| macaroni1 | 0.8586 | 0.8790 |
+| macaroni2 | 0.7952 | 0.7958 |
+| pcb1 | 0.7839 | 0.8084 |
+| pcb2 | 0.8062 | 0.8197 |
+| pcb3 | 0.8970 | 0.8914 |
+| pcb4 | 0.8849 | 0.8586 |
+| pipe_fryum | 0.9902 | 0.9955 |
+| **MEAN** | **0.8904** | **0.9061** |
+
+结论：
+
+- VA-strong 三域平均 AUROC 为 0.8494，低于 No-VA final 的 0.8542，也低于 VA-small 的 0.8502。
+- VisA 从 No-VA 的 0.9030 下降到 0.8904，下降约 -0.0126，是主要退化来源。
+- AITEX 从 No-VA 的 0.7994 小幅上升到 0.8005，但增益仅 +0.0011，不足以抵消 VisA 退化。
+- 当前结果支持“VA 权重越大越容易破坏 VisA 泛化”的判断，VA 不适合成为强分支。
 
 ---
 
-### E2：VA-mid，中等 VA 权重
+## 待进行实验
+
+### 主线优先级
+
+优先跑 `A1 -> A2 -> A3 -> A4`。每个实验先跑 2-shot，目标域为 VisA / AITEX / ELPV。只有 2-shot 相对 No-VA final 有收益或非常接近，才扩展到 4/8-shot 与多种子。
+
+### A1：patch_up
+
+假设：patch 残差比分支图像级 residual 更稳，提高 `PATCH_WEIGHT` 可能改善 VisA 高敏类别和 AITEX 纹理域。
+
+| 配置项 | 数值 |
+| --- | ---: |
+| `FUSION.IMAGE_WEIGHT` | 0.30 |
+| `FUSION.PATCH_WEIGHT` | 0.30 |
+| `FUSION.PQA_WEIGHT` | 0.25 |
+| `FUSION.TEXT_WEIGHT` | 0.15 |
+| `FUSION.VISUAL_WEIGHT` | 0.00 |
+| `LOSS.IMAGE_WEIGHT` | 1.0 |
+| `LOSS.PQA_WEIGHT` | 0.5 |
+| `LOSS.MASK_WEIGHT` | 1.0 |
+| `LOSS.TEXT_WEIGHT` | 0.0 |
+| `LOSS.TEXT_MASK_WEIGHT` | 0.0 |
+| `LOSS.VISUAL_WEIGHT` | 0.0 |
+| `LOSS.VISUAL_MASK_WEIGHT` | 0.0 |
+
+命令模板：
+
+```bash
+python train_local.py \
+  --train_dataset mvtec \
+  --test_dataset visa/aitex/elpv \
+  --shot 2 \
+  --max_epoch 15 \
+  --steps_per_epoch 100 \
+  --output_dir results/ablation_patch_up_2shot_15ep \
+  FUSION.IMAGE_WEIGHT 0.30 \
+  FUSION.PATCH_WEIGHT 0.30 \
+  FUSION.PQA_WEIGHT 0.25 \
+  FUSION.TEXT_WEIGHT 0.15 \
+  FUSION.VISUAL_WEIGHT 0.00
+```
+
+记录：
+
+| Shot | Dataset | AUROC | AUPR | FPR | FNR | vs No-VA | vs InCTRL baseline | 状态 | 备注 |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| 2 | VisA | TBD | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+| 2 | AITEX | TBD | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+| 2 | ELPV | TBD | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+
+判定：
+
+- 若三域平均 AUROC 高于 0.8542，或 AITEX 提升且 VisA/ELPV 下降不超过 0.003，则扩展到 4/8-shot。
+- 若 VisA pcb1/pcb2/macaroni2 明显提升，记录 per-category 证据。
+
+### A2：pqa_up
+
+假设：PQA 全局分支可能比图像级 residual 更抗跨域，把 0.05 权重从 image 挪给 PQA 可能提升稳定性。
+
+| 配置项 | 数值 |
+| --- | ---: |
+| `FUSION.IMAGE_WEIGHT` | 0.30 |
+| `FUSION.PATCH_WEIGHT` | 0.25 |
+| `FUSION.PQA_WEIGHT` | 0.30 |
+| `FUSION.TEXT_WEIGHT` | 0.15 |
+| `FUSION.VISUAL_WEIGHT` | 0.00 |
+| `LOSS.IMAGE_WEIGHT` | 1.0 |
+| `LOSS.PQA_WEIGHT` | 0.5 |
+| `LOSS.MASK_WEIGHT` | 1.0 |
+| `LOSS.TEXT_WEIGHT` | 0.0 |
+| `LOSS.TEXT_MASK_WEIGHT` | 0.0 |
+| `LOSS.VISUAL_WEIGHT` | 0.0 |
+| `LOSS.VISUAL_MASK_WEIGHT` | 0.0 |
+
+命令模板：
+
+```bash
+python train_local.py \
+  --train_dataset mvtec \
+  --test_dataset visa/aitex/elpv \
+  --shot 2 \
+  --max_epoch 15 \
+  --steps_per_epoch 100 \
+  --output_dir results/ablation_pqa_up_2shot_15ep \
+  FUSION.IMAGE_WEIGHT 0.30 \
+  FUSION.PATCH_WEIGHT 0.25 \
+  FUSION.PQA_WEIGHT 0.30 \
+  FUSION.TEXT_WEIGHT 0.15 \
+  FUSION.VISUAL_WEIGHT 0.00
+```
+
+记录：
+
+| Shot | Dataset | AUROC | AUPR | FPR | FNR | vs No-VA | vs InCTRL baseline | 状态 | 备注 |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| 2 | VisA | TBD | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+| 2 | AITEX | TBD | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+| 2 | ELPV | TBD | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+
+判定：
+
+- 若 A2 优于 A1，说明全局 PQA 比 patch residual 更适合作为当前分数补偿。
+- 若 A2 有收益，后续可单独测试 `LOSS.PQA_WEIGHT=0.75`，验证是否 PQA 监督不足。
+
+### A3：mask_down
+
+假设：`LOSS.MASK_WEIGHT=1.0` 可能让 PQA 像素分割监督偏向源域纹理，适度下降到 0.75 可能提升跨域泛化。
+
+| 配置项 | 数值 |
+| --- | ---: |
+| `FUSION.IMAGE_WEIGHT` | 0.35 |
+| `FUSION.PATCH_WEIGHT` | 0.25 |
+| `FUSION.PQA_WEIGHT` | 0.25 |
+| `FUSION.TEXT_WEIGHT` | 0.15 |
+| `FUSION.VISUAL_WEIGHT` | 0.00 |
+| `LOSS.IMAGE_WEIGHT` | 1.0 |
+| `LOSS.PQA_WEIGHT` | 0.5 |
+| `LOSS.MASK_WEIGHT` | 0.75 |
+| `LOSS.TEXT_WEIGHT` | 0.0 |
+| `LOSS.TEXT_MASK_WEIGHT` | 0.0 |
+| `LOSS.VISUAL_WEIGHT` | 0.0 |
+| `LOSS.VISUAL_MASK_WEIGHT` | 0.0 |
+
+命令模板：
+
+```bash
+python train_local.py \
+  --train_dataset mvtec \
+  --test_dataset visa/aitex/elpv \
+  --shot 2 \
+  --max_epoch 15 \
+  --steps_per_epoch 100 \
+  --output_dir results/ablation_mask_down_2shot_15ep \
+  FUSION.IMAGE_WEIGHT 0.35 \
+  FUSION.PATCH_WEIGHT 0.25 \
+  FUSION.PQA_WEIGHT 0.25 \
+  FUSION.TEXT_WEIGHT 0.15 \
+  FUSION.VISUAL_WEIGHT 0.00 \
+  LOSS.MASK_WEIGHT 0.75
+```
+
+记录：
+
+| Shot | Dataset | AUROC | AUPR | Pixel AUROC/PRO | FPR | vs No-VA | 状态 | 备注 |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| 2 | VisA | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+| 2 | AITEX | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+| 2 | ELPV | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+
+判定：
+
+- 若 image AUROC 提升且 pixel AUROC/PRO 不明显下降，说明 mask 监督过强可能压制跨域泛化。
+- 若 image AUROC 不变但 pixel 指标下降，则 `LOSS.MASK_WEIGHT=1.0` 仍应保留。
+
+### A4：tiny_text_ce
+
+假设：TA 当前没有独立 CE loss，只通过 final loss 间接训练；给极小 `TEXT_WEIGHT=0.05` 可能改善 text logit 校准，但需要防止 TA 与残差/PQA 分支竞争。
+
+| 配置项 | 数值 |
+| --- | ---: |
+| `FUSION.IMAGE_WEIGHT` | 0.35 |
+| `FUSION.PATCH_WEIGHT` | 0.25 |
+| `FUSION.PQA_WEIGHT` | 0.25 |
+| `FUSION.TEXT_WEIGHT` | 0.15 |
+| `FUSION.VISUAL_WEIGHT` | 0.00 |
+| `LOSS.IMAGE_WEIGHT` | 1.0 |
+| `LOSS.PQA_WEIGHT` | 0.5 |
+| `LOSS.MASK_WEIGHT` | 1.0 |
+| `LOSS.TEXT_WEIGHT` | 0.05 |
+| `LOSS.TEXT_MASK_WEIGHT` | 0.0 |
+| `LOSS.VISUAL_WEIGHT` | 0.0 |
+| `LOSS.VISUAL_MASK_WEIGHT` | 0.0 |
+
+命令模板：
+
+```bash
+python train_local.py \
+  --train_dataset mvtec \
+  --test_dataset visa/aitex/elpv \
+  --shot 2 \
+  --max_epoch 15 \
+  --steps_per_epoch 100 \
+  --output_dir results/ablation_tiny_text_ce_2shot_15ep \
+  FUSION.IMAGE_WEIGHT 0.35 \
+  FUSION.PATCH_WEIGHT 0.25 \
+  FUSION.PQA_WEIGHT 0.25 \
+  FUSION.TEXT_WEIGHT 0.15 \
+  FUSION.VISUAL_WEIGHT 0.00 \
+  LOSS.TEXT_WEIGHT 0.05
+```
+
+记录：
+
+| Shot | Dataset | AUROC | AUPR | FPR | FNR | vs No-VA | vs InCTRL baseline | 状态 | 备注 |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| 2 | VisA | TBD | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+| 2 | AITEX | TBD | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+| 2 | ELPV | TBD | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+
+判定：
+
+- 若 VisA/ELPV 提升且 AITEX 不明显下降，可考虑进一步测试 `TEXT_WEIGHT=0.10`。
+- 若 AITEX 或 VisA 高敏类别下降，说明 TA 独立监督会强化分支竞争，保持 `LOSS.TEXT_WEIGHT=0.0`。
+
+---
+
+## 补充待进行实验：VA 对照
+
+这些实验优先级低于 A1-A4。它们主要用于确认 VA 负结果、补足论文对照或回答 reviewer-style 问题。
+
+### V1：VA-mid
 
 目标：测试稍强 VA 是否能进一步提升 VisA，同时观察 AITEX/ELPV 误报风险。
 
@@ -180,92 +404,11 @@ python train_local.py \
 
 | Shot | Dataset | AUROC | AUPR | FPR | FNR | vs No-VA | vs VA-small | 状态 | 备注 |
 | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| 2 | VisA | TBD | TBD | TBD | TBD | TBD | TBD | ⬜ 未跑 |  |
-| 2 | AITEX | TBD | TBD | TBD | TBD | TBD | TBD | ⬜ 未跑 |  |
-| 2 | ELPV | TBD | TBD | TBD | TBD | TBD | TBD | ⬜ 未跑 |  |
+| 2 | VisA | TBD | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+| 2 | AITEX | TBD | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+| 2 | ELPV | TBD | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
 
-判定：
-
-- 若 VA-mid 优于 VA-small，说明 VA 权重不足可能限制增益。
-- 若 VA-mid 低于 VA-small，说明 VA 应保持小权重。
-
----
-
-### E3：VA-strong，VA 权重上限测试
-
-目标：测试较强 VA 权重是否导致过拟合或误报上升，作为论文中“复杂适配器风险”的证据。
-
-| 配置项 | 数值 |
-| --- | ---: |
-| `FUSION.IMAGE_WEIGHT` | 0.28 |
-| `FUSION.PATCH_WEIGHT` | 0.20 |
-| `FUSION.PQA_WEIGHT` | 0.25 |
-| `FUSION.TEXT_WEIGHT` | 0.15 |
-| `FUSION.VISUAL_WEIGHT` | 0.12 |
-| `LOSS.VISUAL_WEIGHT` | 0.2 |
-| `LOSS.VISUAL_MASK_WEIGHT` | 0.0 |
-
-命令模板：
-
-```bash
-python train_local.py \
-  --train_dataset mvtec \
-  --test_dataset visa/aitex/elpv \
-  --shot 2 \
-  --max_epoch 15 \
-  --steps_per_epoch 100 \
-  --output_dir results/ablation_va_strong_2shot_15ep \
-  FUSION.IMAGE_WEIGHT 0.28 \
-  FUSION.PATCH_WEIGHT 0.20 \
-  FUSION.PQA_WEIGHT 0.25 \
-  FUSION.TEXT_WEIGHT 0.15 \
-  FUSION.VISUAL_WEIGHT 0.12 \
-  LOSS.VISUAL_WEIGHT 0.2 \
-  LOSS.VISUAL_MASK_WEIGHT 0.0
-```
-
-记录：
-
-| Shot | Dataset | AUROC | AUPR | FPR | FNR | vs No-VA | vs VA-small | 状态 | 备注 |
-| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| 2 | VisA | 0.8904 | 0.9061 | TBD | TBD | -0.0126 vs 0.9030 | -0.0097 vs 0.9001 | ✅ 已完成 | 明显低于 No-VA 和 VA-small |
-| 2 | AITEX | 0.8005 | 0.5753 | TBD | TBD | +0.0011 vs 0.7994 | +0.0031 vs 0.7974 | ✅ 已完成 | 略高于 No-VA 和 VA-small |
-| 2 | ELPV | 0.8574 | 0.9338 | TBD | TBD | -0.0027 vs 0.8601 | +0.0042 vs 0.8532 | ✅ 已完成 | 低于 No-VA，略高于 VA-small |
-
-VisA per-category 结果：
-
-| Category | AUROC | AUPR |
-| --- | ---: | ---: |
-| candle | 0.9690 | 0.9715 |
-| capsules | 0.8282 | 0.9062 |
-| cashew | 0.9474 | 0.9776 |
-| chewinggum | 0.9806 | 0.9918 |
-| fryum | 0.9438 | 0.9780 |
-| macaroni1 | 0.8586 | 0.8790 |
-| macaroni2 | 0.7952 | 0.7958 |
-| pcb1 | 0.7839 | 0.8084 |
-| pcb2 | 0.8062 | 0.8197 |
-| pcb3 | 0.8970 | 0.8914 |
-| pcb4 | 0.8849 | 0.8586 |
-| pipe_fryum | 0.9902 | 0.9955 |
-| **MEAN** | **0.8904** | **0.9061** |
-
-E3 初步结论：
-
-- VA-strong 三域平均 AUROC 为 0.8494，低于 No-VA final 的 0.8542，也低于 VA-small 的 0.8502。
-- VisA 从 No-VA 的 0.9030 下降到 0.8904，下降约 -0.0126，是主要退化来源。
-- AITEX 从 No-VA 的 0.7994 小幅上升到 0.8005，但增益仅 +0.0011，不足以抵消 VisA 退化。
-- ELPV 低于 No-VA，但高于 VA-small，说明较强 VA 权重可能对个别域有轻微帮助，但整体不稳定。
-- 当前结果支持“VA 权重越大越容易破坏 VisA 泛化”的判断，VA 不适合成为强分支。
-
-判定：
-
-- 若 strong 比 small/mid 差，说明 VA 适合低权重辅助，不适合主导分数。
-- 若 strong 更好，需要进一步跑 4/8-shot 和多种子验证。
-
----
-
-### E4：VA-mask-small，轻量 VA 像素监督
+### V2：VA-mask-small
 
 目标：验证 `VISUAL_MASK_WEIGHT` 是否能提升 VA 局部图质量，或是否会引入跨域误报。
 
@@ -302,18 +445,11 @@ python train_local.py \
 
 | Shot | Dataset | AUROC | AUPR | Pixel AUROC/PRO | FPR | vs VA-small | 状态 | 备注 |
 | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| 2 | VisA | TBD | TBD | TBD | TBD | TBD | ⬜ 未跑 |  |
-| 2 | AITEX | TBD | TBD | TBD | TBD | TBD | ⬜ 未跑 |  |
-| 2 | ELPV | TBD | TBD | TBD | TBD | TBD | ⬜ 未跑 |  |
+| 2 | VisA | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+| 2 | AITEX | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+| 2 | ELPV | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
 
-判定：
-
-- 若 image AUROC 不变但 pixel map 更清晰，可作为定位增强证据。
-- 若 FPR 明显上升，说明 VA local map 对跨域纹理过敏，`VISUAL_MASK_WEIGHT` 应保持 0。
-
----
-
-### E5：AdaptCLIP-style 等权融合，对照实验
+### V3：AdaptCLIP-style 等权融合
 
 目标：验证 AdaptCLIP 原版“VA/TA/PQA 等权融合”思想在 InCTRL 残差主干存在时是否仍然成立。
 
@@ -350,20 +486,56 @@ python train_local.py \
 
 | Shot | Dataset | AUROC | AUPR | FPR | FNR | vs No-VA | 状态 | 备注 |
 | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| 2 | VisA | TBD | TBD | TBD | TBD | TBD | ⬜ 未跑 |  |
-| 2 | AITEX | TBD | TBD | TBD | TBD | TBD | ⬜ 未跑 |  |
-| 2 | ELPV | TBD | TBD | TBD | TBD | TBD | ⬜ 未跑 |  |
+| 2 | VisA | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+| 2 | AITEX | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+| 2 | ELPV | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
 
-判定：
+### V4：VA-tiny，可选
 
-- 若等权融合下降，说明 InCTRL-Adapt 不应简单照搬 AdaptCLIP 的 adapter 等权融合。
-- 若等权融合提升，说明 VA/TA/PQA 的均衡协同仍有价值，需要进一步做 4/8-shot 和多种子。
+目标：确认 VA 是否存在比 VA-small 更窄的极低权重甜点区间。
+
+| 配置项 | 数值 |
+| --- | ---: |
+| `FUSION.IMAGE_WEIGHT` | 0.34 |
+| `FUSION.PATCH_WEIGHT` | 0.24 |
+| `FUSION.PQA_WEIGHT` | 0.25 |
+| `FUSION.TEXT_WEIGHT` | 0.15 |
+| `FUSION.VISUAL_WEIGHT` | 0.02 |
+| `LOSS.VISUAL_WEIGHT` | 0.05 |
+| `LOSS.VISUAL_MASK_WEIGHT` | 0.0 |
+
+命令模板：
+
+```bash
+python train_local.py \
+  --train_dataset mvtec \
+  --test_dataset visa/aitex/elpv \
+  --shot 2 \
+  --max_epoch 15 \
+  --steps_per_epoch 100 \
+  --output_dir results/ablation_va_tiny_2shot_15ep \
+  FUSION.IMAGE_WEIGHT 0.34 \
+  FUSION.PATCH_WEIGHT 0.24 \
+  FUSION.PQA_WEIGHT 0.25 \
+  FUSION.TEXT_WEIGHT 0.15 \
+  FUSION.VISUAL_WEIGHT 0.02 \
+  LOSS.VISUAL_WEIGHT 0.05 \
+  LOSS.VISUAL_MASK_WEIGHT 0.0
+```
+
+记录：
+
+| Shot | Dataset | AUROC | AUPR | FPR | FNR | vs No-VA | vs VA-small | 状态 | 备注 |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| 2 | VisA | TBD | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+| 2 | AITEX | TBD | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
+| 2 | ELPV | TBD | TBD | TBD | TBD | TBD | TBD | 未跑 |  |
 
 ---
 
 ## 扩展实验：多 shot 与多 seed
 
-若 E1/E2/E3 中任一配置在 2-shot 表现接近或优于 No-VA，则扩展：
+若 A1-A4 中任一配置在 2-shot 表现接近或优于 No-VA，则扩展：
 
 ```bash
 for SHOT in 2 4 8; do
@@ -380,36 +552,50 @@ done
 
 多种子复验优先级：
 
-1. 最佳 VA 配置的 VisA 2/4/8-shot。
+1. A1-A4 中 2-shot 三域平均最好的配置。
 2. AITEX 8-shot，因为当前 No-VA 已低于 baseline。
 3. 高敏感类别：pcb1、pcb2、pcb3、macaroni2。
+4. 若所有 A1-A4 都低于 No-VA，则保留 No-VA final 作为最终配置。
 
 ---
 
 ## 总结果汇总表
 
-| 实验 | VA fusion | VA CE loss | VA mask loss | Shot | VisA AUROC | AITEX AUROC | ELPV AUROC | 平均 AUROC | 结论 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| No-VA final | 0.00 | 0.0 | 0.0 | 2 | 0.9030 | 0.7994 | 0.8601 | 0.8542 | 当前最佳 2-shot 已知配置 |
-| No-VA final | 0.00 | 0.0 | 0.0 | 4 | 0.8916 | 0.7999 | 0.8705 | 0.8540 | VisA 4-shot 非单调 |
-| No-VA final | 0.00 | 0.0 | 0.0 | 8 | 0.9060 | 0.8003 | 0.8815 | 0.8626 | AITEX 8-shot 低于原始 baseline |
-| VA-small | 0.05 | 0.2 | 0.0 | 2 | 0.9001 | 0.7974 | 0.8532 | 0.8502 | 三域均略低于 No-VA，未见稳定收益 |
-| VA-mid | 0.08 | 0.2 | 0.0 | 2 | TBD | TBD | TBD | TBD | 待验证 |
-| VA-strong | 0.12 | 0.2 | 0.0 | 2 | 0.8904 | 0.8005 | 0.8574 | 0.8494 | AITEX 略升，但 VisA 明显下降，整体低于 No-VA 和 VA-small |
-| VA-mask-small | 0.05 | 0.2 | 0.05 | 2 | TBD | TBD | TBD | TBD | 待验证 |
-| AdaptCLIP-style | 0.20 | 0.5 | 0.0 | 2 | TBD | TBD | TBD | TBD | 待验证 |
+| 实验 | 类型 | 关键改动 | Shot | VisA AUROC | AITEX AUROC | ELPV AUROC | 平均 AUROC | 结论 |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| No-VA final | 基准 | VA=0，当前最佳权重 | 2 | 0.9030 | 0.7994 | 0.8601 | 0.8542 | 当前最佳 2-shot 已知配置 |
+| No-VA final | 基准 | VA=0，当前最佳权重 | 4 | 0.8916 | 0.7999 | 0.8705 | 0.8540 | VisA 4-shot 非单调 |
+| No-VA final | 基准 | VA=0，当前最佳权重 | 8 | 0.9060 | 0.8003 | 0.8815 | 0.8626 | AITEX 8-shot 低于原始 baseline |
+| VA-small | 已完成 | VA fusion=0.05, VA CE=0.2 | 2 | 0.9001 | 0.7974 | 0.8532 | 0.8502 | 三域均略低于 No-VA，未见稳定收益 |
+| VA-strong | 已完成 | VA fusion=0.12, VA CE=0.2 | 2 | 0.8904 | 0.8005 | 0.8574 | 0.8494 | AITEX 略升，但 VisA 明显下降 |
+| A1 patch_up | 待跑 | IMAGE 0.35 -> 0.30, PATCH 0.25 -> 0.30 | 2 | TBD | TBD | TBD | TBD | 主线优先级 1 |
+| A2 pqa_up | 待跑 | IMAGE 0.35 -> 0.30, PQA 0.25 -> 0.30 | 2 | TBD | TBD | TBD | TBD | 主线优先级 2 |
+| A3 mask_down | 待跑 | MASK loss 1.0 -> 0.75 | 2 | TBD | TBD | TBD | TBD | 主线优先级 3 |
+| A4 tiny_text_ce | 待跑 | TEXT CE loss 0.0 -> 0.05 | 2 | TBD | TBD | TBD | TBD | 主线优先级 4 |
+| V1 VA-mid | 待跑 | VA fusion=0.08, VA CE=0.2 | 2 | TBD | TBD | TBD | TBD | VA 补充对照 |
+| V2 VA-mask-small | 待跑 | VA mask loss=0.05 | 2 | TBD | TBD | TBD | TBD | VA 补充对照 |
+| V3 AdaptCLIP-style | 待跑 | 五分支等权融合 | 2 | TBD | TBD | TBD | TBD | VA/AdaptCLIP 负结果对照 |
+| V4 VA-tiny | 可选 | VA fusion=0.02, VA CE=0.05 | 2 | TBD | TBD | TBD | TBD | 仅验证极小 VA 甜点区间 |
 
 ---
 
 ## 论文可用结论模板
 
-### 若 VA-small 提升
+### 若 A1/A2 提升
 
-在 InCTRL 残差主干和 PQA 已提供稳定异常证据的情况下，低权重 VA visual-text 分支能够作为辅助语义校准项带来额外提升。但较大 VA 权重或 VA mask loss 可能增加跨域纹理误报，因此本文采用受控融合而非 AdaptCLIP 原版等权融合。
+在 InCTRL 残差主干和 PQA 已提供稳定异常证据的情况下，性能瓶颈不在于额外引入 VA，而在于已有残差证据与 PQA 证据的权重分配。适度提高 patch residual 或 PQA 分支权重，可以在不增加复杂 adapter 竞争的前提下提升跨域泛化。
 
-### 若 VA-small 不提升
+### 若 A3 提升
 
-实验表明，AdaptCLIP 风格 VA 在纯视觉-语言 adapter 框架中有效，但在 InCTRL 残差主干已经提供强局部差异信号时，VA visual-text 分支未带来稳定跨域增益。考虑到 VA local 分支在早期消融中表现出较高误报率，最终模型关闭 VA 融合权重，以保留 InCTRL 残差和 PQA 的稳定性。
+降低 PQA 像素级 mask 监督后，跨域 image-level AUROC 得到改善，说明过强像素监督可能增强源域纹理拟合而损害目标域泛化。最终模型应在定位质量和跨域分类性能之间选择更稳的 mask loss 权重。
+
+### 若 A4 提升
+
+极小文本 CE 监督可以改善 TA 分支校准，但该监督必须保持低权重，避免 text branch 与 reference-based residual / PQA 分支形成无约束竞争。
+
+### 若 VA 继续不提升
+
+实验表明，AdaptCLIP 风格 VA 在纯视觉-语言 adapter 框架中有效，但在 InCTRL 残差主干已经提供强局部差异信号时，VA visual-text 分支未带来稳定跨域增益。考虑到 VA local 分支在消融中表现出退化风险，最终模型关闭 VA 融合权重，以保留 InCTRL 残差和 PQA 的稳定性。
 
 ### 若 VA-mask 导致退化
 
@@ -419,16 +605,33 @@ VA 的像素图来自 patch-level visual-text similarity，而非专门的分割
 
 ## Checklist
 
+### 已完成
+
 - [x] 记录 No-VA final 的 VisA 2/4/8-shot 多种子 AUROC。
 - [x] 记录 No-VA final 的 AITEX 8-shot 多种子 AUROC。
-- [x] 跑 E1：VA-small 2-shot。
-- [x] 补查或补跑 No-VA 2-shot AITEX/ELPV，用于 E1 严格直接对照。
-- [ ] 根据 E1 结果决定是否扩展 4/8-shot。
-- [ ] 跑 E2：VA-mid 2-shot。
-- [x] 跑 E3：VA-strong 2-shot。
-- [ ] 若 E1 有潜力，跑 E4：VA-mask-small 2-shot。
-- [ ] 跑 E5：AdaptCLIP-style 等权融合对照。
-- [ ] 汇总 `test_results.csv` 到本文件表格。
+- [x] 补查或补跑 No-VA 2-shot AITEX/ELPV，用于严格直接对照。
+- [x] 跑 C1：VA-small 2-shot。
+- [x] 跑 C2：VA-strong 2-shot。
+- [x] 将已完成实验从待跑区归档到“已完成实验归档”。
+
+### 待跑主线
+
+- [ ] 跑 A1：patch_up 2-shot。
+- [ ] 跑 A2：pqa_up 2-shot。
+- [ ] 跑 A3：mask_down 2-shot。
+- [ ] 跑 A4：tiny_text_ce 2-shot。
+- [ ] 根据 A1-A4 结果决定是否扩展 4/8-shot。
 - [ ] 对最佳配置进行多种子复验。
+
+### 待跑补充
+
+- [ ] 跑 V1：VA-mid 2-shot。
+- [ ] 跑 V2：VA-mask-small 2-shot。
+- [ ] 跑 V3：AdaptCLIP-style 等权融合对照。
+- [ ] 可选跑 V4：VA-tiny 2-shot。
+
+### 汇总与写作
+
+- [ ] 汇总 `test_results.csv` 到本文件表格。
 - [ ] 生成 AUROC/AUPR/FPR 对比图。
 - [ ] 更新论文实验章节和附录复现说明。

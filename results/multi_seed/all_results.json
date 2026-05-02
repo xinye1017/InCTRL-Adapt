@@ -1,0 +1,1798 @@
+{
+  "seeds": [
+    42,
+    123,
+    7
+  ],
+  "models": {
+    "mvtec_va_ta_pqa_2shot": {
+      "name": "mvtec_va_ta_pqa_2shot",
+      "checkpoint": "results/mvtec_va_ta_pqa_2shot_15ep/checkpoint_best.pyth",
+      "train_dataset": "mvtec",
+      "test_datasets": [
+        "visa",
+        "aitex",
+        "elpv"
+      ],
+      "shot": 2
+    },
+    "mvtec_va_ta_pqa_4shot": {
+      "name": "mvtec_va_ta_pqa_4shot",
+      "checkpoint": "results/mvtec_va_ta_pqa_4shot_15ep/checkpoint_best.pyth",
+      "train_dataset": "mvtec",
+      "test_datasets": [
+        "visa",
+        "aitex",
+        "elpv"
+      ],
+      "shot": 4
+    },
+    "mvtec_va_ta_pqa_8shot": {
+      "name": "mvtec_va_ta_pqa_8shot",
+      "checkpoint": "results/mvtec_va_ta_pqa_8shot_15ep/checkpoint_best.pyth",
+      "train_dataset": "mvtec",
+      "test_datasets": [
+        "visa",
+        "aitex",
+        "elpv"
+      ],
+      "shot": 8
+    },
+    "visa_va_ta_pqa_2shot": {
+      "name": "visa_va_ta_pqa_2shot",
+      "checkpoint": "results/visa_va_ta_pqa_2shot_15ep/checkpoint_best.pyth",
+      "train_dataset": "visa",
+      "test_datasets": [
+        "mvtec"
+      ],
+      "shot": 2
+    },
+    "visa_va_ta_pqa_4shot": {
+      "name": "visa_va_ta_pqa_4shot",
+      "checkpoint": "results/visa_va_ta_pqa_4shot_15ep/checkpoint_best.pyth",
+      "train_dataset": "visa",
+      "test_datasets": [
+        "mvtec"
+      ],
+      "shot": 4
+    },
+    "visa_va_ta_pqa_8shot": {
+      "name": "visa_va_ta_pqa_8shot",
+      "checkpoint": "results/visa_va_ta_pqa_8shot_15ep/checkpoint_best.pyth",
+      "train_dataset": "visa",
+      "test_datasets": [
+        "mvtec"
+      ],
+      "shot": 8
+    }
+  },
+  "results": {
+    "mvtec_va_ta_pqa_2shot": {
+      "visa": {
+        "42": {
+          "categories": [
+            {
+              "category": "candle",
+              "auroc": 0.9597,
+              "aupr": 0.9643179994614418
+            },
+            {
+              "category": "capsules",
+              "auroc": 0.8566666666666666,
+              "aupr": 0.9204822646851682
+            },
+            {
+              "category": "cashew",
+              "auroc": 0.9556,
+              "aupr": 0.978607138574833
+            },
+            {
+              "category": "chewinggum",
+              "auroc": 0.9785999999999999,
+              "aupr": 0.9912426855969008
+            },
+            {
+              "category": "fryum",
+              "auroc": 0.9422,
+              "aupr": 0.9772297549208853
+            },
+            {
+              "category": "macaroni1",
+              "auroc": 0.9019,
+              "aupr": 0.9116193021366836
+            },
+            {
+              "category": "macaroni2",
+              "auroc": 0.7905,
+              "aupr": 0.7985415709319943
+            },
+            {
+              "category": "pcb1",
+              "auroc": 0.8161999999999999,
+              "aupr": 0.8433645750328197
+            },
+            {
+              "category": "pcb2",
+              "auroc": 0.856,
+              "aupr": 0.8569280612015955
+            },
+            {
+              "category": "pcb3",
+              "auroc": 0.887029702970297,
+              "aupr": 0.8859226742523916
+            },
+            {
+              "category": "pcb4",
+              "auroc": 0.9147524752475248,
+              "aupr": 0.9013319279002026
+            },
+            {
+              "category": "pipe_fryum",
+              "auroc": 0.9938,
+              "aupr": 0.9967211592252594
+            }
+          ],
+          "mean_auroc": 0.9044124037403741,
+          "mean_aupr": 0.9188590928266813
+        },
+        "123": {
+          "categories": [
+            {
+              "category": "candle",
+              "auroc": 0.9639,
+              "aupr": 0.9676468669767438
+            },
+            {
+              "category": "capsules",
+              "auroc": 0.8688333333333333,
+              "aupr": 0.9237631385253137
+            },
+            {
+              "category": "cashew",
+              "auroc": 0.9458,
+              "aupr": 0.9766533078093532
+            },
+            {
+              "category": "chewinggum",
+              "auroc": 0.9842000000000001,
+              "aupr": 0.993518986272503
+            },
+            {
+              "category": "fryum",
+              "auroc": 0.9585999999999999,
+              "aupr": 0.9829698616597672
+            },
+            {
+              "category": "macaroni1",
+              "auroc": 0.9005,
+              "aupr": 0.9122667217866991
+            },
+            {
+              "category": "macaroni2",
+              "auroc": 0.7765,
+              "aupr": 0.8016463285303659
+            },
+            {
+              "category": "pcb1",
+              "auroc": 0.8247,
+              "aupr": 0.8208638509826413
+            },
+            {
+              "category": "pcb2",
+              "auroc": 0.8487,
+              "aupr": 0.8423626518440865
+            },
+            {
+              "category": "pcb3",
+              "auroc": 0.8601980198019802,
+              "aupr": 0.8660033613870733
+            },
+            {
+              "category": "pcb4",
+              "auroc": 0.9209900990099009,
+              "aupr": 0.915067416174623
+            },
+            {
+              "category": "pipe_fryum",
+              "auroc": 0.9922,
+              "aupr": 0.9959575689725486
+            }
+          ],
+          "mean_auroc": 0.9037601210121013,
+          "mean_aupr": 0.9165600050768098
+        },
+        "7": {
+          "categories": [
+            {
+              "category": "candle",
+              "auroc": 0.9684,
+              "aupr": 0.9705826108055065
+            },
+            {
+              "category": "capsules",
+              "auroc": 0.8585,
+              "aupr": 0.9168283798374549
+            },
+            {
+              "category": "cashew",
+              "auroc": 0.9618,
+              "aupr": 0.9823098933468523
+            },
+            {
+              "category": "chewinggum",
+              "auroc": 0.9824,
+              "aupr": 0.9924417303829954
+            },
+            {
+              "category": "fryum",
+              "auroc": 0.9563999999999999,
+              "aupr": 0.9822565470599649
+            },
+            {
+              "category": "macaroni1",
+              "auroc": 0.8754,
+              "aupr": 0.8888782523487999
+            },
+            {
+              "category": "macaroni2",
+              "auroc": 0.8043,
+              "aupr": 0.8067673118059605
+            },
+            {
+              "category": "pcb1",
+              "auroc": 0.8088,
+              "aupr": 0.8100857584566858
+            },
+            {
+              "category": "pcb2",
+              "auroc": 0.8109000000000001,
+              "aupr": 0.8190820923434495
+            },
+            {
+              "category": "pcb3",
+              "auroc": 0.8615841584158416,
+              "aupr": 0.8800304649151673
+            },
+            {
+              "category": "pcb4",
+              "auroc": 0.9308910891089108,
+              "aupr": 0.9249502010695506
+            },
+            {
+              "category": "pipe_fryum",
+              "auroc": 0.9916,
+              "aupr": 0.9956717825080419
+            }
+          ],
+          "mean_auroc": 0.900914603960396,
+          "mean_aupr": 0.9141570854067025
+        }
+      },
+      "aitex": {
+        "42": {
+          "categories": [
+            {
+              "category": "AITEX",
+              "auroc": 0.8001820969906076,
+              "aupr": 0.5718569820046157
+            }
+          ],
+          "mean_auroc": 0.8001820969906076,
+          "mean_aupr": 0.5718569820046157
+        },
+        "123": {
+          "categories": [
+            {
+              "category": "AITEX",
+              "auroc": 0.8060475368986008,
+              "aupr": 0.5833538454843528
+            }
+          ],
+          "mean_auroc": 0.8060475368986008,
+          "mean_aupr": 0.5833538454843528
+        },
+        "7": {
+          "categories": [
+            {
+              "category": "AITEX",
+              "auroc": 0.7919685643089899,
+              "aupr": 0.5659173336975074
+            }
+          ],
+          "mean_auroc": 0.7919685643089899,
+          "mean_aupr": 0.5659173336975074
+        }
+      },
+      "elpv": {
+        "42": {
+          "categories": [
+            {
+              "category": "elpv",
+              "auroc": 0.8494333252953943,
+              "aupr": 0.9277480118018542
+            }
+          ],
+          "mean_auroc": 0.8494333252953943,
+          "mean_aupr": 0.9277480118018542
+        },
+        "123": {
+          "categories": [
+            {
+              "category": "elpv",
+              "auroc": 0.8674519114837416,
+              "aupr": 0.9348238187305773
+            }
+          ],
+          "mean_auroc": 0.8674519114837416,
+          "mean_aupr": 0.9348238187305773
+        },
+        "7": {
+          "categories": [
+            {
+              "category": "elpv",
+              "auroc": 0.8635083749142104,
+              "aupr": 0.9340608288145018
+            }
+          ],
+          "mean_auroc": 0.8635083749142104,
+          "mean_aupr": 0.9340608288145018
+        }
+      }
+    },
+    "mvtec_va_ta_pqa_4shot": {
+      "visa": {
+        "42": {
+          "categories": [
+            {
+              "category": "candle",
+              "auroc": 0.9778,
+              "aupr": 0.9786808047137048
+            },
+            {
+              "category": "capsules",
+              "auroc": 0.8523333333333334,
+              "aupr": 0.9209878961238732
+            },
+            {
+              "category": "cashew",
+              "auroc": 0.952,
+              "aupr": 0.9793273137946643
+            },
+            {
+              "category": "chewinggum",
+              "auroc": 0.9830000000000001,
+              "aupr": 0.9925333534443567
+            },
+            {
+              "category": "fryum",
+              "auroc": 0.9512,
+              "aupr": 0.9794271856460292
+            },
+            {
+              "category": "macaroni1",
+              "auroc": 0.8633000000000001,
+              "aupr": 0.8688708765140167
+            },
+            {
+              "category": "macaroni2",
+              "auroc": 0.7940999999999999,
+              "aupr": 0.7727826912714196
+            },
+            {
+              "category": "pcb1",
+              "auroc": 0.7899,
+              "aupr": 0.8250088762258558
+            },
+            {
+              "category": "pcb2",
+              "auroc": 0.7811,
+              "aupr": 0.7934538573593719
+            },
+            {
+              "category": "pcb3",
+              "auroc": 0.8726732673267327,
+              "aupr": 0.8820529954243072
+            },
+            {
+              "category": "pcb4",
+              "auroc": 0.910990099009901,
+              "aupr": 0.8863316085551506
+            },
+            {
+              "category": "pipe_fryum",
+              "auroc": 0.991,
+              "aupr": 0.9954971778272246
+            }
+          ],
+          "mean_auroc": 0.8932830583058305,
+          "mean_aupr": 0.9062462197416646
+        },
+        "123": {
+          "categories": [
+            {
+              "category": "candle",
+              "auroc": 0.972,
+              "aupr": 0.9732794555666965
+            },
+            {
+              "category": "capsules",
+              "auroc": 0.8538333333333333,
+              "aupr": 0.9215362032506871
+            },
+            {
+              "category": "cashew",
+              "auroc": 0.9440000000000001,
+              "aupr": 0.976633358654649
+            },
+            {
+              "category": "chewinggum",
+              "auroc": 0.9794,
+              "aupr": 0.9912711953523251
+            },
+            {
+              "category": "fryum",
+              "auroc": 0.9536,
+              "aupr": 0.9806959085392617
+            },
+            {
+              "category": "macaroni1",
+              "auroc": 0.8467,
+              "aupr": 0.8622944912662113
+            },
+            {
+              "category": "macaroni2",
+              "auroc": 0.7999,
+              "aupr": 0.789082538838347
+            },
+            {
+              "category": "pcb1",
+              "auroc": 0.8345,
+              "aupr": 0.8558450944460855
+            },
+            {
+              "category": "pcb2",
+              "auroc": 0.7863,
+              "aupr": 0.8136491888858247
+            },
+            {
+              "category": "pcb3",
+              "auroc": 0.8351485148514852,
+              "aupr": 0.8428067284716211
+            },
+            {
+              "category": "pcb4",
+              "auroc": 0.9198019801980197,
+              "aupr": 0.9086582741989718
+            },
+            {
+              "category": "pipe_fryum",
+              "auroc": 0.9898,
+              "aupr": 0.9947184327800871
+            }
+          ],
+          "mean_auroc": 0.8929153190319034,
+          "mean_aupr": 0.9092059058542304
+        },
+        "7": {
+          "categories": [
+            {
+              "category": "candle",
+              "auroc": 0.9692000000000001,
+              "aupr": 0.9714740130346143
+            },
+            {
+              "category": "capsules",
+              "auroc": 0.8630000000000001,
+              "aupr": 0.9273142131474579
+            },
+            {
+              "category": "cashew",
+              "auroc": 0.9474,
+              "aupr": 0.9770191980708601
+            },
+            {
+              "category": "chewinggum",
+              "auroc": 0.9766,
+              "aupr": 0.9902530377388112
+            },
+            {
+              "category": "fryum",
+              "auroc": 0.9502,
+              "aupr": 0.9788666495302815
+            },
+            {
+              "category": "macaroni1",
+              "auroc": 0.858,
+              "aupr": 0.8700198834680566
+            },
+            {
+              "category": "macaroni2",
+              "auroc": 0.788,
+              "aupr": 0.7798849791894871
+            },
+            {
+              "category": "pcb1",
+              "auroc": 0.7981,
+              "aupr": 0.8200165289893057
+            },
+            {
+              "category": "pcb2",
+              "auroc": 0.7631,
+              "aupr": 0.7833530970870892
+            },
+            {
+              "category": "pcb3",
+              "auroc": 0.856930693069307,
+              "aupr": 0.8644670332431077
+            },
+            {
+              "category": "pcb4",
+              "auroc": 0.9061386138613862,
+              "aupr": 0.8918522998878505
+            },
+            {
+              "category": "pipe_fryum",
+              "auroc": 0.9878,
+              "aupr": 0.99345365946078
+            }
+          ],
+          "mean_auroc": 0.8887057755775579,
+          "mean_aupr": 0.9039978827373084
+        }
+      },
+      "aitex": {
+        "42": {
+          "categories": [
+            {
+              "category": "AITEX",
+              "auroc": 0.8006133793367836,
+              "aupr": 0.5570065877505939
+            }
+          ],
+          "mean_auroc": 0.8006133793367836,
+          "mean_aupr": 0.5570065877505939
+        },
+        "123": {
+          "categories": [
+            {
+              "category": "AITEX",
+              "auroc": 0.8000958405213725,
+              "aupr": 0.5401677077944353
+            }
+          ],
+          "mean_auroc": 0.8000958405213725,
+          "mean_aupr": 0.5401677077944353
+        },
+        "7": {
+          "categories": [
+            {
+              "category": "AITEX",
+              "auroc": 0.7988786658999425,
+              "aupr": 0.5501520671361254
+            }
+          ],
+          "mean_auroc": 0.7988786658999425,
+          "mean_aupr": 0.5501520671361254
+        }
+      },
+      "elpv": {
+        "42": {
+          "categories": [
+            {
+              "category": "elpv",
+              "auroc": 0.8706831629908554,
+              "aupr": 0.9389180422710628
+            }
+          ],
+          "mean_auroc": 0.8706831629908554,
+          "mean_aupr": 0.9389180422710628
+        },
+        "123": {
+          "categories": [
+            {
+              "category": "elpv",
+              "auroc": 0.8743633024800134,
+              "aupr": 0.9405177463883079
+            }
+          ],
+          "mean_auroc": 0.8743633024800134,
+          "mean_aupr": 0.9405177463883079
+        },
+        "7": {
+          "categories": [
+            {
+              "category": "elpv",
+              "auroc": 0.8665726846098198,
+              "aupr": 0.9365357878972544
+            }
+          ],
+          "mean_auroc": 0.8665726846098198,
+          "mean_aupr": 0.9365357878972544
+        }
+      }
+    },
+    "mvtec_va_ta_pqa_8shot": {
+      "visa": {
+        "42": {
+          "categories": [
+            {
+              "category": "candle",
+              "auroc": 0.9749,
+              "aupr": 0.9773342216328121
+            },
+            {
+              "category": "capsules",
+              "auroc": 0.8858333333333335,
+              "aupr": 0.9379398450119005
+            },
+            {
+              "category": "cashew",
+              "auroc": 0.9633999999999999,
+              "aupr": 0.9839896346730062
+            },
+            {
+              "category": "chewinggum",
+              "auroc": 0.9768,
+              "aupr": 0.990502881932158
+            },
+            {
+              "category": "fryum",
+              "auroc": 0.9456000000000001,
+              "aupr": 0.9772849347163495
+            },
+            {
+              "category": "macaroni1",
+              "auroc": 0.8691,
+              "aupr": 0.8862867868262647
+            },
+            {
+              "category": "macaroni2",
+              "auroc": 0.7988,
+              "aupr": 0.8111605775704455
+            },
+            {
+              "category": "pcb1",
+              "auroc": 0.8392999999999998,
+              "aupr": 0.8615443706937543
+            },
+            {
+              "category": "pcb2",
+              "auroc": 0.8201999999999999,
+              "aupr": 0.8285797717491225
+            },
+            {
+              "category": "pcb3",
+              "auroc": 0.8758415841584158,
+              "aupr": 0.8830287806997806
+            },
+            {
+              "category": "pcb4",
+              "auroc": 0.9373267326732674,
+              "aupr": 0.9267853668467492
+            },
+            {
+              "category": "pipe_fryum",
+              "auroc": 0.9958,
+              "aupr": 0.9979896022485767
+            }
+          ],
+          "mean_auroc": 0.9069084708470845,
+          "mean_aupr": 0.9218688978834099
+        },
+        "123": {
+          "categories": [
+            {
+              "category": "candle",
+              "auroc": 0.9729999999999999,
+              "aupr": 0.9753722384203867
+            },
+            {
+              "category": "capsules",
+              "auroc": 0.8738333333333334,
+              "aupr": 0.9328185821402694
+            },
+            {
+              "category": "cashew",
+              "auroc": 0.9676,
+              "aupr": 0.9852456695655762
+            },
+            {
+              "category": "chewinggum",
+              "auroc": 0.9791999999999998,
+              "aupr": 0.991160060749172
+            },
+            {
+              "category": "fryum",
+              "auroc": 0.9401999999999999,
+              "aupr": 0.9750695951014621
+            },
+            {
+              "category": "macaroni1",
+              "auroc": 0.8746999999999999,
+              "aupr": 0.8855991781316135
+            },
+            {
+              "category": "macaroni2",
+              "auroc": 0.8025,
+              "aupr": 0.8229081676863808
+            },
+            {
+              "category": "pcb1",
+              "auroc": 0.8338999999999999,
+              "aupr": 0.8571791263908883
+            },
+            {
+              "category": "pcb2",
+              "auroc": 0.8301,
+              "aupr": 0.8357137837551206
+            },
+            {
+              "category": "pcb3",
+              "auroc": 0.8857425742574258,
+              "aupr": 0.8897806339624877
+            },
+            {
+              "category": "pcb4",
+              "auroc": 0.9354455445544555,
+              "aupr": 0.9171443987637878
+            },
+            {
+              "category": "pipe_fryum",
+              "auroc": 0.9952,
+              "aupr": 0.9976514863147496
+            }
+          ],
+          "mean_auroc": 0.9076184543454348,
+          "mean_aupr": 0.9221369100818246
+        },
+        "7": {
+          "categories": [
+            {
+              "category": "candle",
+              "auroc": 0.9796,
+              "aupr": 0.980788661968259
+            },
+            {
+              "category": "capsules",
+              "auroc": 0.8648333333333333,
+              "aupr": 0.9255063280673643
+            },
+            {
+              "category": "cashew",
+              "auroc": 0.9608,
+              "aupr": 0.9827913296997245
+            },
+            {
+              "category": "chewinggum",
+              "auroc": 0.9805999999999999,
+              "aupr": 0.9919594260659282
+            },
+            {
+              "category": "fryum",
+              "auroc": 0.9454,
+              "aupr": 0.978138406382947
+            },
+            {
+              "category": "macaroni1",
+              "auroc": 0.8657999999999999,
+              "aupr": 0.879125744715861
+            },
+            {
+              "category": "macaroni2",
+              "auroc": 0.8164,
+              "aupr": 0.8329589715045614
+            },
+            {
+              "category": "pcb1",
+              "auroc": 0.8109999999999999,
+              "aupr": 0.8331046572767851
+            },
+            {
+              "category": "pcb2",
+              "auroc": 0.8132,
+              "aupr": 0.8271653302105949
+            },
+            {
+              "category": "pcb3",
+              "auroc": 0.8805940594059407,
+              "aupr": 0.8791788623368019
+            },
+            {
+              "category": "pcb4",
+              "auroc": 0.931089108910891,
+              "aupr": 0.9077303987851901
+            },
+            {
+              "category": "pipe_fryum",
+              "auroc": 0.9936,
+              "aupr": 0.9969250082391835
+            }
+          ],
+          "mean_auroc": 0.9035763751375138,
+          "mean_aupr": 0.9179477604377668
+        }
+      },
+      "aitex": {
+        "42": {
+          "categories": [
+            {
+              "category": "AITEX",
+              "auroc": 0.798303622771708,
+              "aupr": 0.4797436134236681
+            }
+          ],
+          "mean_auroc": 0.798303622771708,
+          "mean_aupr": 0.4797436134236681
+        },
+        "123": {
+          "categories": [
+            {
+              "category": "AITEX",
+              "auroc": 0.797402721870807,
+              "aupr": 0.49714489405455453
+            }
+          ],
+          "mean_auroc": 0.797402721870807,
+          "mean_aupr": 0.49714489405455453
+        },
+        "7": {
+          "categories": [
+            {
+              "category": "AITEX",
+              "auroc": 0.8051178838412881,
+              "aupr": 0.5078318486637117
+            }
+          ],
+          "mean_auroc": 0.8051178838412881,
+          "mean_aupr": 0.5078318486637117
+        }
+      },
+      "elpv": {
+        "42": {
+          "categories": [
+            {
+              "category": "elpv",
+              "auroc": 0.8817792287288309,
+              "aupr": 0.9434156464907998
+            }
+          ],
+          "mean_auroc": 0.8817792287288309,
+          "mean_aupr": 0.9434156464907998
+        },
+        "123": {
+          "categories": [
+            {
+              "category": "elpv",
+              "auroc": 0.8841052846357885,
+              "aupr": 0.9443076951263241
+            }
+          ],
+          "mean_auroc": 0.8841052846357885,
+          "mean_aupr": 0.9443076951263241
+        },
+        "7": {
+          "categories": [
+            {
+              "category": "elpv",
+              "auroc": 0.8784960397692493,
+              "aupr": 0.9416945924373561
+            }
+          ],
+          "mean_auroc": 0.8784960397692493,
+          "mean_aupr": 0.9416945924373561
+        }
+      }
+    },
+    "visa_va_ta_pqa_2shot": {
+      "mvtec": {
+        "42": {
+          "categories": [
+            {
+              "category": "bottle",
+              "auroc": 0.9984126984126984,
+              "aupr": 0.999500031494079
+            },
+            {
+              "category": "cable",
+              "auroc": 0.939655172413793,
+              "aupr": 0.9663326385135154
+            },
+            {
+              "category": "capsule",
+              "auroc": 0.7730355005983247,
+              "aupr": 0.8968892290711584
+            },
+            {
+              "category": "carpet",
+              "auroc": 0.9983948635634029,
+              "aupr": 0.999503368042694
+            },
+            {
+              "category": "grid",
+              "auroc": 0.9983291562238931,
+              "aupr": 0.9994052928932504
+            },
+            {
+              "category": "hazelnut",
+              "auroc": 0.9985714285714286,
+              "aupr": 0.9991775877527984
+            },
+            {
+              "category": "leather",
+              "auroc": 1.0,
+              "aupr": 1.0000000000000002
+            },
+            {
+              "category": "metal_nut",
+              "auroc": 1.0,
+              "aupr": 1.0
+            },
+            {
+              "category": "pill",
+              "auroc": 0.9653573376977632,
+              "aupr": 0.993552653776097
+            },
+            {
+              "category": "screw",
+              "auroc": 0.6915351506456241,
+              "aupr": 0.8717383090932844
+            },
+            {
+              "category": "tile",
+              "auroc": 0.9953102453102454,
+              "aupr": 0.9982074397570165
+            },
+            {
+              "category": "toothbrush",
+              "auroc": 1.0,
+              "aupr": 0.9999999999999999
+            },
+            {
+              "category": "transistor",
+              "auroc": 0.9266666666666667,
+              "aupr": 0.8853038148570804
+            },
+            {
+              "category": "wood",
+              "auroc": 0.9894736842105263,
+              "aupr": 0.996821069783901
+            },
+            {
+              "category": "zipper",
+              "auroc": 0.9779411764705883,
+              "aupr": 0.9940444702465492
+            }
+          ],
+          "mean_auroc": 0.9501788720523304,
+          "mean_aupr": 0.9733650603520949
+        },
+        "123": {
+          "categories": [
+            {
+              "category": "bottle",
+              "auroc": 0.9992063492063492,
+              "aupr": 0.999751984126984
+            },
+            {
+              "category": "cable",
+              "auroc": 0.9437781109445278,
+              "aupr": 0.9678151801323054
+            },
+            {
+              "category": "capsule",
+              "auroc": 0.8296769046669326,
+              "aupr": 0.9262803039726192
+            },
+            {
+              "category": "carpet",
+              "auroc": 0.9995987158908507,
+              "aupr": 0.9998751560549315
+            },
+            {
+              "category": "grid",
+              "auroc": 0.9983291562238931,
+              "aupr": 0.9994052928932504
+            },
+            {
+              "category": "hazelnut",
+              "auroc": 0.9982142857142857,
+              "aupr": 0.9990017948811445
+            },
+            {
+              "category": "leather",
+              "auroc": 1.0,
+              "aupr": 1.0000000000000002
+            },
+            {
+              "category": "metal_nut",
+              "auroc": 0.9975562072336266,
+              "aupr": 0.9994229688606732
+            },
+            {
+              "category": "pill",
+              "auroc": 0.953355155482815,
+              "aupr": 0.9911738687918848
+            },
+            {
+              "category": "screw",
+              "auroc": 0.709776593564255,
+              "aupr": 0.8746335310119943
+            },
+            {
+              "category": "tile",
+              "auroc": 0.9949494949494949,
+              "aupr": 0.9980503991004829
+            },
+            {
+              "category": "toothbrush",
+              "auroc": 0.9972222222222222,
+              "aupr": 0.9989247311827957
+            },
+            {
+              "category": "transistor",
+              "auroc": 0.93,
+              "aupr": 0.8987534576535252
+            },
+            {
+              "category": "wood",
+              "auroc": 0.98859649122807,
+              "aupr": 0.9965180394808707
+            },
+            {
+              "category": "zipper",
+              "auroc": 0.9692752100840336,
+              "aupr": 0.991773577743113
+            }
+          ],
+          "mean_auroc": 0.953968993160757,
+          "mean_aupr": 0.976092019059105
+        },
+        "7": {
+          "categories": [
+            {
+              "category": "bottle",
+              "auroc": 0.996031746031746,
+              "aupr": 0.9987192514695127
+            },
+            {
+              "category": "cable",
+              "auroc": 0.928223388305847,
+              "aupr": 0.9624928387707034
+            },
+            {
+              "category": "capsule",
+              "auroc": 0.7475069804547269,
+              "aupr": 0.8920411102571494
+            },
+            {
+              "category": "carpet",
+              "auroc": 0.9987961476725522,
+              "aupr": 0.9996212280614505
+            },
+            {
+              "category": "grid",
+              "auroc": 0.9983291562238931,
+              "aupr": 0.9994052928932504
+            },
+            {
+              "category": "hazelnut",
+              "auroc": 0.9982142857142857,
+              "aupr": 0.9989819695994338
+            },
+            {
+              "category": "leather",
+              "auroc": 1.0,
+              "aupr": 1.0000000000000002
+            },
+            {
+              "category": "metal_nut",
+              "auroc": 1.0,
+              "aupr": 1.0
+            },
+            {
+              "category": "pill",
+              "auroc": 0.9626295690125477,
+              "aupr": 0.9932687567731571
+            },
+            {
+              "category": "screw",
+              "auroc": 0.657306825169092,
+              "aupr": 0.8585360934958778
+            },
+            {
+              "category": "tile",
+              "auroc": 0.9996392496392497,
+              "aupr": 0.9998599439775908
+            },
+            {
+              "category": "toothbrush",
+              "auroc": 0.986111111111111,
+              "aupr": 0.9952380952380953
+            },
+            {
+              "category": "transistor",
+              "auroc": 0.9475,
+              "aupr": 0.9248540112651314
+            },
+            {
+              "category": "wood",
+              "auroc": 0.9929824561403509,
+              "aupr": 0.9979809286898841
+            },
+            {
+              "category": "zipper",
+              "auroc": 0.9695378151260504,
+              "aupr": 0.9917351303785327
+            }
+          ],
+          "mean_auroc": 0.9455205820400968,
+          "mean_aupr": 0.9741823100579846
+        }
+      }
+    },
+    "visa_va_ta_pqa_4shot": {
+      "mvtec": {
+        "42": {
+          "categories": [
+            {
+              "category": "bottle",
+              "auroc": 0.9976190476190476,
+              "aupr": 0.9992440151090303
+            },
+            {
+              "category": "cable",
+              "auroc": 0.962143928035982,
+              "aupr": 0.978230266481601
+            },
+            {
+              "category": "capsule",
+              "auroc": 0.8213003589948146,
+              "aupr": 0.9077676199843593
+            },
+            {
+              "category": "carpet",
+              "auroc": 0.9995987158908507,
+              "aupr": 0.9998751560549315
+            },
+            {
+              "category": "grid",
+              "auroc": 0.9991645781119465,
+              "aupr": 0.9996975196612223
+            },
+            {
+              "category": "hazelnut",
+              "auroc": 1.0,
+              "aupr": 0.9999999999999998
+            },
+            {
+              "category": "leather",
+              "auroc": 1.0,
+              "aupr": 1.0000000000000002
+            },
+            {
+              "category": "metal_nut",
+              "auroc": 1.0,
+              "aupr": 1.0
+            },
+            {
+              "category": "pill",
+              "auroc": 0.9522640480087289,
+              "aupr": 0.9910981350696886
+            },
+            {
+              "category": "screw",
+              "auroc": 0.741955318712851,
+              "aupr": 0.8809311403846791
+            },
+            {
+              "category": "tile",
+              "auroc": 0.9996392496392497,
+              "aupr": 0.9998599439775908
+            },
+            {
+              "category": "toothbrush",
+              "auroc": 0.9972222222222222,
+              "aupr": 0.9989247311827957
+            },
+            {
+              "category": "transistor",
+              "auroc": 0.9525000000000001,
+              "aupr": 0.9309883501546559
+            },
+            {
+              "category": "wood",
+              "auroc": 0.993859649122807,
+              "aupr": 0.9982070707070708
+            },
+            {
+              "category": "zipper",
+              "auroc": 0.9797794117647058,
+              "aupr": 0.9945311681475293
+            }
+          ],
+          "mean_auroc": 0.9598031018748805,
+          "mean_aupr": 0.9786236744610102
+        },
+        "123": {
+          "categories": [
+            {
+              "category": "bottle",
+              "auroc": 0.996031746031746,
+              "aupr": 0.9987192514695127
+            },
+            {
+              "category": "cable",
+              "auroc": 0.9591454272863569,
+              "aupr": 0.9780498071732731
+            },
+            {
+              "category": "capsule",
+              "auroc": 0.8607897885919426,
+              "aupr": 0.9269458957309205
+            },
+            {
+              "category": "carpet",
+              "auroc": 0.9995987158908507,
+              "aupr": 0.9998751560549315
+            },
+            {
+              "category": "grid",
+              "auroc": 0.9974937343358397,
+              "aupr": 0.9991228070175442
+            },
+            {
+              "category": "hazelnut",
+              "auroc": 1.0,
+              "aupr": 0.9999999999999998
+            },
+            {
+              "category": "leather",
+              "auroc": 0.9996603260869565,
+              "aupr": 0.9998831229546519
+            },
+            {
+              "category": "metal_nut",
+              "auroc": 0.9960899315738025,
+              "aupr": 0.9991483019269669
+            },
+            {
+              "category": "pill",
+              "auroc": 0.9599018003273323,
+              "aupr": 0.9926729383002262
+            },
+            {
+              "category": "screw",
+              "auroc": 0.7319122771059644,
+              "aupr": 0.8906332341006352
+            },
+            {
+              "category": "tile",
+              "auroc": 0.9989177489177489,
+              "aupr": 0.999589490968801
+            },
+            {
+              "category": "toothbrush",
+              "auroc": 1.0,
+              "aupr": 0.9999999999999999
+            },
+            {
+              "category": "transistor",
+              "auroc": 0.9458333333333333,
+              "aupr": 0.929286997356689
+            },
+            {
+              "category": "wood",
+              "auroc": 0.9894736842105263,
+              "aupr": 0.9968966992992031
+            },
+            {
+              "category": "zipper",
+              "auroc": 0.9771533613445378,
+              "aupr": 0.9939025389314338
+            }
+          ],
+          "mean_auroc": 0.9608001250024626,
+          "mean_aupr": 0.9803150827523192
+        },
+        "7": {
+          "categories": [
+            {
+              "category": "bottle",
+              "auroc": 0.996031746031746,
+              "aupr": 0.9987192514695127
+            },
+            {
+              "category": "cable",
+              "auroc": 0.9583958020989505,
+              "aupr": 0.977559587345961
+            },
+            {
+              "category": "capsule",
+              "auroc": 0.8930993218986838,
+              "aupr": 0.9594869069597702
+            },
+            {
+              "category": "carpet",
+              "auroc": 0.9991974317817015,
+              "aupr": 0.9997530559328314
+            },
+            {
+              "category": "grid",
+              "auroc": 0.9991645781119465,
+              "aupr": 0.9996975196612223
+            },
+            {
+              "category": "hazelnut",
+              "auroc": 1.0,
+              "aupr": 0.9999999999999998
+            },
+            {
+              "category": "leather",
+              "auroc": 1.0,
+              "aupr": 1.0000000000000002
+            },
+            {
+              "category": "metal_nut",
+              "auroc": 1.0,
+              "aupr": 1.0
+            },
+            {
+              "category": "pill",
+              "auroc": 0.9620840152755046,
+              "aupr": 0.9930712611075032
+            },
+            {
+              "category": "screw",
+              "auroc": 0.7782332445173191,
+              "aupr": 0.8896815137133498
+            },
+            {
+              "category": "tile",
+              "auroc": 0.9992784992784993,
+              "aupr": 0.9997231450719821
+            },
+            {
+              "category": "toothbrush",
+              "auroc": 1.0,
+              "aupr": 0.9999999999999999
+            },
+            {
+              "category": "transistor",
+              "auroc": 0.9375,
+              "aupr": 0.9075827297277694
+            },
+            {
+              "category": "wood",
+              "auroc": 0.9921052631578947,
+              "aupr": 0.9977614379084968
+            },
+            {
+              "category": "zipper",
+              "auroc": 0.9784663865546218,
+              "aupr": 0.9943098537544393
+            }
+          ],
+          "mean_auroc": 0.9662370859137912,
+          "mean_aupr": 0.9811564175101892
+        }
+      }
+    },
+    "visa_va_ta_pqa_8shot": {
+      "mvtec": {
+        "42": {
+          "categories": [
+            {
+              "category": "bottle",
+              "auroc": 0.9984126984126984,
+              "aupr": 0.999500031494079
+            },
+            {
+              "category": "cable",
+              "auroc": 0.9672038980509745,
+              "aupr": 0.9816706025754278
+            },
+            {
+              "category": "capsule",
+              "auroc": 0.9174311926605505,
+              "aupr": 0.983215393425036
+            },
+            {
+              "category": "carpet",
+              "auroc": 0.9995987158908507,
+              "aupr": 0.9998751560549315
+            },
+            {
+              "category": "grid",
+              "auroc": 1.0,
+              "aupr": 1.0000000000000002
+            },
+            {
+              "category": "hazelnut",
+              "auroc": 1.0,
+              "aupr": 0.9999999999999998
+            },
+            {
+              "category": "leather",
+              "auroc": 1.0,
+              "aupr": 1.0000000000000002
+            },
+            {
+              "category": "metal_nut",
+              "auroc": 0.9995112414467253,
+              "aupr": 0.9998856097002974
+            },
+            {
+              "category": "pill",
+              "auroc": 0.9607201309328969,
+              "aupr": 0.992761284694264
+            },
+            {
+              "category": "screw",
+              "auroc": 0.8102070096331215,
+              "aupr": 0.9114029890564705
+            },
+            {
+              "category": "tile",
+              "auroc": 0.9996392496392497,
+              "aupr": 0.9998599439775908
+            },
+            {
+              "category": "toothbrush",
+              "auroc": 1.0,
+              "aupr": 0.9999999999999999
+            },
+            {
+              "category": "transistor",
+              "auroc": 0.9516666666666667,
+              "aupr": 0.9241771765483849
+            },
+            {
+              "category": "wood",
+              "auroc": 0.999122807017544,
+              "aupr": 0.9997267759562843
+            },
+            {
+              "category": "zipper",
+              "auroc": 0.9839810924369747,
+              "aupr": 0.9956390364675792
+            }
+          ],
+          "mean_auroc": 0.9724996468525503,
+          "mean_aupr": 0.9858475999966898
+        },
+        "123": {
+          "categories": [
+            {
+              "category": "bottle",
+              "auroc": 0.996031746031746,
+              "aupr": 0.9987192514695127
+            },
+            {
+              "category": "cable",
+              "auroc": 0.9662668665667167,
+              "aupr": 0.9809568547426906
+            },
+            {
+              "category": "capsule",
+              "auroc": 0.9066613482249702,
+              "aupr": 0.9795663819383029
+            },
+            {
+              "category": "carpet",
+              "auroc": 0.9995987158908507,
+              "aupr": 0.9998751560549315
+            },
+            {
+              "category": "grid",
+              "auroc": 0.9991645781119465,
+              "aupr": 0.9996975196612223
+            },
+            {
+              "category": "hazelnut",
+              "auroc": 1.0,
+              "aupr": 0.9999999999999998
+            },
+            {
+              "category": "leather",
+              "auroc": 1.0,
+              "aupr": 1.0000000000000002
+            },
+            {
+              "category": "metal_nut",
+              "auroc": 0.998533724340176,
+              "aupr": 0.9996639784946235
+            },
+            {
+              "category": "pill",
+              "auroc": 0.9639934533551555,
+              "aupr": 0.9934237138477163
+            },
+            {
+              "category": "screw",
+              "auroc": 0.834392293502767,
+              "aupr": 0.9358070720437217
+            },
+            {
+              "category": "tile",
+              "auroc": 0.9992784992784993,
+              "aupr": 0.9997231450719821
+            },
+            {
+              "category": "toothbrush",
+              "auroc": 1.0,
+              "aupr": 0.9999999999999999
+            },
+            {
+              "category": "transistor",
+              "auroc": 0.9425,
+              "aupr": 0.9161298806615588
+            },
+            {
+              "category": "wood",
+              "auroc": 0.9956140350877194,
+              "aupr": 0.9987179487179488
+            },
+            {
+              "category": "zipper",
+              "auroc": 0.985031512605042,
+              "aupr": 0.9960228432411887
+            }
+          ],
+          "mean_auroc": 0.9724711181997061,
+          "mean_aupr": 0.9865535830630268
+        },
+        "7": {
+          "categories": [
+            {
+              "category": "bottle",
+              "auroc": 0.9968253968253968,
+              "aupr": 0.9989838017340629
+            },
+            {
+              "category": "cable",
+              "auroc": 0.9707646176911544,
+              "aupr": 0.9831892174405775
+            },
+            {
+              "category": "capsule",
+              "auroc": 0.9110490626246511,
+              "aupr": 0.9811726179230572
+            },
+            {
+              "category": "carpet",
+              "auroc": 0.9995987158908507,
+              "aupr": 0.9998751560549315
+            },
+            {
+              "category": "grid",
+              "auroc": 0.9991645781119465,
+              "aupr": 0.9996975196612223
+            },
+            {
+              "category": "hazelnut",
+              "auroc": 1.0,
+              "aupr": 0.9999999999999998
+            },
+            {
+              "category": "leather",
+              "auroc": 1.0,
+              "aupr": 1.0000000000000002
+            },
+            {
+              "category": "metal_nut",
+              "auroc": 1.0,
+              "aupr": 1.0
+            },
+            {
+              "category": "pill",
+              "auroc": 0.9656301145662849,
+              "aupr": 0.9937495408273382
+            },
+            {
+              "category": "screw",
+              "auroc": 0.822914531666325,
+              "aupr": 0.9305305275923559
+            },
+            {
+              "category": "tile",
+              "auroc": 0.9992784992784993,
+              "aupr": 0.9997182206215818
+            },
+            {
+              "category": "toothbrush",
+              "auroc": 1.0,
+              "aupr": 0.9999999999999999
+            },
+            {
+              "category": "transistor",
+              "auroc": 0.9508333333333333,
+              "aupr": 0.9266774332100398
+            },
+            {
+              "category": "wood",
+              "auroc": 0.9973684210526315,
+              "aupr": 0.9992063492063493
+            },
+            {
+              "category": "zipper",
+              "auroc": 0.9863445378151261,
+              "aupr": 0.9963822479570494
+            }
+          ],
+          "mean_auroc": 0.9733181205904132,
+          "mean_aupr": 0.9872788421485711
+        }
+      }
+    }
+  },
+  "aggregated": [
+    {
+      "model": "mvtec_va_ta_pqa_2shot",
+      "train_dataset": "mvtec",
+      "test_dataset": "visa",
+      "shot": 2,
+      "n_seeds": 3,
+      "seeds": "[42, 123, 7]",
+      "auroc_mean": 0.903,
+      "auroc_std": 0.0015,
+      "aupr_mean": 0.9165,
+      "aupr_std": 0.0019,
+      "baseline_auroc": 0.858,
+      "delta_vs_baseline": 0.045
+    },
+    {
+      "model": "mvtec_va_ta_pqa_2shot",
+      "train_dataset": "mvtec",
+      "test_dataset": "aitex",
+      "shot": 2,
+      "n_seeds": 3,
+      "seeds": "[42, 123, 7]",
+      "auroc_mean": 0.7994,
+      "auroc_std": 0.0058,
+      "aupr_mean": 0.5737,
+      "aupr_std": 0.0072,
+      "baseline_auroc": 0.761,
+      "delta_vs_baseline": 0.0384
+    },
+    {
+      "model": "mvtec_va_ta_pqa_2shot",
+      "train_dataset": "mvtec",
+      "test_dataset": "elpv",
+      "shot": 2,
+      "n_seeds": 3,
+      "seeds": "[42, 123, 7]",
+      "auroc_mean": 0.8601,
+      "auroc_std": 0.0077,
+      "aupr_mean": 0.9322,
+      "aupr_std": 0.0032,
+      "baseline_auroc": 0.839,
+      "delta_vs_baseline": 0.0211
+    },
+    {
+      "model": "mvtec_va_ta_pqa_4shot",
+      "train_dataset": "mvtec",
+      "test_dataset": "visa",
+      "shot": 4,
+      "n_seeds": 3,
+      "seeds": "[42, 123, 7]",
+      "auroc_mean": 0.8916,
+      "auroc_std": 0.0021,
+      "aupr_mean": 0.9065,
+      "aupr_std": 0.0021,
+      "baseline_auroc": 0.877,
+      "delta_vs_baseline": 0.0146
+    },
+    {
+      "model": "mvtec_va_ta_pqa_4shot",
+      "train_dataset": "mvtec",
+      "test_dataset": "aitex",
+      "shot": 4,
+      "n_seeds": 3,
+      "seeds": "[42, 123, 7]",
+      "auroc_mean": 0.7999,
+      "auroc_std": 0.0007,
+      "aupr_mean": 0.5491,
+      "aupr_std": 0.0069,
+      "baseline_auroc": 0.79,
+      "delta_vs_baseline": 0.0099
+    },
+    {
+      "model": "mvtec_va_ta_pqa_4shot",
+      "train_dataset": "mvtec",
+      "test_dataset": "elpv",
+      "shot": 4,
+      "n_seeds": 3,
+      "seeds": "[42, 123, 7]",
+      "auroc_mean": 0.8705,
+      "auroc_std": 0.0032,
+      "aupr_mean": 0.9387,
+      "aupr_std": 0.0016,
+      "baseline_auroc": 0.846,
+      "delta_vs_baseline": 0.0245
+    },
+    {
+      "model": "mvtec_va_ta_pqa_8shot",
+      "train_dataset": "mvtec",
+      "test_dataset": "visa",
+      "shot": 8,
+      "n_seeds": 3,
+      "seeds": "[42, 123, 7]",
+      "auroc_mean": 0.906,
+      "auroc_std": 0.0018,
+      "aupr_mean": 0.9207,
+      "aupr_std": 0.0019,
+      "baseline_auroc": 0.887,
+      "delta_vs_baseline": 0.019
+    },
+    {
+      "model": "mvtec_va_ta_pqa_8shot",
+      "train_dataset": "mvtec",
+      "test_dataset": "aitex",
+      "shot": 8,
+      "n_seeds": 3,
+      "seeds": "[42, 123, 7]",
+      "auroc_mean": 0.8003,
+      "auroc_std": 0.0034,
+      "aupr_mean": 0.4949,
+      "aupr_std": 0.0116,
+      "baseline_auroc": 0.806,
+      "delta_vs_baseline": -0.0057
+    },
+    {
+      "model": "mvtec_va_ta_pqa_8shot",
+      "train_dataset": "mvtec",
+      "test_dataset": "elpv",
+      "shot": 8,
+      "n_seeds": 3,
+      "seeds": "[42, 123, 7]",
+      "auroc_mean": 0.8815,
+      "auroc_std": 0.0023,
+      "aupr_mean": 0.9431,
+      "aupr_std": 0.0011,
+      "baseline_auroc": 0.872,
+      "delta_vs_baseline": 0.0095
+    },
+    {
+      "model": "visa_va_ta_pqa_2shot",
+      "train_dataset": "visa",
+      "test_dataset": "mvtec",
+      "shot": 2,
+      "n_seeds": 3,
+      "seeds": "[42, 123, 7]",
+      "auroc_mean": 0.9499,
+      "auroc_std": 0.0035,
+      "aupr_mean": 0.9745,
+      "aupr_std": 0.0011,
+      "baseline_auroc": 0.94,
+      "delta_vs_baseline": 0.0099
+    },
+    {
+      "model": "visa_va_ta_pqa_4shot",
+      "train_dataset": "visa",
+      "test_dataset": "mvtec",
+      "shot": 4,
+      "n_seeds": 3,
+      "seeds": "[42, 123, 7]",
+      "auroc_mean": 0.9623,
+      "auroc_std": 0.0028,
+      "aupr_mean": 0.98,
+      "aupr_std": 0.0011,
+      "baseline_auroc": 0.945,
+      "delta_vs_baseline": 0.0173
+    },
+    {
+      "model": "visa_va_ta_pqa_8shot",
+      "train_dataset": "visa",
+      "test_dataset": "mvtec",
+      "shot": 8,
+      "n_seeds": 3,
+      "seeds": "[42, 123, 7]",
+      "auroc_mean": 0.9728,
+      "auroc_std": 0.0004,
+      "aupr_mean": 0.9866,
+      "aupr_std": 0.0006,
+      "baseline_auroc": 0.953,
+      "delta_vs_baseline": 0.0198
+    }
+  ]
+}
