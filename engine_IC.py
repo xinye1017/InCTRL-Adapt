@@ -128,9 +128,57 @@ def _trainable_parameters(model):
     return [param for param in model.parameters() if param.requires_grad]
 
 
-def _build_alternating_optimizers(model, lr=1e-3):
+def _has_parameter_list(model, method_name):
+    base_model = _get_base_model(model)
+    if not hasattr(base_model, method_name):
+        return False
+    return len(getattr(base_model, method_name)()) > 0
+
+
+def _visual_adapter_has_training_signal(cfg):
+    visual_adapter_cfg = getattr(cfg, "VISUAL_ADAPTER", None)
+    fusion_cfg = getattr(cfg, "FUSION", None)
+    loss_cfg = getattr(cfg, "LOSS", None)
+    if visual_adapter_cfg is not None and not bool(getattr(visual_adapter_cfg, "ENABLE", True)):
+        return False
+    if fusion_cfg is not None and not bool(getattr(fusion_cfg, "USE_VISUAL_BRANCH", True)):
+        return False
+    return any([
+        _cfg_float(fusion_cfg, "VISUAL_WEIGHT", 0.0) > 0.0,
+        _cfg_float(loss_cfg, "VISUAL_WEIGHT", 0.0) > 0.0,
+        _cfg_float(loss_cfg, "VISUAL_MASK_WEIGHT", 0.0) > 0.0,
+    ])
+
+
+def _should_use_alternating_training(model, cfg):
+    return (
+        _has_parameter_list(model, "get_visual_parameters")
+        and _has_parameter_list(model, "get_text_parameters")
+        and _visual_adapter_has_training_signal(cfg)
+    )
+
+
+def _resolve_train_phase(cur_epoch, use_alternating, has_visual, has_text):
+    if use_alternating:
+        return "visual" if cur_epoch % 2 == 0 else "text"
+    if has_visual and has_text:
+        return "joint"
+    return "visual" if has_visual else "text"
+
+
+def _build_alternating_optimizers(model, lr=1e-3, use_alternating=True):
     base_model = _get_base_model(model)
     if not hasattr(base_model, "get_visual_parameters") or not hasattr(base_model, "get_text_parameters"):
+        optimizer = torch.optim.AdamW(
+            _trainable_parameters(base_model),
+            lr=lr,
+            betas=(0.9, 0.999),
+        )
+        return optimizer, optimizer
+
+    if not use_alternating:
+        if hasattr(base_model, "set_train_phase"):
+            base_model.set_train_phase("joint")
         optimizer = torch.optim.AdamW(
             _trainable_parameters(base_model),
             lr=lr,
@@ -548,7 +596,15 @@ def train(cfg):
     # model = model.module
     model.load_state_dict(checkpoint, strict=False)
 
-    visual_optimizer, text_optimizer = _build_alternating_optimizers(model, lr=1e-3)
+    # Detect alternating training eligibility before building optimizers.
+    # VA/TA alternation is only useful when VA contributes a score/loss signal.
+    base_model = _get_base_model(model)
+    has_visual = _has_parameter_list(base_model, "get_visual_parameters")
+    has_text = _has_parameter_list(base_model, "get_text_parameters")
+    use_alternating = _should_use_alternating_training(base_model, cfg)
+    visual_optimizer, text_optimizer = _build_alternating_optimizers(
+        model, lr=1e-3, use_alternating=use_alternating,
+    )
 
     # Cosine LR schedule: decay from 1e-3 → COSINE_MIN_LR over max_epoch.
     _max_ep = _resolve_max_epochs(cfg)
@@ -564,12 +620,6 @@ def train(cfg):
         else visual_scheduler
     )
 
-    # Detect alternating training eligibility
-    base_model = _get_base_model(model)
-    has_visual = hasattr(base_model, "get_visual_parameters") and len(base_model.get_visual_parameters()) > 0
-    has_text = hasattr(base_model, "get_text_parameters") and len(base_model.get_text_parameters()) > 0
-    use_alternating = has_visual and has_text
-
     # Create the train and val loaders.
     train_loader = loader.construct_loader(cfg, "train", transform)
     test_loader = loader.construct_loader(cfg, "test", transform)
@@ -581,7 +631,7 @@ def train(cfg):
     if use_alternating:
         logger.info("Alternating training: VA/TA phase switching enabled")
     else:
-        phase_label = "visual" if has_visual else "text"
+        phase_label = "joint" if has_visual and has_text else ("visual" if has_visual else "text")
         logger.info(f"Single-phase training: {phase_label} only (alternating disabled)")
     epoch_losses = []
 
@@ -599,10 +649,7 @@ def train(cfg):
     _print_training_header(cfg, max_epoch, train_loader, test_loader, use_alternating, baseline_auroc)
     for cur_epoch in range(start_epoch, max_epoch):
         epoch_start = time.time()
-        if use_alternating:
-            phase = "visual" if cur_epoch % 2 == 0 else "text"
-        else:
-            phase = "visual" if has_visual else "text"
+        phase = _resolve_train_phase(cur_epoch, use_alternating, has_visual, has_text)
         # Train for one epoch.
         epoch_timer.epoch_tic()
         epoch_loss, loss_parts = train_epoch(
