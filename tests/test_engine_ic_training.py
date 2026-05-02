@@ -395,3 +395,51 @@ def test_train_local_parse_args_exposes_eval_period(monkeypatch):
     args = parse_args()
 
     assert args.eval_period == 3
+
+
+def test_train_local_skips_aggregate_test_when_per_category_eval_requested(monkeypatch, tmp_path):
+    import engine_IC
+    import train_local
+
+    calls = []
+
+    def fake_train(cfg):
+        calls.append(("train", cfg.eval_dataset_name))
+        return object(), object(), object()
+
+    def fake_test(cfg):
+        calls.append(("test", cfg.eval_dataset_name))
+        return 0.0, 0.0
+
+    def fake_eval_per_category(model, tokenizer, transform, cfg, dataset_name):
+        calls.append(("per_category", dataset_name))
+        return (
+            [{"category": f"{dataset_name}_cat", "auroc": 0.5, "aupr": 0.6}],
+            0.5,
+            0.6,
+        )
+
+    monkeypatch.setattr(engine_IC, "train", fake_train)
+    monkeypatch.setattr(engine_IC, "test", fake_test)
+    monkeypatch.setattr(engine_IC, "eval_per_category", fake_eval_per_category)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "train_local.py",
+            "--train_dataset",
+            "mvtec",
+            "--test_dataset",
+            "visa/aitex/elpv",
+            "--output_dir",
+            str(tmp_path),
+        ],
+    )
+
+    train_local.main()
+
+    assert ("test", "visa") not in calls
+    assert [call for call in calls if call[0] == "per_category"] == [
+        ("per_category", "visa"),
+        ("per_category", "aitex"),
+        ("per_category", "elpv"),
+    ]

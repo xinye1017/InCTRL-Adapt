@@ -288,7 +288,8 @@ def main():
     from engine_IC import test, train
 
     model, tokenizer, transform = train(cfg)
-    test(cfg)
+    if not args.test_dataset:
+        test(cfg)
 
     if args.test_dataset:
         test_datasets = [d.strip() for d in args.test_dataset.split("/")]
