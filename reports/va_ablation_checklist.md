@@ -54,6 +54,32 @@
 | No-VA final | 8 | AITEX | 0.8003 ± 0.0034 | 0.806 | -0.0057 | 已完成 |
 | No-VA final | 8 | ELPV | 0.8815 ± 0.0023 | 0.872 | +0.0095 | 已完成 |
 
+命令模板
+
+```bash
+python train_local.py \
+  --train_dataset mvtec \
+  --test_dataset visa/aitex/elpv \
+  --shot 2 \
+  --max_epoch 2 \
+  --steps_per_epoch 100 \
+  --output_dir results/ablation_no_va_final_2shot_15ep \
+  FUSION.IMAGE_WEIGHT 0.35 \
+  FUSION.PATCH_WEIGHT 0.25 \
+  FUSION.PQA_WEIGHT 0.25 \
+  FUSION.TEXT_WEIGHT 0.15 \
+  FUSION.VISUAL_WEIGHT 0.00 \
+  LOSS.IMAGE_WEIGHT 1.0 \
+  LOSS.PQA_WEIGHT 0.5 \
+  LOSS.MASK_WEIGHT 1.0 \
+  LOSS.TEXT_WEIGHT 0.0 \
+  LOSS.TEXT_MASK_WEIGHT 0.0 \
+  LOSS.VISUAL_WEIGHT 0.0 \
+  LOSS.VISUAL_MASK_WEIGHT 0.0
+```
+
+
+
 ### 已知结论
 
 - VisA 和 ELPV 上 2/4/8-shot 均稳定高于原始 InCTRL baseline。
