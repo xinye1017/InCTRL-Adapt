@@ -255,7 +255,7 @@ python train_local.py \
   --train_dataset mvtec \
   --test_dataset visa/aitex/elpv \
   --shot 2 \
-  --max_epoch 2 \
+  --max_epoch 15 \
   --steps_per_epoch 100 \
   --output_dir results/ablation_patch_up_2shot_15ep \
   FUSION.IMAGE_WEIGHT 0.30 \
@@ -304,6 +304,45 @@ A1 初步结论：
 
 - A1 未达到扩展条件，停止该方向。
 - 下一步优先跑 A2，验证把权重转给 PQA 是否比转给 patch residual 更稳。
+
+### A1 复跑：patch_up + 保留交替学习
+
+说明：该结果是在恢复 `visual/text` 交替训练调度后重跑的 A1，用于排除旧 A1 中“权重消融”和“训练调度变化”混杂的问题。它不覆盖上面的旧 A1 记录。
+
+记录：
+
+| Shot | Dataset | AUROC | AUPR | FPR | FNR | vs 旧 No-VA final | vs No-VA rerun | vs InCTRL baseline | 状态 | 备注 |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| 2 | VisA | 0.9034 | 0.9166 | TBD | TBD | +0.0004 vs 0.9030 | +0.0022 vs 0.9012 | +0.0454 vs 0.858 | 已完成 | VisA 基本追平旧 No-VA，并略高于 No-VA rerun |
+| 2 | AITEX | 0.7883 | 0.5683 | TBD | TBD | -0.0111 vs 0.7994 | -0.0026 vs 0.7909 | +0.0273 vs 0.761 | 已完成 | 低于旧 No-VA，也略低于 No-VA rerun |
+| 2 | ELPV | 0.8431 | 0.9240 | TBD | TBD | -0.0170 vs 0.8601 | -0.0001 vs 0.8432 | +0.0041 vs 0.839 | 已完成 | 与 No-VA rerun 基本相同，但明显低于旧 No-VA |
+| 2 | **MEAN** | **0.8449** | **0.8030** | TBD | TBD | **-0.0093 vs 0.8542** | **-0.0002 vs 0.8451** | **+0.0256 vs 0.8193** | 已完成 | 与 No-VA rerun 几乎持平，但没有超过旧 No-VA final |
+
+VisA per-category 结果：
+
+| Category | AUROC | AUPR |
+| --- | ---: | ---: |
+| candle | 0.9596 | 0.9633 |
+| capsules | 0.8615 | 0.9220 |
+| cashew | 0.9584 | 0.9800 |
+| chewinggum | 0.9798 | 0.9914 |
+| fryum | 0.9330 | 0.9728 |
+| macaroni1 | 0.9037 | 0.9133 |
+| macaroni2 | 0.8116 | 0.8225 |
+| pcb1 | 0.8472 | 0.8702 |
+| pcb2 | 0.8267 | 0.8352 |
+| pcb3 | 0.8958 | 0.8909 |
+| pcb4 | 0.8710 | 0.8414 |
+| pipe_fryum | 0.9922 | 0.9960 |
+| **MEAN** | **0.9034** | **0.9166** |
+
+复跑结论：
+
+- 恢复交替调度后，A1 三域平均 AUROC 从旧记录的 0.8364 提升到 0.8449，说明旧 A1 的大幅退化很大一部分来自训练调度变化，而不是 `PATCH_WEIGHT` 本身。
+- VisA 从 0.8832 提升到 0.9034，尤其 `macaroni1`、`pcb1`、`pcb2`、`pcb4` 明显恢复，patch_up 对 VisA 并非负面。
+- 但 AITEX 为 0.7883，低于旧 No-VA final 的 0.7994，也略低于 No-VA rerun 的 0.7909；ELPV 为 0.8431，基本等于 No-VA rerun，但仍低于旧 No-VA final。
+- 因此 A1 在“当前复跑口径”下属于边际持平配置：可以改善 VisA，但不能改善三域平均，也没有解决 ELPV 复现偏低的问题。
+- 不建议把 A1 作为 final 配置；若论文需要展示调度影响，可以把它作为“交替调度恢复后 patch_up 不再崩，但仍不优于 No-VA”的证据。
 
 ### A2：pqa_up
 
@@ -760,6 +799,7 @@ done
 | VA-small | 已完成 | VA fusion=0.05, VA CE=0.2 | 2 | 0.9001 | 0.7974 | 0.8532 | 0.8502 | 三域均略低于 No-VA，未见稳定收益 |
 | VA-strong | 已完成 | VA fusion=0.12, VA CE=0.2 | 2 | 0.8904 | 0.8005 | 0.8574 | 0.8494 | AITEX 略升，但 VisA 明显下降 |
 | A1 patch_up | 已完成 | IMAGE 0.35 -> 0.30, PATCH 0.25 -> 0.30 | 2 | 0.8832 | 0.7792 | 0.8469 | 0.8364 | 负结果，三域均低于 No-VA，不扩展 |
+| A1 patch_up rerun | 复现检查 | 保留 visual/text 交替调度后重跑 A1 | 2 | 0.9034 | 0.7883 | 0.8431 | 0.8449 | 与 No-VA rerun 几乎持平，VisA 略升但 AITEX/ELPV 无收益 |
 | A2 pqa_up | 已完成 | IMAGE 0.35 -> 0.30, PQA 0.25 -> 0.30 | 2 | 0.8858 | 0.7780 | 0.8498 | 0.8379 | 负结果，略好于 A1 但仍明显低于 No-VA |
 | A3 mask_down | 已完成 | MASK loss 1.0 -> 0.75 | 2 | 0.8859 | 0.7613 | 0.8502 | 0.8325 | 负结果，AITEX 几乎退回原始 baseline |
 | A4 tiny_text_ce | 已完成 | TEXT CE loss 0.0 -> 0.05 | 2 | 0.8870 | 0.7657 | 0.8538 | 0.8355 | 负结果，略高于 A3 但仍明显低于 No-VA |

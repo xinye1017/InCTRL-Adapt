@@ -120,6 +120,8 @@ def _resolve_max_epochs(cfg):
 
 
 def _should_eval_epoch(cur_epoch, max_epoch, cfg):
+    if getattr(cfg.TRAIN, "NO_EVAL", False):
+        return False
     eval_period = max(1, int(getattr(cfg.TRAIN, "EVAL_PERIOD", 1)))
     return cur_epoch == 0 or (cur_epoch + 1) % eval_period == 0 or cur_epoch == max_epoch - 1
 

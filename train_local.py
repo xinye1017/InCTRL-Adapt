@@ -215,6 +215,8 @@ def parse_args():
     parser.add_argument("--steps_per_epoch", type=int, default=100)
     parser.add_argument("--eval_period", type=int, default=1,
                         help="Evaluate every N epochs. Default 1 for clear local metric trends.")
+    parser.add_argument("--no_eval", action="store_true",
+                        help="Disable all evaluation during training (still tests after training).")
     parser.add_argument("--output_dir", default=None)
     parser.add_argument("--no_progress", action="store_true", help="Disable tqdm training progress bars.")
     parser.add_argument("--show_warnings", action="store_true", help="Show Python warnings during training.")
@@ -277,6 +279,7 @@ def main():
     cfg.OUTPUT_DIR = args.output_dir or _default_output_dir(cfg)
     cfg.SOLVER.MAX_EPOCH = args.max_epoch
     cfg.TRAIN.EVAL_PERIOD = args.eval_period
+    cfg.TRAIN.NO_EVAL = args.no_eval
     cfg.TRAIN.SHOW_PROGRESS = not args.no_progress
     cfg.TRAIN.SUPPRESS_WARNINGS = not args.show_warnings
     cfg.TRAIN.EARLY_STOP_PATIENCE = args.early_stop_patience
