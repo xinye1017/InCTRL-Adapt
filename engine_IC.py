@@ -135,26 +135,10 @@ def _has_parameter_list(model, method_name):
     return len(getattr(base_model, method_name)()) > 0
 
 
-def _visual_adapter_has_training_signal(cfg):
-    visual_adapter_cfg = getattr(cfg, "VISUAL_ADAPTER", None)
-    fusion_cfg = getattr(cfg, "FUSION", None)
-    loss_cfg = getattr(cfg, "LOSS", None)
-    if visual_adapter_cfg is not None and not bool(getattr(visual_adapter_cfg, "ENABLE", True)):
-        return False
-    if fusion_cfg is not None and not bool(getattr(fusion_cfg, "USE_VISUAL_BRANCH", True)):
-        return False
-    return any([
-        _cfg_float(fusion_cfg, "VISUAL_WEIGHT", 0.0) > 0.0,
-        _cfg_float(loss_cfg, "VISUAL_WEIGHT", 0.0) > 0.0,
-        _cfg_float(loss_cfg, "VISUAL_MASK_WEIGHT", 0.0) > 0.0,
-    ])
-
-
 def _should_use_alternating_training(model, cfg):
     return (
         _has_parameter_list(model, "get_visual_parameters")
         and _has_parameter_list(model, "get_text_parameters")
-        and _visual_adapter_has_training_signal(cfg)
     )
 
 
@@ -596,8 +580,9 @@ def train(cfg):
     # model = model.module
     model.load_state_dict(checkpoint, strict=False)
 
-    # Detect alternating training eligibility before building optimizers.
-    # VA/TA alternation is only useful when VA contributes a score/loss signal.
+    # Keep the original alternating schedule whenever both trainable sides exist.
+    # Even with VA score/loss disabled, this separates TA updates from the
+    # residual/PQA/image-head side and acts as a training-schedule regularizer.
     base_model = _get_base_model(model)
     has_visual = _has_parameter_list(base_model, "get_visual_parameters")
     has_text = _has_parameter_list(base_model, "get_text_parameters")

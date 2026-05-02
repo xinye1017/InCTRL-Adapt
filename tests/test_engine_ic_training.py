@@ -137,7 +137,7 @@ def test_progress_enabled_respects_train_config_flag():
     assert _progress_enabled(cfg) is False
 
 
-def test_alternating_training_is_disabled_when_va_has_no_training_signal():
+def test_alternating_training_is_kept_when_va_has_no_training_signal():
     cfg = get_cfg()
 
     class FakeAdaptModel:
@@ -151,8 +151,9 @@ def test_alternating_training_is_disabled_when_va_has_no_training_signal():
     cfg.LOSS.VISUAL_WEIGHT = 0.0
     cfg.LOSS.VISUAL_MASK_WEIGHT = 0.0
 
-    assert _should_use_alternating_training(FakeAdaptModel(), cfg) is False
-    assert _resolve_train_phase(cur_epoch=0, use_alternating=False, has_visual=True, has_text=True) == "single"
+    assert _should_use_alternating_training(FakeAdaptModel(), cfg) is True
+    assert _resolve_train_phase(cur_epoch=0, use_alternating=True, has_visual=True, has_text=True) == "visual"
+    assert _resolve_train_phase(cur_epoch=1, use_alternating=True, has_visual=True, has_text=True) == "text"
 
 
 def test_alternating_training_is_enabled_when_va_has_positive_weight():
