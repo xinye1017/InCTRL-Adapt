@@ -421,7 +421,7 @@ python train_local.py \
   --train_dataset mvtec \
   --test_dataset visa/aitex/elpv \
   --shot 2 \
-  --max_epoch 15 \
+  --max_epoch 2 \
   --steps_per_epoch 100 \
   --output_dir results/ablation_tiny_text_ce_2shot_15ep \
   FUSION.IMAGE_WEIGHT 0.35 \
