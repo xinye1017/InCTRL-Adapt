@@ -1,26 +1,25 @@
-# Original InCTRL Baseline Results
+# 原始 InCTRL 基线结果
 
-Source PDF: `D:\Data\Downloads\InCTRL.pdf`
+来源 PDF：`D:\Data\Downloads\InCTRL.pdf`
 
-Date recorded: 2026-04-17
+记录日期：2026-04-17
 
-## Purpose
+## 用途
 
-This file is the canonical baseline reference for future InCTRL modifications in this repository. New model variants should be compared against these original-paper baseline results before being considered an improvement.
+本文档是本仓库后续 InCTRL 改动的标准基线参考。任何新的模型变体、训练策略、评分模块或 adapter 消融，都应先与原论文基线结果比较，再判断是否构成改进。
 
-## Baseline Table
+## 基线表
 
-| Setting | ELPV | AITEX | VisA | MVTec AD |
+| 设置 | ELPV | AITEX | VisA | MVTec AD |
 | --- | ---: | ---: | ---: | ---: |
 | 0-shot | 0.733 +/- 0.000 | 0.733 +/- 0.000 | 0.781 +/- 0.000 | 0.912 +/- 0.000 |
 | 2-shot | 0.839 +/- 0.003 | 0.761 +/- 0.029 | 0.858 +/- 0.022 | 0.940 +/- 0.015 |
 | 4-shot | 0.846 +/- 0.011 | 0.790 +/- 0.018 | 0.877 +/- 0.019 | 0.945 +/- 0.018 |
 | 8-shot | 0.872 +/- 0.013 | 0.806 +/- 0.036 | 0.887 +/- 0.021 | 0.953 +/- 0.013 |
 
-## Comparison Rule
+## 比较规则
 
-- Treat these numbers as the original InCTRL baseline.
-- Compare any new architecture, training policy, scoring module, or adapter ablation against the matching dataset and shot setting.
-- Report both absolute score and delta versus this baseline.
-- For cross-shot evaluation, compare each evaluation shot against the corresponding row in this table.
-
+- 将这些数值视为原始 InCTRL 基线。
+- 任何新架构、训练策略、评分模块或 adapter 消融，都应与匹配数据集和 shot 设置下的基线比较。
+- 报告结果时同时给出绝对指标，以及相对该基线的 delta。
+- 如果进行 cross-shot 评估，每个 evaluation shot 都应与本表中对应的 shot 行比较。

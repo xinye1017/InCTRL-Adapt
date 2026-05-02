@@ -20,3 +20,4 @@ Main outputs:
 - `reports/final_model_selection_report.md`
 
 Pixel-level metrics and PRO are emitted when masks and anomaly maps are available; with the current image-level InCTRL forward path they are reported as `N/A`.
+
