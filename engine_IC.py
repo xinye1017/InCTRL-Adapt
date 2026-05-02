@@ -162,7 +162,7 @@ def _resolve_train_phase(cur_epoch, use_alternating, has_visual, has_text):
     if use_alternating:
         return "visual" if cur_epoch % 2 == 0 else "text"
     if has_visual and has_text:
-        return "joint"
+        return "single"
     return "visual" if has_visual else "text"
 
 
@@ -178,7 +178,7 @@ def _build_alternating_optimizers(model, lr=1e-3, use_alternating=True):
 
     if not use_alternating:
         if hasattr(base_model, "set_train_phase"):
-            base_model.set_train_phase("joint")
+            base_model.set_train_phase("single")
         optimizer = torch.optim.AdamW(
             _trainable_parameters(base_model),
             lr=lr,
@@ -631,7 +631,7 @@ def train(cfg):
     if use_alternating:
         logger.info("Alternating training: VA/TA phase switching enabled")
     else:
-        phase_label = "joint" if has_visual and has_text else ("visual" if has_visual else "text")
+        phase_label = "single" if has_visual and has_text else ("visual" if has_visual else "text")
         logger.info(f"Single-phase training: {phase_label} only (alternating disabled)")
     epoch_losses = []
 

@@ -295,8 +295,8 @@ class InCTRLAdapt(nn.Module):
     def set_train_phase(self, phase: str):
         has_visual = len(self.get_visual_parameters()) > 0
         has_text = len(self.get_text_parameters()) > 0
-        visual_grad = phase in {"visual", "joint"} or not has_text
-        text_grad = phase in {"text", "joint"} or not has_visual
+        visual_grad = phase in {"visual", "single"} or not has_text
+        text_grad = phase in {"text", "single"} or not has_visual
         for p in self.get_visual_parameters():
             p.requires_grad = visual_grad
         for p in self.get_text_parameters():

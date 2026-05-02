@@ -152,7 +152,7 @@ def test_alternating_training_is_disabled_when_va_has_no_training_signal():
     cfg.LOSS.VISUAL_MASK_WEIGHT = 0.0
 
     assert _should_use_alternating_training(FakeAdaptModel(), cfg) is False
-    assert _resolve_train_phase(cur_epoch=0, use_alternating=False, has_visual=True, has_text=True) == "joint"
+    assert _resolve_train_phase(cur_epoch=0, use_alternating=False, has_visual=True, has_text=True) == "single"
 
 
 def test_alternating_training_is_enabled_when_va_has_positive_weight():
