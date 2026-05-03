@@ -61,8 +61,9 @@ python train_local.py \
   --train_dataset mvtec \
   --test_dataset visa/aitex/elpv \
   --shot 2 \
-  --max_epoch 15 \
+  --max_epoch 2 \
   --steps_per_epoch 100 \
+  --no_eval \
   --output_dir results/ablation_no_va_final_2shot_15ep \
   FUSION.IMAGE_WEIGHT 0.35 \
   FUSION.PATCH_WEIGHT 0.25 \
@@ -423,6 +424,45 @@ A2 初步结论：
 - A1/A2 连续负结果说明：简单从 `IMAGE_WEIGHT` 挪权重给 patch 或 PQA 都会破坏当前 No-VA 平衡。
 - 下一步优先跑 A3，验证是否不是融合权重问题，而是 `MASK_WEIGHT=1.0` 的监督强度问题。
 
+### A2 复跑：pqa_up + 保留交替学习
+
+说明：该结果是在恢复 `visual/text` 交替训练调度后重跑的 A2，用于排除旧 A2 中“权重消融”和“训练调度变化”混杂的问题。它不覆盖上面的旧 A2 记录。
+
+记录：
+
+| Shot | Dataset | AUROC | AUPR | FPR | FNR | vs 旧 No-VA final | vs No-VA rerun | vs InCTRL baseline | 状态 | 备注 |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| 2 | VisA | 0.8863 | 0.9035 | TBD | TBD | -0.0167 vs 0.9030 | -0.0149 vs 0.9012 | +0.0283 vs 0.858 | 已完成 | 恢复交替后仍明显低于 No-VA |
+| 2 | AITEX | 0.7633 | 0.5498 | TBD | TBD | -0.0361 vs 0.7994 | -0.0276 vs 0.7909 | +0.0023 vs 0.761 | 已完成 | 几乎退回原始 InCTRL baseline，是主要退化来源 |
+| 2 | ELPV | 0.8551 | 0.9302 | TBD | TBD | -0.0050 vs 0.8601 | +0.0119 vs 0.8432 | +0.0161 vs 0.839 | 已完成 | 高于 No-VA rerun，但不足以抵消 AITEX/VisA 退化 |
+| 2 | **MEAN** | **0.8349** | **0.7945** | TBD | TBD | **-0.0193 vs 0.8542** | **-0.0102 vs 0.8451** | **+0.0156 vs 0.8193** | 已完成 | 明显低于 No-VA rerun，不建议继续 |
+
+VisA per-category 结果：
+
+| Category | AUROC | AUPR |
+| --- | ---: | ---: |
+| candle | 0.9668 | 0.9700 |
+| capsules | 0.8320 | 0.9059 |
+| cashew | 0.9406 | 0.9741 |
+| chewinggum | 0.9748 | 0.9900 |
+| fryum | 0.9322 | 0.9725 |
+| macaroni1 | 0.8645 | 0.8862 |
+| macaroni2 | 0.7756 | 0.8033 |
+| pcb1 | 0.8067 | 0.8310 |
+| pcb2 | 0.8039 | 0.8104 |
+| pcb3 | 0.8839 | 0.8794 |
+| pcb4 | 0.8664 | 0.8241 |
+| pipe_fryum | 0.9884 | 0.9948 |
+| **MEAN** | **0.8863** | **0.9035** |
+
+复跑结论：
+
+- 恢复交替调度后，A2 三域平均 AUROC 为 0.8349，低于旧 A2 的 0.8379，也低于 No-VA rerun 的 0.8451，说明 A2 的问题不主要来自交替调度开关。
+- 与 A1 复跑不同，A2 没有在 VisA 上恢复；`macaroni1`、`macaroni2`、`pcb1`、`pcb2` 仍明显偏低。
+- AITEX 只有 0.7633，几乎贴近原始 InCTRL 2-shot baseline 0.761，说明把权重从 image residual 转给 PQA global 会明显破坏纹理域泛化。
+- ELPV 达到 0.8551，高于 No-VA rerun 的 0.8432，但仍低于旧 No-VA final 的 0.8601；这是局部收益，不足以支持 A2。
+- 判定为负结果：`PQA_WEIGHT=0.30` 不建议作为 final，也不建议扩展到 4/8-shot。
+
 ### A3：mask_down
 
 假设：`LOSS.MASK_WEIGHT=1.0` 可能让 PQA 像素分割监督偏向源域纹理，适度下降到 0.75 可能提升跨域泛化。
@@ -500,6 +540,45 @@ A3 初步结论：
 - A3 未达到扩展条件，停止该方向。
 - `LOSS.MASK_WEIGHT=0.75` 没有带来跨域收益，当前应保留 `LOSS.MASK_WEIGHT=1.0`。
 - 下一步优先跑 A4，验证极小文本 CE 是否能改善 TA 分支校准。
+
+### A3 复跑：mask_down + 保留交替学习
+
+说明：该结果是在恢复 `visual/text` 交替训练调度后重跑的 A3，用于排除旧 A3 中“loss 权重消融”和“训练调度变化”混杂的问题。该次结果与上面的旧 A3 记录数值完全一致，因此可视为对 A3 负结果的确认。
+
+记录：
+
+| Shot | Dataset | AUROC | AUPR | Pixel AUROC/PRO | FPR | vs 旧 No-VA final | vs No-VA rerun | vs InCTRL baseline | 状态 | 备注 |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| 2 | VisA | 0.8859 | 0.9018 | TBD | TBD | -0.0171 vs 0.9030 | -0.0153 vs 0.9012 | +0.0279 vs 0.858 | 已完成 | 恢复交替后仍明显低于 No-VA |
+| 2 | AITEX | 0.7613 | 0.5502 | TBD | TBD | -0.0381 vs 0.7994 | -0.0296 vs 0.7909 | +0.0003 vs 0.761 | 已完成 | 几乎等于原始 InCTRL baseline，是最大退化来源 |
+| 2 | ELPV | 0.8502 | 0.9290 | TBD | TBD | -0.0099 vs 0.8601 | +0.0070 vs 0.8432 | +0.0112 vs 0.839 | 已完成 | 高于 No-VA rerun，但不足以抵消 AITEX/VisA 退化 |
+| 2 | **MEAN** | **0.8325** | **0.7937** | TBD | TBD | **-0.0217 vs 0.8542** | **-0.0126 vs 0.8451** | **+0.0132 vs 0.8193** | 已完成 | A1-A3 rerun 中最弱，不建议继续 |
+
+VisA per-category 结果：
+
+| Category | AUROC | AUPR |
+| --- | ---: | ---: |
+| candle | 0.9662 | 0.9695 |
+| capsules | 0.8358 | 0.9078 |
+| cashew | 0.9364 | 0.9726 |
+| chewinggum | 0.9788 | 0.9916 |
+| fryum | 0.9346 | 0.9733 |
+| macaroni1 | 0.8722 | 0.8912 |
+| macaroni2 | 0.7851 | 0.8051 |
+| pcb1 | 0.8016 | 0.8228 |
+| pcb2 | 0.7996 | 0.8053 |
+| pcb3 | 0.8839 | 0.8782 |
+| pcb4 | 0.8532 | 0.8112 |
+| pipe_fryum | 0.9840 | 0.9932 |
+| **MEAN** | **0.8859** | **0.9018** |
+
+复跑结论：
+
+- A3 复跑结果与旧 A3 完全一致，说明 `MASK_WEIGHT=0.75` 的负面结论不依赖于之前的调度混杂。
+- 降低 mask 监督没有改善跨域泛化，反而让 AITEX 掉到 0.7613，几乎等于原始 InCTRL 2-shot baseline。
+- VisA 仍只有 0.8859，`macaroni1`、`macaroni2`、`pcb1`、`pcb2`、`pcb4` 都低于 No-VA rerun 的对应表现，说明减少 PQA 像素监督没有修复高敏类别。
+- ELPV 0.8502 相比 No-VA rerun 有局部恢复，但仍低于旧 No-VA final，且不足以抵消 AITEX/VisA 的明显退化。
+- 判定为负结果：当前应保留 `LOSS.MASK_WEIGHT=1.0`，不建议继续沿 `MASK_WEIGHT` 下调方向扩展。
 
 ### A4：tiny_text_ce
 
@@ -579,6 +658,45 @@ A4 初步结论：
 - 不建议继续测试 `LOSS.TEXT_WEIGHT=0.10`，因为 0.05 已经导致 AITEX 明显低于 No-VA。
 - A1-A4 主线局部消融全部低于 No-VA final，当前最佳配置应保持不变。
 
+### A4 复跑：tiny_text_ce + 保留交替学习
+
+说明：该结果是在恢复 `visual/text` 交替训练调度后重跑的 A4，用于排除旧 A4 中“TA 独立 CE loss”和“训练调度变化”混杂的问题。该次结果与上面的旧 A4 记录数值完全一致，因此可视为对 A4 负结果的确认。
+
+记录：
+
+| Shot | Dataset | AUROC | AUPR | FPR | FNR | vs 旧 No-VA final | vs No-VA rerun | vs InCTRL baseline | 状态 | 备注 |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| 2 | VisA | 0.8870 | 0.9027 | TBD | TBD | -0.0160 vs 0.9030 | -0.0142 vs 0.9012 | +0.0290 vs 0.858 | 已完成 | 恢复交替后仍明显低于 No-VA |
+| 2 | AITEX | 0.7657 | 0.5532 | TBD | TBD | -0.0337 vs 0.7994 | -0.0252 vs 0.7909 | +0.0047 vs 0.761 | 已完成 | 仅略高于原始 baseline，纹理域没有受益 |
+| 2 | ELPV | 0.8538 | 0.9309 | TBD | TBD | -0.0063 vs 0.8601 | +0.0106 vs 0.8432 | +0.0148 vs 0.839 | 已完成 | ELPV 有局部恢复，但不足以抵消 VisA/AITEX 退化 |
+| 2 | **MEAN** | **0.8355** | **0.7956** | TBD | TBD | **-0.0187 vs 0.8542** | **-0.0096 vs 0.8451** | **+0.0162 vs 0.8193** | 已完成 | A1-A4 rerun 中仍不是候选配置 |
+
+VisA per-category 结果：
+
+| Category | AUROC | AUPR |
+| --- | ---: | ---: |
+| candle | 0.9662 | 0.9692 |
+| capsules | 0.8302 | 0.9049 |
+| cashew | 0.9442 | 0.9760 |
+| chewinggum | 0.9784 | 0.9914 |
+| fryum | 0.9332 | 0.9727 |
+| macaroni1 | 0.8817 | 0.8973 |
+| macaroni2 | 0.7860 | 0.8066 |
+| pcb1 | 0.7905 | 0.8123 |
+| pcb2 | 0.8024 | 0.8069 |
+| pcb3 | 0.8849 | 0.8805 |
+| pcb4 | 0.8615 | 0.8214 |
+| pipe_fryum | 0.9844 | 0.9934 |
+| **MEAN** | **0.8870** | **0.9027** |
+
+复跑结论：
+
+- A4 复跑结果与旧 A4 完全一致，说明 `LOSS.TEXT_WEIGHT=0.05` 的负面结论不依赖于之前的调度混杂。
+- 给 TA 加极小独立 CE loss 没有改善整体校准：VisA 仍只有 0.8870，AITEX 只有 0.7657。
+- ELPV 0.8538 是 A2/A3/A4 rerun 中相对较高的结果，但仍低于旧 No-VA final 的 0.8601，也不足以抵消 AITEX 的明显下降。
+- 该结果进一步支持当前设计：TA 不需要独立 CE loss，保持 `LOSS.TEXT_WEIGHT=0.0`，只通过 final loss 参与训练更稳。
+- 判定为负结果：不建议继续试 `LOSS.TEXT_WEIGHT=0.10` 或更大的文本独立监督。
+
 ### A1-A4 主线总结
 
 | 实验 | VisA AUROC | AITEX AUROC | ELPV AUROC | 平均 AUROC | vs No-VA 平均 | 判定 |
@@ -589,7 +707,17 @@ A4 初步结论：
 | A3 mask_down | 0.8859 | 0.7613 | 0.8502 | 0.8325 | -0.0217 | 负结果 |
 | A4 tiny_text_ce | 0.8870 | 0.7657 | 0.8538 | 0.8355 | -0.0187 | 负结果 |
 
-结论：A1-A4 都没有超过 No-VA final，说明当前最优配置的融合权重、`MASK_WEIGHT=1.0` 和 `TEXT_WEIGHT=0.0` 都应保留。后续若继续消融，应优先作为论文负结果补充或改做结构性诊断，而不是继续在这组权重附近盲目搜索。
+### A1-A4 交替调度复跑小结
+
+| 实验 | VisA AUROC | AITEX AUROC | ELPV AUROC | 平均 AUROC | vs No-VA rerun 平均 | 判定 |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| No-VA rerun | 0.9012 | 0.7909 | 0.8432 | 0.8451 | 0.0000 | 复现参照 |
+| A1 patch_up rerun | 0.9034 | 0.7883 | 0.8431 | 0.8449 | -0.0002 | 边际持平，VisA 略升但三域无收益 |
+| A2 pqa_up rerun | 0.8863 | 0.7633 | 0.8551 | 0.8349 | -0.0102 | 负结果，AITEX/VisA 退化 |
+| A3 mask_down rerun | 0.8859 | 0.7613 | 0.8502 | 0.8325 | -0.0126 | 负结果，确认 MASK 下调不可取 |
+| A4 tiny_text_ce rerun | 0.8870 | 0.7657 | 0.8538 | 0.8355 | -0.0096 | 负结果，确认 TEXT CE 不可取 |
+
+结论：A1-A4 都没有超过旧 No-VA final；在交替调度复跑口径下，只有 A1 接近 No-VA rerun，但也没有带来三域平均收益。当前最优配置的融合权重、`MASK_WEIGHT=1.0` 和 `TEXT_WEIGHT=0.0` 都应保留。后续若继续消融，应优先作为论文负结果补充或改做结构性诊断，而不是继续在这组权重附近盲目搜索。
 
 ---
 
@@ -618,8 +746,9 @@ python train_local.py \
   --train_dataset mvtec \
   --test_dataset visa/aitex/elpv \
   --shot 2 \
-  --max_epoch 15 \
+  --max_epoch 2 \
   --steps_per_epoch 100 \
+  --no_eval \
   --output_dir results/ablation_va_mid_2shot_15ep \
   FUSION.IMAGE_WEIGHT 0.30 \
   FUSION.PATCH_WEIGHT 0.22 \
@@ -659,8 +788,9 @@ python train_local.py \
   --train_dataset mvtec \
   --test_dataset visa/aitex/elpv \
   --shot 2 \
-  --max_epoch 15 \
+  --max_epoch 2 \
   --steps_per_epoch 100 \
+  --no_eval \
   --output_dir results/ablation_va_mask_small_2shot_15ep \
   FUSION.IMAGE_WEIGHT 0.32 \
   FUSION.PATCH_WEIGHT 0.23 \
@@ -700,8 +830,9 @@ python train_local.py \
   --train_dataset mvtec \
   --test_dataset visa/aitex/elpv \
   --shot 2 \
-  --max_epoch 15 \
+  --max_epoch 2 \
   --steps_per_epoch 100 \
+  --no_eval \
   --output_dir results/ablation_adaptclip_style_2shot_15ep \
   FUSION.IMAGE_WEIGHT 0.20 \
   FUSION.PATCH_WEIGHT 0.20 \
@@ -741,8 +872,9 @@ python train_local.py \
   --train_dataset mvtec \
   --test_dataset visa/aitex/elpv \
   --shot 2 \
-  --max_epoch 15 \
+  --max_epoch 2 \
   --steps_per_epoch 100 \
+  --no_eval \
   --output_dir results/ablation_va_tiny_2shot_15ep \
   FUSION.IMAGE_WEIGHT 0.34 \
   FUSION.PATCH_WEIGHT 0.24 \
@@ -773,8 +905,9 @@ for SHOT in 2 4 8; do
     --train_dataset mvtec \
     --test_dataset visa/aitex/elpv \
     --shot $SHOT \
-    --max_epoch 15 \
+    --max_epoch 2 \
     --steps_per_epoch 100 \
+    --no_eval \
     --output_dir results/<experiment_name>_${SHOT}shot_15ep \
     <CONFIG_OVERRIDES>
 done
@@ -802,8 +935,11 @@ done
 | A1 patch_up | 已完成 | IMAGE 0.35 -> 0.30, PATCH 0.25 -> 0.30 | 2 | 0.8832 | 0.7792 | 0.8469 | 0.8364 | 负结果，三域均低于 No-VA，不扩展 |
 | A1 patch_up rerun | 复现检查 | 保留 visual/text 交替调度后重跑 A1 | 2 | 0.9034 | 0.7883 | 0.8431 | 0.8449 | 与 No-VA rerun 几乎持平，VisA 略升但 AITEX/ELPV 无收益 |
 | A2 pqa_up | 已完成 | IMAGE 0.35 -> 0.30, PQA 0.25 -> 0.30 | 2 | 0.8858 | 0.7780 | 0.8498 | 0.8379 | 负结果，略好于 A1 但仍明显低于 No-VA |
+| A2 pqa_up rerun | 复现检查 | 保留 visual/text 交替调度后重跑 A2 | 2 | 0.8863 | 0.7633 | 0.8551 | 0.8349 | 负结果，ELPV 小幅回升但 AITEX/VisA 明显退化 |
 | A3 mask_down | 已完成 | MASK loss 1.0 -> 0.75 | 2 | 0.8859 | 0.7613 | 0.8502 | 0.8325 | 负结果，AITEX 几乎退回原始 baseline |
+| A3 mask_down rerun | 复现检查 | 保留 visual/text 交替调度后重跑 A3 | 2 | 0.8859 | 0.7613 | 0.8502 | 0.8325 | 负结果，与旧 A3 一致，确认 MASK 下调不可取 |
 | A4 tiny_text_ce | 已完成 | TEXT CE loss 0.0 -> 0.05 | 2 | 0.8870 | 0.7657 | 0.8538 | 0.8355 | 负结果，略高于 A3 但仍明显低于 No-VA |
+| A4 tiny_text_ce rerun | 复现检查 | 保留 visual/text 交替调度后重跑 A4 | 2 | 0.8870 | 0.7657 | 0.8538 | 0.8355 | 负结果，与旧 A4 一致，确认 TEXT CE 不可取 |
 | V1 VA-mid | 待跑 | VA fusion=0.08, VA CE=0.2 | 2 | TBD | TBD | TBD | TBD | VA 补充对照 |
 | V2 VA-mask-small | 待跑 | VA mask loss=0.05 | 2 | TBD | TBD | TBD | TBD | VA 补充对照 |
 | V3 AdaptCLIP-style | 待跑 | 五分支等权融合 | 2 | TBD | TBD | TBD | TBD | VA/AdaptCLIP 负结果对照 |
